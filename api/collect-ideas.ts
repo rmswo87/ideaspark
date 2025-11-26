@@ -47,8 +47,19 @@ export default async function handler(
       throw new Error(`Reddit OAuth error: ${tokenResponse.status} ${errorText}`);
     }
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as { access_token?: string };
     const accessToken = tokenData.access_token;
+    
+    if (!accessToken) {
+      console.error('Failed to get access token from Reddit API:', tokenData);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to get access token from Reddit API',
+        details: 'Token response did not contain access_token'
+      });
+    }
+
+    console.log('Reddit access token obtained successfully');
 
     // 수집 대상 서브레딧
     const subreddits = ['SomebodyMakeThis', 'AppIdeas', 'Startup_Ideas', 'Entrepreneur', 'webdev'];
@@ -58,6 +69,8 @@ export default async function handler(
     for (const subreddit of subreddits) {
       try {
         const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=25`;
+        console.log(`Fetching posts from r/${subreddit}...`);
+        
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -66,27 +79,33 @@ export default async function handler(
         });
 
         if (!response.ok) {
-          console.error(`Failed to fetch ${subreddit}: ${response.status}`);
+          const errorText = await response.text();
+          console.error(`Failed to fetch ${subreddit}: ${response.status} - ${errorText}`);
           continue;
         }
 
-        const data = await response.json();
+        const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
         
-        if (data?.data?.children) {
-          const posts = data.data.children.map((child: any) => ({
-            redditId: child.data.id,
-            title: child.data.title,
-            content: child.data.selftext || '',
-            subreddit: child.data.subreddit,
-            author: child.data.author,
-            upvotes: child.data.ups || 0,
-            // permalink는 이미 /r/subreddit/comments/post_id/slug/ 형식으로 제공됨
-            // www.reddit.com과 결합하여 완전한 URL 생성
-            url: `https://www.reddit.com${child.data.permalink}`,
-            createdAt: new Date(child.data.created_utc * 1000).toISOString(),
-          }));
+        if (data?.data?.children && data.data.children.length > 0) {
+          const posts = data.data.children
+            .filter((child: { data?: any }) => child.data) // null 체크
+            .map((child: { data: any }) => ({
+              redditId: child.data.id,
+              title: child.data.title,
+              content: child.data.selftext || '',
+              subreddit: child.data.subreddit,
+              author: child.data.author,
+              upvotes: child.data.ups || 0,
+              // permalink는 이미 /r/subreddit/comments/post_id/slug/ 형식으로 제공됨
+              // www.reddit.com과 결합하여 완전한 URL 생성
+              url: `https://www.reddit.com${child.data.permalink}`,
+              createdAt: new Date(child.data.created_utc * 1000).toISOString(),
+            }));
           
+          console.log(`Collected ${posts.length} posts from r/${subreddit}`);
           allPosts.push(...posts);
+        } else {
+          console.warn(`No posts found in r/${subreddit} or invalid response structure`);
         }
 
         // Rate Limit 준수
@@ -97,10 +116,14 @@ export default async function handler(
       }
     }
 
+    console.log(`Total posts collected: ${allPosts.length}`);
+
     // 중복 제거
     const uniquePosts = Array.from(
       new Map(allPosts.map(post => [post.redditId, post])).values()
     );
+
+    console.log(`Unique posts after deduplication: ${uniquePosts.length}`);
 
     return res.status(200).json({
       success: true,
@@ -115,4 +138,3 @@ export default async function handler(
     });
   }
 }
-
