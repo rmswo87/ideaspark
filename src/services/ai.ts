@@ -185,11 +185,11 @@ class AIClient {
     }
 
     // 무료 모델 선택 (하루 할당량 제공)
-    // google/gemini-2.0-flash-exp: 최신 무료 모델 (권장)
-    // meta-llama/llama-3.1-8b-instruct: 무료
-    // mistralai/mistral-7b-instruct: 무료
-    // google/gemini-flash-1.5-8b: 구버전 (더 이상 사용 불가)
-    const model = this.config.model || 'google/gemini-2.0-flash-exp';
+    // meta-llama/llama-3.1-8b-instruct: 안정적인 무료 모델 (권장)
+    // mistralai/mistral-7b-instruct: 무료 모델
+    // google/gemini-flash-1.5-8b: 구버전 (사용 가능 여부 확인 필요)
+    // google/gemini-2.0-flash-exp: 실험적 모델 (사용 불가)
+    const model = this.config.model || 'meta-llama/llama-3.1-8b-instruct';
 
     try {
       console.log('[AIClient] Calling OpenRouter with model:', model);
@@ -223,6 +223,7 @@ class AIClient {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
+          model: model,
         });
         throw new Error(`OpenRouter API error: ${response.status} ${errorMessage}`);
       }
@@ -255,5 +256,5 @@ const apiKey = provider === 'openrouter'
 export const aiClient = new AIClient({
   provider,
   apiKey,
-  model: import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp', // OpenRouter 무료 모델
+  model: import.meta.env.VITE_OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct', // OpenRouter 무료 모델
 });
