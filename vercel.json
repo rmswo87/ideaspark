@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/collect-ideas.ts": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "crons": [{
+    "path": "/api/cron/collect-ideas",
+    "schedule": "0 */6 * * *"
+  }]
+}
