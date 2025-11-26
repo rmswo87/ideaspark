@@ -61,14 +61,14 @@ export default async function handler(
 
     console.log('Reddit access token obtained successfully');
 
-    // 수집 대상 서브레딧
-    const subreddits = ['SomebodyMakeThis', 'AppIdeas', 'Startup_Ideas', 'Entrepreneur', 'webdev'];
+    // 수집 대상 서브레딧 (webdev는 403 에러가 발생하므로 제외)
+    const subreddits = ['SomebodyMakeThis', 'AppIdeas', 'Startup_Ideas', 'Entrepreneur'];
     const allPosts: any[] = [];
 
     // 각 서브레딧에서 게시물 수집
     for (const subreddit of subreddits) {
       try {
-        const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=25`;
+        const url = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=25`;
         console.log(`Fetching posts from r/${subreddit}...`);
         
         const response = await fetch(url, {
@@ -81,6 +81,37 @@ export default async function handler(
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`Failed to fetch ${subreddit}: ${response.status} - ${errorText}`);
+          
+          // 403 에러인 경우, 인증 없이 시도 (공개 서브레딧)
+          if (response.status === 403) {
+            console.log(`Trying ${subreddit} without OAuth (public access)...`);
+            const publicUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=25`;
+            const publicResponse = await fetch(publicUrl, {
+              headers: {
+                'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
+              },
+            });
+            
+            if (publicResponse.ok) {
+              const publicData = await publicResponse.json() as { data?: { children?: Array<{ data?: any }> } };
+              if (publicData?.data?.children && publicData.data.children.length > 0) {
+                const posts = publicData.data.children
+                  .filter((child: { data?: any }) => child.data)
+                  .map((child: { data: any }) => ({
+                    redditId: child.data.id,
+                    title: child.data.title,
+                    content: child.data.selftext || '',
+                    subreddit: child.data.subreddit,
+                    author: child.data.author,
+                    upvotes: child.data.ups || 0,
+                    url: `https://www.reddit.com${child.data.permalink}`,
+                    createdAt: new Date(child.data.created_utc * 1000).toISOString(),
+                  }));
+                console.log(`Collected ${posts.length} posts from r/${subreddit} (public access)`);
+                allPosts.push(...posts);
+              }
+            }
+          }
           continue;
         }
 
@@ -162,4 +193,3 @@ export default async function handler(
     });
   }
 }
-
