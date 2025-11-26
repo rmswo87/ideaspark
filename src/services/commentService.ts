@@ -68,7 +68,7 @@ export async function getComments(postId: string): Promise<Comment[]> {
   }
 
   // 계층 구조로 변환
-  return buildCommentTree(data || []);
+  return buildCommentTree((data || []) as Comment[]);
 }
 
 /**
@@ -181,7 +181,7 @@ export function subscribeToComments(
           .single();
 
         if (newComment) {
-          onUpdate(newComment as Comment);
+          onUpdate(newComment as unknown as Comment);
         }
       }
     )
@@ -191,5 +191,4 @@ export function subscribeToComments(
     supabase.removeChannel(channel);
   };
 }
-
 
