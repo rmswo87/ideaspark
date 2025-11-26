@@ -93,7 +93,7 @@ export async function getPosts(filters?: {
     throw error;
   }
 
-  return (data || []) as Post[];
+  return (data || []) as unknown as Post[];
 }
 
 /**
@@ -114,7 +114,7 @@ export async function getPost(postId: string): Promise<Post | null> {
     return null;
   }
 
-  return data as Post | null;
+  return data as unknown as Post | null;
 }
 
 /**
@@ -288,4 +288,5 @@ export async function isBookmarked(postId: string, userId: string): Promise<bool
 
   return !!data;
 }
+
 

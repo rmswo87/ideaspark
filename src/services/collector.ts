@@ -73,25 +73,11 @@ export async function collectIdeas(): Promise<{
 }
 
 /**
- * 중복 아이디어 제거
- */
-function removeDuplicates(ideas: RedditPost[]): RedditPost[] {
-  const seen = new Set<string>();
-  return ideas.filter(idea => {
-    if (seen.has(idea.redditId)) {
-      return false;
-    }
-    seen.add(idea.redditId);
-    return true;
-  });
-}
-
-/**
  * 특정 서브레딧에서만 수집 (서버 사이드 API 사용)
  */
 export async function collectFromSubreddit(
-  subreddit: string,
-  limit: number = 25
+  _subreddit: string,
+  _limit: number = 25
 ): Promise<{
   success: boolean;
   count: number;

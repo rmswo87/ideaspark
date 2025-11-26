@@ -49,7 +49,11 @@ class RedditClient {
       }
 
       const data = await response.json();
-      this.accessToken = data.access_token;
+      const token = data.access_token;
+      if (!token) {
+        throw new Error('Failed to get access token from Reddit API');
+      }
+      this.accessToken = token;
       // 토큰 만료 시간 설정 (보통 3600초, 여유있게 3500초로 설정)
       this.tokenExpiry = Date.now() + (data.expires_in - 100) * 1000;
 

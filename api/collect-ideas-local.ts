@@ -3,7 +3,6 @@
 // 실행: npx tsx api/collect-ideas-local.ts
 
 import * as http from 'http';
-import { URL } from 'url';
 
 const PORT = 3000;
 
@@ -51,8 +50,11 @@ const server = http.createServer(async (req, res) => {
         throw new Error(`Reddit OAuth error: ${tokenResponse.status} ${errorText}`);
       }
 
-      const tokenData = await tokenResponse.json();
+      const tokenData = await tokenResponse.json() as { access_token?: string };
       const accessToken = tokenData.access_token;
+      if (!accessToken) {
+        throw new Error('Failed to get access token from Reddit API');
+      }
 
       // 수집 대상 서브레딧
       const subreddits = ['SomebodyMakeThis', 'AppIdeas', 'Startup_Ideas', 'Entrepreneur', 'webdev'];
@@ -74,10 +76,10 @@ const server = http.createServer(async (req, res) => {
             continue;
           }
 
-          const data = await response.json();
+          const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
           
           if (data?.data?.children) {
-            const posts = data.data.children.map((child: any) => ({
+            const posts = data.data.children.map((child: { data?: any }) => ({
               redditId: child.data.id,
               title: child.data.title,
               content: child.data.selftext || '',
@@ -131,3 +133,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Local API server running on http://localhost:${PORT}`);
 });
+

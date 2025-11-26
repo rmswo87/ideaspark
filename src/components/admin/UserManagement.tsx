@@ -34,7 +34,7 @@ export function UserManagement() {
       }
 
       // 관리자 정보 가져오기
-      const { data: admins, error: adminsError } = await supabase
+      const { data: admins } = await supabase
         .from('admins')
         .select('user_id');
 
@@ -143,4 +143,5 @@ export function UserManagement() {
     </div>
   );
 }
+
 
