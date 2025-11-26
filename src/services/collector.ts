@@ -84,6 +84,13 @@ export async function collectIdeas(): Promise<{
         console.log('[Collector] Successfully saved', savedIdeas.length, 'ideas to database');
       } catch (saveError) {
         console.error('[Collector] Error saving ideas to database:', saveError);
+        console.error('[Collector] Error type:', typeof saveError);
+        console.error('[Collector] Error details:', saveError instanceof Error ? {
+          message: saveError.message,
+          stack: saveError.stack,
+        } : saveError);
+        
+        // 에러를 다시 throw하여 상위에서 처리할 수 있도록
         throw saveError;
       }
     } else {

@@ -41,22 +41,33 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
 
   console.log('[IdeaService] Sample idea to save:', ideasToSave[0]);
 
-  const { data, error } = await supabase
-    .from('ideas')
-    .upsert(ideasToSave, { 
-      onConflict: 'reddit_id',
-      ignoreDuplicates: false 
-    })
-    .select();
+  try {
+    const { data, error } = await supabase
+      .from('ideas')
+      .upsert(ideasToSave, { 
+        onConflict: 'reddit_id',
+        ignoreDuplicates: false 
+      })
+      .select();
 
-  if (error) {
-    console.error('[IdeaService] Error saving ideas:', error);
-    console.error('[IdeaService] Error details:', JSON.stringify(error, null, 2));
-    throw error;
+    if (error) {
+      console.error('[IdeaService] Error saving ideas:', error);
+      console.error('[IdeaService] Error code:', error.code);
+      console.error('[IdeaService] Error message:', error.message);
+      console.error('[IdeaService] Error details:', JSON.stringify(error, null, 2));
+      console.error('[IdeaService] Sample idea that failed:', ideasToSave[0]);
+      
+      // 더 자세한 에러 메시지 생성
+      const errorMessage = error.message || 'Unknown database error';
+      throw new Error(`Failed to save ideas to database: ${errorMessage} (Code: ${error.code || 'N/A'})`);
+    }
+
+    console.log('[IdeaService] Successfully saved', data?.length || 0, 'ideas');
+    return data || [];
+  } catch (saveError) {
+    console.error('[IdeaService] Exception while saving:', saveError);
+    throw saveError;
   }
-
-  console.log('[IdeaService] Successfully saved', data?.length || 0, 'ideas');
-  return data || [];
 }
 
 /**
