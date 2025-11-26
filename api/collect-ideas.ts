@@ -86,9 +86,26 @@ export default async function handler(
 
         const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
         
+        console.log(`r/${subreddit} response structure:`, {
+          hasData: !!data?.data,
+          hasChildren: !!data?.data?.children,
+          childrenLength: data?.data?.children?.length || 0,
+          firstChildSample: data?.data?.children?.[0] ? {
+            hasData: !!data.data.children[0].data,
+            id: data.data.children[0].data?.id,
+            title: data.data.children[0].data?.title?.substring(0, 50),
+          } : null,
+        });
+        
         if (data?.data?.children && data.data.children.length > 0) {
           const posts = data.data.children
-            .filter((child: { data?: any }) => child.data) // null 체크
+            .filter((child: { data?: any }) => {
+              if (!child.data) {
+                console.warn(`Skipping child without data in r/${subreddit}`);
+                return false;
+              }
+              return true;
+            })
             .map((child: { data: any }) => ({
               redditId: child.data.id,
               title: child.data.title,
@@ -103,9 +120,16 @@ export default async function handler(
             }));
           
           console.log(`Collected ${posts.length} posts from r/${subreddit}`);
+          if (posts.length > 0) {
+            console.log(`Sample post from r/${subreddit}:`, {
+              redditId: posts[0].redditId,
+              title: posts[0].title.substring(0, 50),
+              subreddit: posts[0].subreddit,
+            });
+          }
           allPosts.push(...posts);
         } else {
-          console.warn(`No posts found in r/${subreddit} or invalid response structure`);
+          console.warn(`No posts found in r/${subreddit}. Response:`, JSON.stringify(data, null, 2).substring(0, 500));
         }
 
         // Rate Limit 준수
@@ -138,3 +162,4 @@ export default async function handler(
     });
   }
 }
+

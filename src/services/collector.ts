@@ -38,12 +38,22 @@ export async function collectIdeas(): Promise<{
     }
 
     const result = await response.json();
-    console.log('[Collector] API result:', {
+    console.log('[Collector] API result (full):', JSON.stringify(result, null, 2));
+    console.log('[Collector] API result summary:', {
       success: result.success,
       count: result.count,
       ideasLength: result.ideas?.length || 0,
+      ideasIsArray: Array.isArray(result.ideas),
       error: result.error,
     });
+    
+    // 첫 번째 아이디어 샘플 확인
+    if (result.ideas && result.ideas.length > 0) {
+      console.log('[Collector] First idea sample:', result.ideas[0]);
+    } else {
+      console.warn('[Collector] result.ideas is:', result.ideas);
+      console.warn('[Collector] result.ideas type:', typeof result.ideas);
+    }
 
     if (!result.success) {
       return {
