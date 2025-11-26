@@ -2,7 +2,7 @@
 // 이 파일은 로컬 개발 환경에서만 사용됩니다
 // 실행: npx tsx api/collect-ideas-local.ts
 
-import http from 'http';
+import * as http from 'http';
 import { URL } from 'url';
 
 const PORT = 3000;
