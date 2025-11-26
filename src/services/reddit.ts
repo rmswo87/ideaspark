@@ -57,7 +57,7 @@ class RedditClient {
       // 토큰 만료 시간 설정 (보통 3600초, 여유있게 3500초로 설정)
       this.tokenExpiry = Date.now() + (data.expires_in - 100) * 1000;
 
-      return this.accessToken;
+      return token;
     } catch (error) {
       console.error('Failed to get Reddit access token:', error);
       throw error;
