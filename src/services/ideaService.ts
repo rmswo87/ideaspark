@@ -21,6 +21,13 @@ export interface Idea {
  * Reddit 게시물을 아이디어로 변환하여 저장
  */
 export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
+  if (!ideas || ideas.length === 0) {
+    console.warn('[IdeaService] No ideas to save');
+    return [];
+  }
+
+  console.log('[IdeaService] Preparing to save', ideas.length, 'ideas...');
+
   const ideasToSave = ideas.map(idea => ({
     reddit_id: idea.redditId,
     title: idea.title,
@@ -32,6 +39,8 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
     category: categorizeIdea(idea),
   }));
 
+  console.log('[IdeaService] Sample idea to save:', ideasToSave[0]);
+
   const { data, error } = await supabase
     .from('ideas')
     .upsert(ideasToSave, { 
@@ -41,10 +50,12 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
     .select();
 
   if (error) {
-    console.error('Error saving ideas:', error);
+    console.error('[IdeaService] Error saving ideas:', error);
+    console.error('[IdeaService] Error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 
+  console.log('[IdeaService] Successfully saved', data?.length || 0, 'ideas');
   return data || [];
 }
 

@@ -16,6 +16,8 @@ export async function collectIdeas(): Promise<{
     // 로컬 개발: vercel dev 사용 시 자동으로 프록시됨
     const apiUrl = '/api/collect-ideas';
     
+    console.log('[Collector] Calling API:', apiUrl);
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -23,15 +25,25 @@ export async function collectIdeas(): Promise<{
       },
     }).catch((fetchError) => {
       // 네트워크 에러 처리
+      console.error('[Collector] Fetch error:', fetchError);
       throw new Error(`API 서버에 연결할 수 없습니다. Vercel 배포가 완료되었는지 확인하세요. (${fetchError.message})`);
     });
 
+    console.log('[Collector] API response status:', response.status, response.statusText);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('[Collector] API error response:', errorData);
       throw new Error(errorData.error || `API error: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('[Collector] API result:', {
+      success: result.success,
+      count: result.count,
+      ideasLength: result.ideas?.length || 0,
+      error: result.error,
+    });
 
     if (!result.success) {
       return {
@@ -43,6 +55,8 @@ export async function collectIdeas(): Promise<{
 
     // 수집된 아이디어를 데이터베이스에 저장
     if (result.ideas && result.ideas.length > 0) {
+      console.log('[Collector] Saving', result.ideas.length, 'ideas to database...');
+      
       // RedditPost 형식으로 변환
       const ideas: RedditPost[] = result.ideas.map((idea: any) => ({
         redditId: idea.redditId,
@@ -55,7 +69,15 @@ export async function collectIdeas(): Promise<{
         createdAt: new Date(idea.createdAt),
       }));
 
-      await saveIdeas(ideas);
+      try {
+        const savedIdeas = await saveIdeas(ideas);
+        console.log('[Collector] Successfully saved', savedIdeas.length, 'ideas to database');
+      } catch (saveError) {
+        console.error('[Collector] Error saving ideas to database:', saveError);
+        throw saveError;
+      }
+    } else {
+      console.warn('[Collector] No ideas to save. API returned:', result);
     }
 
     return {
@@ -63,7 +85,7 @@ export async function collectIdeas(): Promise<{
       count: result.count || 0,
     };
   } catch (error) {
-    console.error('Collection error:', error);
+    console.error('[Collector] Collection error:', error);
     return {
       success: false,
       count: 0,
