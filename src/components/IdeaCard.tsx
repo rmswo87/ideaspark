@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, User, ExternalLink, Languages, Loader2 } from 'lucide-react';
+import { Calendar, User, ExternalLink, Languages } from 'lucide-react';
 import type { Idea } from '@/services/ideaService';
 
 interface IdeaCardProps {
@@ -14,7 +14,6 @@ interface IdeaCardProps {
 export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   const [showTranslation, setShowTranslation] = useState(true); // 기본적으로 번역 모드
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
-  const [loadingTranslation, setLoadingTranslation] = useState(false);
 
   /**
    * Reddit 번역 페이지 URL 생성
