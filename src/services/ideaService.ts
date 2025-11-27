@@ -99,6 +99,24 @@ function categorizeIdea(idea: RedditPost): string {
 export type SortOption = 'latest' | 'popular' | 'subreddit';
 
 /**
+ * 특정 ID의 아이디어 가져오기
+ */
+export async function getIdea(id: string): Promise<Idea | null> {
+  const { data, error } = await supabase
+    .from('ideas')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching idea:', error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
  * 아이디어 목록 가져오기
  */
 export async function getIdeas(filters?: {

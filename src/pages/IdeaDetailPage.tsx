@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { PRDViewer } from '@/components/PRDViewer';
 import { generatePRD, generateDevelopmentPlan, getPRD, getPRDs } from '@/services/prdService';
-import { getIdeas } from '@/services/ideaService';
+import { getIdea } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -33,11 +33,11 @@ export function IdeaDetailPage() {
     
     setLoading(true);
     try {
-      const ideas = await getIdeas({ limit: 1000 });
-      const foundIdea = ideas.find(i => i.id === id);
-      setIdea(foundIdea || null);
+      const ideaData = await getIdea(id);
+      setIdea(ideaData);
     } catch (error) {
       console.error('Error fetching idea:', error);
+      setIdea(null);
     } finally {
       setLoading(false);
     }
@@ -288,3 +288,4 @@ export function IdeaDetailPage() {
     </div>
   );
 }
+
