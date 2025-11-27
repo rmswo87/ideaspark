@@ -16,22 +16,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   const [showTranslation, setShowTranslation] = useState(true); // 기본적으로 번역 모드
   const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
-  const [translatedUrl, setTranslatedUrl] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(true); // 초기 로딩 상태
-
-  /**
-   * Reddit 번역 페이지 URL 생성
-   */
-  function getTranslatedUrl(originalUrl: string): string {
-    try {
-      const url = new URL(originalUrl);
-      url.searchParams.set('lang', 'ko');
-      return url.toString();
-    } catch (error) {
-      console.error('Invalid URL:', originalUrl);
-      return originalUrl;
-    }
-  }
 
   // 컴포넌트 마운트 시 번역된 내용 가져오기
   useEffect(() => {
@@ -52,14 +37,11 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
           setTranslatedTitle(null);
           setTranslatedContent(null);
         }
-        setTranslatedUrl(result.translatedUrl);
       } catch (error) {
         console.error('Failed to fetch translation:', error);
-        // 실패 시 원본 사용 및 번역 URL 설정
+        // 실패 시 원본 사용
         setTranslatedTitle(null);
         setTranslatedContent(null);
-        const url = getTranslatedUrl(idea.url);
-        setTranslatedUrl(url);
       } finally {
         setIsTranslating(false);
       }
