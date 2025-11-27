@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, MessageSquare, Heart, Bookmark, Calendar, User, Sparkles } from 'lucide-react';
@@ -20,7 +22,7 @@ export function CommunityPage() {
   const [category, setCategory] = useState('all');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newPost, setNewPost] = useState({ title: '', content: '', category: '자유' });
+  const [newPost, setNewPost] = useState({ title: '', content: '', category: '자유', isAnonymous: false });
 
   useEffect(() => {
     fetchPosts();
@@ -59,9 +61,10 @@ export function CommunityPage() {
         title: newPost.title,
         content: newPost.content,
         category: newPost.category,
+        isAnonymous: newPost.isAnonymous,
       });
       setDialogOpen(false);
-      setNewPost({ title: '', content: '', category: '자유' });
+      setNewPost({ title: '', content: '', category: '자유', isAnonymous: false });
       fetchPosts();
     } catch (error) {
       console.error('Error creating post:', error);
@@ -156,6 +159,16 @@ export function CommunityPage() {
                     rows={10}
                   />
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="anonymous"
+                    checked={newPost.isAnonymous}
+                    onCheckedChange={(checked) => setNewPost({ ...newPost, isAnonymous: checked === true })}
+                  />
+                  <Label htmlFor="anonymous" className="text-sm font-normal cursor-pointer">
+                    익명으로 작성하기
+                  </Label>
+                </div>
                 <Button onClick={handleCreatePost} className="w-full">
                   작성하기
                 </Button>
@@ -238,4 +251,3 @@ export function CommunityPage() {
     </div>
   );
 }
-
