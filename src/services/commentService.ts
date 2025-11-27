@@ -19,14 +19,25 @@ export interface Comment {
 }
 
 /**
+ * 익명 ID 생성 (예: "익명1234")
+ */
+function generateAnonymousId(): string {
+  const randomNum = Math.floor(Math.random() * 10000);
+  return `익명${randomNum.toString().padStart(4, '0')}`;
+}
+
+/**
  * 댓글 생성
  */
 export async function createComment(
   postId: string,
   userId: string,
   content: string,
-  parentId?: string
+  parentId?: string,
+  isAnonymous?: boolean
 ): Promise<Comment> {
+  const anonymousId = isAnonymous ? generateAnonymousId() : null;
+
   const { data: comment, error } = await supabase
     .from('comments')
     .insert({
@@ -34,6 +45,7 @@ export async function createComment(
       user_id: userId,
       content,
       parent_id: parentId || null,
+      anonymous_id: anonymousId,
     })
     .select(`
       *,
@@ -210,4 +222,25 @@ export function subscribeToComments(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+/**
+ * 내가 작성한 댓글 목록 가져오기
+ */
+export async function getMyComments(userId: string): Promise<(Comment & { post: { id: string; title: string } })[]> {
+  const { data, error } = await supabase
+    .from('comments')
+    .select(`
+      *,
+      post:posts(id, title)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching my comments:', error);
+    throw error;
+  }
+
+  return (data || []) as unknown as (Comment & { post: { id: string; title: string } })[];
 }

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Trash2, Reply } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import type { Comment } from '@/services/commentService';
 
 interface CommentSectionProps {
@@ -17,8 +19,10 @@ export function CommentSection({ postId }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
+  const [isReplyAnonymous, setIsReplyAnonymous] = useState(false);
 
   useEffect(() => {
     fetchComments();
@@ -49,8 +53,9 @@ export function CommentSection({ postId }: CommentSectionProps) {
     }
 
     try {
-      await createComment(postId, user.id, newComment);
+      await createComment(postId, user.id, newComment, undefined, isAnonymous);
       setNewComment('');
+      setIsAnonymous(false);
       fetchComments();
     } catch (error) {
       console.error('Error creating comment:', error);
@@ -70,8 +75,9 @@ export function CommentSection({ postId }: CommentSectionProps) {
     }
 
     try {
-      await createComment(postId, user.id, replyContent, parentId);
+      await createComment(postId, user.id, replyContent, parentId, isReplyAnonymous);
       setReplyContent('');
+      setIsReplyAnonymous(false);
       setReplyingTo(null);
       fetchComments();
     } catch (error) {
@@ -144,6 +150,16 @@ export function CommentSection({ postId }: CommentSectionProps) {
                   onChange={(e) => setReplyContent(e.target.value)}
                   rows={3}
                 />
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`reply-anonymous-${comment.id}`}
+                    checked={isReplyAnonymous}
+                    onCheckedChange={(checked: boolean) => setIsReplyAnonymous(checked === true)}
+                  />
+                  <Label htmlFor={`reply-anonymous-${comment.id}`} className="cursor-pointer text-sm">
+                    익명으로 작성하기
+                  </Label>
+                </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => handleSubmitReply(comment.id)}>
                     작성
@@ -154,6 +170,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
                     onClick={() => {
                       setReplyingTo(null);
                       setReplyContent('');
+                      setIsReplyAnonymous(false);
                     }}
                   >
                     취소
@@ -188,6 +205,16 @@ export function CommentSection({ postId }: CommentSectionProps) {
               onChange={(e) => setNewComment(e.target.value)}
               rows={4}
             />
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="comment-anonymous"
+                checked={isAnonymous}
+                onCheckedChange={(checked: boolean) => setIsAnonymous(checked === true)}
+              />
+              <Label htmlFor="comment-anonymous" className="cursor-pointer text-sm">
+                익명으로 작성하기
+              </Label>
+            </div>
             <Button onClick={handleSubmitComment}>댓글 작성</Button>
           </div>
         ) : (
@@ -213,4 +240,3 @@ export function CommentSection({ postId }: CommentSectionProps) {
     </div>
   );
 }
-
