@@ -15,84 +15,97 @@ interface PRDViewerProps {
   onEdit?: () => void;
 }
 
-// Mermaid 다이어그램 컴포넌트
+// Mermaid 다이어그램 컴포넌트 (개선된 버전)
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendered, setIsRendered] = useState(false);
+  const mermaidIdRef = useRef<string>(`mermaid-${index}-${Date.now()}`);
 
   useEffect(() => {
     let isMounted = true;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let renderTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     async function renderMermaid() {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !isMounted) return;
 
-      // 이전 내용 제거
       const container = containerRef.current;
-      while (container.firstChild) {
-        container.removeChild(container.firstChild);
-      }
+      
+      // innerHTML을 사용하여 안전하게 초기화 (removeChild 대신)
+      container.innerHTML = '';
+      setIsRendered(false);
+      setError(null);
 
       // 새로운 div 생성
       const mermaidDiv = document.createElement('div');
-      const id = `mermaid-${index}-${Date.now()}`;
+      const id = mermaidIdRef.current;
       mermaidDiv.id = id;
       mermaidDiv.className = 'mermaid';
       mermaidDiv.textContent = chart;
       container.appendChild(mermaidDiv);
 
-      // 상태 업데이트를 다음 틱으로 지연
-      timeoutId = setTimeout(() => {
-        if (!isMounted || !mermaidDiv.parentNode) return;
+      // Mermaid 초기화는 한 번만 수행
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+          fontFamily: 'inherit',
+        });
+      } catch (err) {
+        console.error('Mermaid initialization error:', err);
+      }
 
-        try {
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: 'default',
-            securityLevel: 'loose',
-            fontFamily: 'inherit',
-          });
-
-          mermaid.run({
-            nodes: [mermaidDiv],
-            suppressErrors: true,
-          }).then(() => {
-            if (isMounted) {
-              setError(null);
-              setIsRendered(true);
-            }
-          }).catch((err) => {
-            if (isMounted) {
-              console.error('Mermaid rendering error:', err);
-              setError('다이어그램 렌더링 실패');
-            }
-          });
-        } catch (err) {
-          if (isMounted) {
-            console.error('Mermaid initialization error:', err);
-            setError('다이어그램 초기화 실패');
-          }
+      // 렌더링을 약간 지연시켜 React의 DOM 조작이 완료된 후 실행
+      renderTimeoutId = setTimeout(() => {
+        if (!isMounted || !containerRef.current || !mermaidDiv.parentNode) {
+          return;
         }
-      }, 0);
+
+        // mermaidDiv가 여전히 DOM에 있는지 확인
+        const currentDiv = containerRef.current.querySelector(`#${id}`);
+        if (!currentDiv) {
+          return;
+        }
+
+        mermaid.run({
+          nodes: [currentDiv as HTMLElement],
+          suppressErrors: true,
+        }).then(() => {
+          if (isMounted && containerRef.current) {
+            setError(null);
+            setIsRendered(true);
+          }
+        }).catch((err) => {
+          if (isMounted) {
+            console.error('Mermaid rendering error:', err);
+            setError('다이어그램 렌더링 실패');
+            setIsRendered(false);
+          }
+        });
+      }, 100); // 100ms 지연으로 React의 DOM 조작 완료 대기
     }
 
-    renderMermaid();
+    // 초기 렌더링을 약간 지연
+    timeoutId = setTimeout(() => {
+      renderMermaid();
+    }, 50);
 
     return () => {
       isMounted = false;
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      // cleanup: Mermaid로 생성된 SVG 제거
+      if (renderTimeoutId) {
+        clearTimeout(renderTimeoutId);
+      }
+      // cleanup: innerHTML을 사용하여 안전하게 제거
       if (containerRef.current) {
-        const container = containerRef.current;
-        while (container.firstChild) {
-          try {
-            container.removeChild(container.firstChild);
-          } catch (e) {
-            // 이미 제거된 경우 무시
-          }
+        try {
+          containerRef.current.innerHTML = '';
+        } catch (e) {
+          // 에러 무시
         }
       }
     };
@@ -102,7 +115,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
     return (
       <div className="my-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
         <p className="text-sm text-destructive">{error}</p>
-        <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-x-auto">
+        <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap">
           {chart}
         </pre>
       </div>
@@ -110,11 +123,18 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
   }
 
   return (
-    <div className="my-6 flex justify-center">
-      <div ref={containerRef} className="mermaid-container">
+    <div className="my-8 flex justify-center">
+      <div 
+        ref={containerRef} 
+        className="mermaid-container w-full max-w-4xl"
+        style={{ minHeight: isRendered ? 'auto' : '200px' }}
+      >
         {!isRendered && (
-          <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-muted-foreground">다이어그램 렌더링 중...</p>
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">다이어그램 렌더링 중...</p>
+            </div>
           </div>
         )}
       </div>
@@ -269,12 +289,19 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div ref={contentRef} className="prose prose-slate dark:prose-invert max-w-none">
+        <div 
+          ref={contentRef} 
+          className="prose prose-slate dark:prose-invert max-w-none prd-content"
+          style={{
+            fontSize: '16px',
+            lineHeight: '1.8',
+          }}
+        >
           {processedParts.map((part, idx) => {
             if (part.type === 'mermaid') {
               return (
                 <MermaidDiagram
-                  key={`mermaid-${part.index}-${idx}`}
+                  key={`mermaid-${part.index}-${idx}-${Date.now()}`}
                   chart={part.content}
                   index={part.index || 0}
                 />
@@ -283,50 +310,56 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
 
             return (
               <ReactMarkdown
-                key={`markdown-${idx}`}
+                key={`markdown-${idx}-${part.content.substring(0, 20)}`}
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
                 components={{
-                  // 헤더 스타일링
+                  // 헤더 스타일링 (더 큰 크기, 더 명확한 구분)
                   h1: ({ node, ...props }) => (
-                    <h1 className="text-3xl font-bold mt-8 mb-4 pb-2 border-b" {...props} />
+                    <h1 className="text-4xl font-bold mt-10 mb-6 pb-3 border-b-2 border-primary/20 text-foreground" {...props} />
                   ),
                   h2: ({ node, ...props }) => (
-                    <h2 className="text-2xl font-semibold mt-6 mb-3" {...props} />
+                    <h2 className="text-3xl font-semibold mt-8 mb-4 pb-2 border-b border-border text-foreground" {...props} />
                   ),
                   h3: ({ node, ...props }) => (
-                    <h3 className="text-xl font-semibold mt-5 mb-2" {...props} />
+                    <h3 className="text-2xl font-semibold mt-6 mb-3 text-foreground" {...props} />
                   ),
                   h4: ({ node, ...props }) => (
-                    <h4 className="text-lg font-medium mt-4 mb-2" {...props} />
+                    <h4 className="text-xl font-medium mt-5 mb-2 text-foreground" {...props} />
                   ),
-                  // 단락 스타일링
+                  h5: ({ node, ...props }) => (
+                    <h5 className="text-lg font-medium mt-4 mb-2 text-foreground" {...props} />
+                  ),
+                  h6: ({ node, ...props }) => (
+                    <h6 className="text-base font-medium mt-3 mb-2 text-foreground" {...props} />
+                  ),
+                  // 단락 스타일링 (더 큰 줄 간격, 더 명확한 구분)
                   p: ({ node, ...props }) => (
-                    <p className="mb-4 leading-7 text-foreground" {...props} />
+                    <p className="mb-5 leading-8 text-foreground text-base whitespace-pre-wrap" {...props} />
                   ),
-                  // 리스트 스타일링
+                  // 리스트 스타일링 (더 큰 간격)
                   ul: ({ node, ...props }) => (
-                    <ul className="mb-4 ml-6 list-disc space-y-2" {...props} />
+                    <ul className="mb-6 ml-8 list-disc space-y-3 text-base" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="mb-4 ml-6 list-decimal space-y-2" {...props} />
+                    <ol className="mb-6 ml-8 list-decimal space-y-3 text-base" {...props} />
                   ),
                   li: ({ node, ...props }) => (
-                    <li className="leading-7" {...props} />
+                    <li className="leading-8 text-foreground" {...props} />
                   ),
-                  // 강조 스타일링
+                  // 강조 스타일링 (더 명확한 효과)
                   strong: ({ node, ...props }) => (
-                    <strong className="font-bold text-foreground" {...props} />
+                    <strong className="font-bold text-foreground text-lg" {...props} />
                   ),
                   em: ({ node, ...props }) => (
-                    <em className="italic text-foreground" {...props} />
+                    <em className="italic text-foreground font-medium" {...props} />
                   ),
-                  // 코드 스타일링
+                  // 코드 스타일링 (더 큰 폰트, 더 명확한 배경)
                   code: ({ node, inline, className, children, ...props }: any) => {
                     if (inline) {
                       return (
                         <code
-                          className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground"
+                          className="bg-muted/80 px-2 py-1 rounded-md text-sm font-mono text-foreground border border-border"
                           {...props}
                         >
                           {children}
@@ -334,45 +367,47 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
                       );
                     }
                     return (
-                      <code
-                        className="block bg-muted p-4 rounded-lg text-sm font-mono overflow-x-auto mb-4"
-                        {...props}
-                      >
-                        {children}
-                      </code>
+                      <div className="my-6">
+                        <code
+                          className="block bg-muted/50 p-5 rounded-lg text-sm font-mono overflow-x-auto border border-border"
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      </div>
                     );
                   },
-                  // 링크 스타일링
+                  // 링크 스타일링 (더 명확한 색상)
                   a: ({ node, ...props }) => (
                     <a
-                      className="text-primary underline hover:text-primary/80"
+                      className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
                       target="_blank"
                       rel="noopener noreferrer"
                       {...props}
                     />
                   ),
-                  // 인용구 스타일링
+                  // 인용구 스타일링 (더 명확한 스타일)
                   blockquote: ({ node, ...props }) => (
                     <blockquote
-                      className="border-l-4 border-primary pl-4 italic my-4 text-muted-foreground"
+                      className="border-l-4 border-primary pl-6 italic my-6 text-muted-foreground bg-muted/30 py-3 rounded-r"
                       {...props}
                     />
                   ),
-                  // 테이블 스타일링
+                  // 테이블 스타일링 (더 명확한 구분)
                   table: ({ node, ...props }) => (
-                    <div className="overflow-x-auto my-4">
-                      <table className="min-w-full border-collapse border border-border" {...props} />
+                    <div className="overflow-x-auto my-6 border border-border rounded-lg">
+                      <table className="min-w-full border-collapse" {...props} />
                     </div>
                   ),
                   th: ({ node, ...props }) => (
-                    <th className="border border-border px-4 py-2 bg-muted font-semibold text-left" {...props} />
+                    <th className="border border-border px-4 py-3 bg-muted font-semibold text-left text-base" {...props} />
                   ),
                   td: ({ node, ...props }) => (
-                    <td className="border border-border px-4 py-2" {...props} />
+                    <td className="border border-border px-4 py-3 text-base" {...props} />
                   ),
-                  // 구분선
+                  // 구분선 (더 명확한 구분)
                   hr: ({ node, ...props }) => (
-                    <hr className="my-8 border-t border-border" {...props} />
+                    <hr className="my-10 border-t-2 border-border" {...props} />
                   ),
                 }}
               >
