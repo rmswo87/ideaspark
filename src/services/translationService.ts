@@ -49,18 +49,6 @@ export async function translateText(
 
     const data = await response.json();
     
-    // 디버깅을 위한 로그 (상세 정보)
-    const logData = {
-      success: data.success,
-      provider: data.provider,
-      hasTranslatedText: !!data.translatedText,
-      textLength: text.length,
-      translatedLength: data.translatedText?.length,
-      originalText: text.substring(0, 50),
-      translatedText: data.translatedText?.substring(0, 50),
-    };
-    console.log('Translation response:', logData);
-    
     // success가 false여도 translatedText가 있으면 사용 (원본 텍스트일 수 있음)
     if (data.translatedText) {
       // 실제로 번역되었는지 확인 (원본과 다르면 번역된 것)
@@ -74,10 +62,9 @@ export async function translateText(
                             data.translatedText.trim() !== text.trim() &&
                             data.translatedText.length > 0;
         if (isTranslated) {
-          console.log('Translation detected despite success=false');
           return data.translatedText;
         } else {
-          console.warn('Translation returned same text, treating as failure');
+          // 번역 실패 (원본과 동일) - 조용히 원본 반환
           throw new Error('Translation returned original text');
         }
       }
@@ -85,7 +72,11 @@ export async function translateText(
       throw new Error('Translation failed: No translated text');
     }
   } catch (error) {
-    console.error('Translation service error:', error);
+    // 번역 실패는 조용히 처리 (원본 텍스트 반환)
+    // 개발 환경에서만 에러 로그 출력
+    if (import.meta.env.DEV) {
+      console.debug('Translation failed, using original text');
+    }
     // 실패 시 원본 텍스트 반환
     return text;
   }
@@ -144,36 +135,12 @@ export async function getTranslatedContent(redditUrl: string, title: string, con
     // 하나라도 번역 성공하면 success로 처리
     const success = translatedTitle !== null || translatedContent !== null;
     
-    // 디버깅을 위한 로그 (더 상세한 정보)
-    if (!success) {
-      const titleValue = translatedTitleResult.status === 'fulfilled' 
-        ? translatedTitleResult.value.substring(0, 50) 
-        : translatedTitleResult.status === 'rejected'
-        ? `Error: ${translatedTitleResult.reason?.message || 'Unknown'}`
-        : 'N/A';
-      const contentValue = translatedContentResult.status === 'fulfilled'
-        ? translatedContentResult.value.substring(0, 50)
-        : translatedContentResult.status === 'rejected'
-        ? `Error: ${translatedContentResult.reason?.message || 'Unknown'}`
-        : 'N/A';
-      
-      console.warn('Translation failed for:', {
-        originalTitle: titleToTranslate.substring(0, 50),
-        originalContent: contentToTranslate.substring(0, 50),
-        titleResult: translatedTitleResult.status,
-        contentResult: translatedContentResult.status,
-        titleValue: titleValue,
-        contentValue: contentValue,
-        titleSame: translatedTitleResult.status === 'fulfilled' && translatedTitleResult.value === titleToTranslate,
-        contentSame: translatedContentResult.status === 'fulfilled' && translatedContentResult.value === contentToTranslate,
-      });
-    } else {
-      console.log('Translation successful:', {
-        titleTranslated: translatedTitle !== null,
-        contentTranslated: translatedContent !== null,
-        translatedTitle: translatedTitle?.substring(0, 30),
-        translatedContent: translatedContent?.substring(0, 30),
-      });
+    // 개발 환경에서만 로그 출력 (프로덕션에서는 조용히 처리)
+    if (import.meta.env.DEV) {
+      if (!success) {
+        // 개발 환경에서만 번역 실패 로그 출력 (한 번만)
+        console.debug('Translation unavailable, using original text');
+      }
     }
 
     return {
@@ -184,7 +151,10 @@ export async function getTranslatedContent(redditUrl: string, title: string, con
       note: success ? undefined : '번역을 불러올 수 없습니다. 원문을 표시합니다.',
     };
   } catch (error) {
-    console.error('Translation service error:', error);
+    // 개발 환경에서만 에러 로그 출력
+    if (import.meta.env.DEV) {
+      console.debug('Translation service error:', error);
+    }
     // 실패 시 번역 URL만 반환
     let translatedUrl: string;
     try {
@@ -203,3 +173,4 @@ export async function getTranslatedContent(redditUrl: string, title: string, con
     };
   }
 }
+

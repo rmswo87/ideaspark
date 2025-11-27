@@ -18,13 +18,32 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(true); // 초기 로딩 상태
 
-  // 컴포넌트 마운트 시 번역된 내용 가져오기
+  /**
+   * Reddit 번역 페이지 URL 생성
+   */
+  function getTranslatedUrl(originalUrl: string): string {
+    try {
+      const url = new URL(originalUrl);
+      url.searchParams.set('lang', 'ko');
+      return url.toString();
+    } catch (error) {
+      console.error('Invalid URL:', originalUrl);
+      return originalUrl;
+    }
+  }
+
+  // 컴포넌트 마운트 시 번역된 내용 가져오기 (한 번만 시도)
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchTranslation() {
       setIsTranslating(true);
       try {
         // 제목과 내용을 번역
         const result = await getTranslatedContent(idea.url, idea.title, idea.content);
+        
+        // 컴포넌트가 언마운트되었으면 상태 업데이트하지 않음
+        if (!isMounted) return;
         
         // 번역 결과 설정
         // 번역이 성공한 경우 번역된 텍스트 사용, 실패한 경우 null로 설정하여 원문 표시
@@ -38,17 +57,28 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
           setTranslatedContent(null);
         }
       } catch (error) {
-        console.error('Failed to fetch translation:', error);
+        // 개발 환경에서만 에러 로그 출력
+        if (import.meta.env.DEV && isMounted) {
+          console.debug('Translation unavailable for this idea');
+        }
         // 실패 시 원본 사용
-        setTranslatedTitle(null);
-        setTranslatedContent(null);
+        if (isMounted) {
+          setTranslatedTitle(null);
+          setTranslatedContent(null);
+        }
       } finally {
-        setIsTranslating(false);
+        if (isMounted) {
+          setIsTranslating(false);
+        }
       }
     }
 
     fetchTranslation();
-  }, [idea.url, idea.title, idea.content]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [idea.id]); // idea.id만 의존성으로 사용하여 같은 아이디어에 대해 재시도 방지
 
   /**
    * 번역 토글
