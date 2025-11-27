@@ -18,20 +18,6 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(true); // 초기 로딩 상태
 
-  /**
-   * Reddit 번역 페이지 URL 생성
-   */
-  function getTranslatedUrl(originalUrl: string): string {
-    try {
-      const url = new URL(originalUrl);
-      url.searchParams.set('lang', 'ko');
-      return url.toString();
-    } catch (error) {
-      console.error('Invalid URL:', originalUrl);
-      return originalUrl;
-    }
-  }
-
   // 컴포넌트 마운트 시 번역된 내용 가져오기 (한 번만 시도)
   useEffect(() => {
     let isMounted = true;
