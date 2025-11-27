@@ -49,26 +49,37 @@ export async function translateText(
 
     const data = await response.json();
     
-    // 디버깅을 위한 로그
-    console.log('Translation response:', {
+    // 디버깅을 위한 로그 (상세 정보)
+    const logData = {
       success: data.success,
       provider: data.provider,
       hasTranslatedText: !!data.translatedText,
       textLength: text.length,
       translatedLength: data.translatedText?.length,
-    });
+      originalText: text.substring(0, 50),
+      translatedText: data.translatedText?.substring(0, 50),
+    };
+    console.log('Translation response:', logData);
     
     // success가 false여도 translatedText가 있으면 사용 (원본 텍스트일 수 있음)
     if (data.translatedText) {
       // 실제로 번역되었는지 확인 (원본과 다르면 번역된 것)
       if (data.success === true) {
+        // 성공 응답이면 바로 반환
         return data.translatedText;
       } else {
-        // success가 false지만 translatedText가 있으면 원본 텍스트를 반환한 것
+        // success가 false지만 translatedText가 있으면 원본 텍스트를 반환한 것일 수 있음
         // 원본과 비교해서 다르면 번역된 것으로 간주
         const isTranslated = data.translatedText !== text && 
-                            data.translatedText.trim() !== text.trim();
-        return isTranslated ? data.translatedText : text;
+                            data.translatedText.trim() !== text.trim() &&
+                            data.translatedText.length > 0;
+        if (isTranslated) {
+          console.log('Translation detected despite success=false');
+          return data.translatedText;
+        } else {
+          console.warn('Translation returned same text, treating as failure');
+          throw new Error('Translation returned original text');
+        }
       }
     } else {
       throw new Error('Translation failed: No translated text');
@@ -133,20 +144,35 @@ export async function getTranslatedContent(redditUrl: string, title: string, con
     // 하나라도 번역 성공하면 success로 처리
     const success = translatedTitle !== null || translatedContent !== null;
     
-    // 디버깅을 위한 로그
+    // 디버깅을 위한 로그 (더 상세한 정보)
     if (!success) {
+      const titleValue = translatedTitleResult.status === 'fulfilled' 
+        ? translatedTitleResult.value.substring(0, 50) 
+        : translatedTitleResult.status === 'rejected'
+        ? `Error: ${translatedTitleResult.reason?.message || 'Unknown'}`
+        : 'N/A';
+      const contentValue = translatedContentResult.status === 'fulfilled'
+        ? translatedContentResult.value.substring(0, 50)
+        : translatedContentResult.status === 'rejected'
+        ? `Error: ${translatedContentResult.reason?.message || 'Unknown'}`
+        : 'N/A';
+      
       console.warn('Translation failed for:', {
-        title: titleToTranslate.substring(0, 50),
-        content: contentToTranslate.substring(0, 50),
+        originalTitle: titleToTranslate.substring(0, 50),
+        originalContent: contentToTranslate.substring(0, 50),
         titleResult: translatedTitleResult.status,
         contentResult: translatedContentResult.status,
-        titleValue: translatedTitleResult.status === 'fulfilled' ? translatedTitleResult.value.substring(0, 30) : 'N/A',
-        contentValue: translatedContentResult.status === 'fulfilled' ? translatedContentResult.value.substring(0, 30) : 'N/A',
+        titleValue: titleValue,
+        contentValue: contentValue,
+        titleSame: translatedTitleResult.status === 'fulfilled' && translatedTitleResult.value === titleToTranslate,
+        contentSame: translatedContentResult.status === 'fulfilled' && translatedContentResult.value === contentToTranslate,
       });
     } else {
       console.log('Translation successful:', {
         titleTranslated: translatedTitle !== null,
         contentTranslated: translatedContent !== null,
+        translatedTitle: translatedTitle?.substring(0, 30),
+        translatedContent: translatedContent?.substring(0, 30),
       });
     }
 
