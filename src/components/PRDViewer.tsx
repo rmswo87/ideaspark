@@ -17,7 +17,6 @@ interface PRDViewerProps {
 
 // Mermaid 다이어그램 컴포넌트
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
-  const ref = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendered, setIsRendered] = useState(false);
@@ -27,7 +26,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     async function renderMermaid() {
-      if (!ref.current || !containerRef.current) return;
+      if (!containerRef.current) return;
 
       // 이전 내용 제거
       const container = containerRef.current;
