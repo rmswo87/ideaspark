@@ -348,9 +348,12 @@ function HomePage() {
 }
 
 function App() {
+  // GitHub Pages 배포 시 basename 설정
+  const basename = import.meta.env.VITE_GITHUB_PAGES === 'true' ? '/ideaspark' : undefined;
+  
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
