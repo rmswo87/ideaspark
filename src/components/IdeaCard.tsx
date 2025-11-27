@@ -136,53 +136,22 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
                   <span className="ml-2 text-sm text-muted-foreground">번역 중...</span>
                 </div>
               ) : translatedContent ? (
-                <>
-                  <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
-                    {translatedContent}
-                  </p>
-                  {translatedUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs h-7"
-                      asChild
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <a href={translatedUrl} target="_blank" rel="noopener noreferrer">
-                        번역 페이지 전체 보기 →
-                      </a>
-                    </Button>
-                  )}
-                </>
+                <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
+                  {translatedContent}
+                </p>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
-                      번역된 내용을 불러올 수 없습니다.
+                  <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
+                    {idea.content}
+                  </p>
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-2 text-xs mt-2">
+                    <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                      💡 Chrome 자동 번역 사용하기
                     </p>
-                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-2 text-xs">
-                      <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                        💡 Chrome 자동 번역 사용하기
-                      </p>
-                      <ul className="text-blue-800 dark:text-blue-200 space-y-0.5 list-disc list-inside">
-                        <li>우측 상단 번역 아이콘 클릭</li>
-                        <li>또는 우클릭 → "한국어로 번역" 선택</li>
-                      </ul>
-                    </div>
+                    <p className="text-blue-800 dark:text-blue-200 text-xs">
+                      Reddit 페이지에서 우측 상단 번역 아이콘을 클릭하거나 우클릭 → "한국어로 번역"을 선택하세요.
+                    </p>
                   </div>
-                  {translatedUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs h-7 mt-2"
-                      asChild
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <a href={translatedUrl} target="_blank" rel="noopener noreferrer">
-                        번역 페이지 열기 →
-                      </a>
-                    </Button>
-                  )}
                 </>
               )}
             </div>
