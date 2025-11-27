@@ -15,54 +15,72 @@ interface PRDViewerProps {
   onEdit?: () => void;
 }
 
-// Mermaid 다이어그램 컴포넌트 (개선된 버전)
+// Mermaid 다이어그램 컴포넌트 (완전히 분리된 안전한 버전)
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendered, setIsRendered] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
   const mermaidIdRef = useRef<string>(`mermaid-${index}-${Date.now()}`);
+  const renderAttemptRef = useRef(0);
 
+  // 컴포넌트가 마운트된 후에만 렌더링 시작
   useEffect(() => {
+    // 약간의 지연 후 렌더링 시작 (React의 렌더링 완료 대기)
+    const timer = setTimeout(() => {
+      setShouldRender(true);
+    }, 200);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // shouldRender가 true가 된 후에만 Mermaid 렌더링 시도
+  useEffect(() => {
+    if (!shouldRender || !containerRef.current) return;
+
     let isMounted = true;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let renderTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let animationFrameId: number | null = null;
+    const maxAttempts = 3;
+    const currentAttempt = renderAttemptRef.current;
 
     async function renderMermaid() {
-      if (!containerRef.current || !isMounted) return;
+      if (!containerRef.current || !isMounted || currentAttempt >= maxAttempts) {
+        if (currentAttempt >= maxAttempts) {
+          setError('다이어그램 렌더링에 실패했습니다. 최대 시도 횟수를 초과했습니다.');
+        }
+        return;
+      }
 
       const container = containerRef.current;
-      
-      // requestAnimationFrame을 사용하여 React의 렌더링 사이클과 동기화
-      animationFrameId = requestAnimationFrame(() => {
-        if (!isMounted || !containerRef.current) return;
+      const id = mermaidIdRef.current;
 
-        // innerHTML을 사용하여 안전하게 초기화 (removeChild 대신)
-        try {
+      try {
+        // 기존 내용 제거 (안전하게)
+        if (container.firstChild) {
+          try {
+            container.removeChild(container.firstChild);
+          } catch (e) {
+            // 이미 제거된 경우 무시
+            container.innerHTML = '';
+          }
+        } else {
           container.innerHTML = '';
-        } catch (e) {
-          // 에러 무시
-          return;
         }
-        
+
         setIsRendered(false);
         setError(null);
 
         // 새로운 div 생성
         const mermaidDiv = document.createElement('div');
-        const id = mermaidIdRef.current;
         mermaidDiv.id = id;
         mermaidDiv.className = 'mermaid';
         mermaidDiv.textContent = chart;
-        
-        try {
-          container.appendChild(mermaidDiv);
-        } catch (e) {
-          console.error('Failed to append mermaid div:', e);
-          return;
-        }
 
-        // Mermaid 초기화는 한 번만 수행
+        container.appendChild(mermaidDiv);
+
+        // Mermaid 초기화
         try {
           mermaid.initialize({
             startOnLoad: false,
@@ -74,15 +92,19 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
           console.error('Mermaid initialization error:', err);
         }
 
-        // 렌더링을 약간 지연시켜 React의 DOM 조작이 완료된 후 실행
+        // 렌더링 지연
         renderTimeoutId = setTimeout(() => {
-          if (!isMounted || !containerRef.current) {
-            return;
-          }
+          if (!isMounted || !containerRef.current) return;
 
-          // mermaidDiv가 여전히 DOM에 있는지 확인
           const currentDiv = containerRef.current.querySelector(`#${id}`);
           if (!currentDiv || !currentDiv.parentNode) {
+            renderAttemptRef.current++;
+            if (renderAttemptRef.current < maxAttempts) {
+              // 재시도
+              setTimeout(() => renderMermaid(), 300);
+            } else {
+              setError('다이어그램 렌더링에 실패했습니다.');
+            }
             return;
           }
 
@@ -90,60 +112,53 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
             nodes: [currentDiv as HTMLElement],
             suppressErrors: true,
           }).then(() => {
-            requestAnimationFrame(() => {
-              if (isMounted && containerRef.current) {
-                setError(null);
-                setIsRendered(true);
-              }
-            });
+            if (isMounted && containerRef.current) {
+              setError(null);
+              setIsRendered(true);
+            }
           }).catch((err) => {
-            requestAnimationFrame(() => {
-              if (isMounted) {
-                console.error('Mermaid rendering error:', err);
-                setError('다이어그램 렌더링 실패');
+            if (isMounted) {
+              console.error('Mermaid rendering error:', err);
+              renderAttemptRef.current++;
+              if (renderAttemptRef.current < maxAttempts) {
+                // 재시도
+                setTimeout(() => renderMermaid(), 300);
+              } else {
+                setError('다이어그램 렌더링에 실패했습니다.');
                 setIsRendered(false);
-              }
-            });
-          });
-        }, 150); // 150ms 지연으로 React의 DOM 조작 완료 대기
-      });
-    }
-
-    // 초기 렌더링을 약간 지연
-    timeoutId = setTimeout(() => {
-      renderMermaid();
-    }, 100);
-
-    return () => {
-      isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      if (renderTimeoutId) {
-        clearTimeout(renderTimeoutId);
-      }
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      // cleanup: innerHTML을 사용하여 안전하게 제거
-      if (containerRef.current) {
-        try {
-          // requestAnimationFrame으로 지연하여 안전하게 제거
-          requestAnimationFrame(() => {
-            if (containerRef.current) {
-              try {
-                containerRef.current.innerHTML = '';
-              } catch (e) {
-                // 에러 무시
               }
             }
           });
+        }, 200);
+      } catch (err) {
+        console.error('Mermaid render error:', err);
+        if (isMounted) {
+          setError('다이어그램 렌더링 중 오류가 발생했습니다.');
+        }
+      }
+    }
+
+    renderMermaid();
+
+    return () => {
+      isMounted = false;
+      if (renderTimeoutId) {
+        clearTimeout(renderTimeoutId);
+      }
+      // cleanup은 최소화 (React가 처리하도록)
+      if (containerRef.current && containerRef.current.firstChild) {
+        try {
+          // 안전하게 제거 시도
+          const child = containerRef.current.firstChild;
+          if (child.parentNode === containerRef.current) {
+            containerRef.current.removeChild(child);
+          }
         } catch (e) {
-          // 에러 무시
+          // 에러 무시 - React가 처리할 것
         }
       }
     };
-  }, [chart, index]);
+  }, [shouldRender, chart, index]);
 
   if (error) {
     return (

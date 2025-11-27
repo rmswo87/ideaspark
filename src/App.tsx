@@ -19,6 +19,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, MessageSquare, Shield } from 'lucide-react'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 function HomePage() {
   const { user } = useAuth()
@@ -154,7 +155,6 @@ function HomePage() {
                   size="sm"
                   onClick={() => navigate('/community')}
                 >
-                  <MessageSquare className="h-4 w-4 mr-2" />
                   커뮤니티
                 </Button>
               </nav>
@@ -185,7 +185,7 @@ function HomePage() {
                     size="sm"
                     onClick={async () => {
                       await supabase.auth.signOut()
-                      window.location.reload()
+                      navigate('/')
                     }}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
@@ -194,7 +194,7 @@ function HomePage() {
                 </>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() => navigate('/auth')}
                 >
@@ -347,18 +347,20 @@ function HomePage() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/idea/:id" element={<IdeaDetailPage />} />
-        <Route path="/community" element={<CommunityPage />} />
-        <Route path="/community/:id" element={<PostDetailPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/idea/:id" element={<IdeaDetailPage />} />
+          <Route path="/community" element={<CommunityPage />} />
+          <Route path="/community/:id" element={<PostDetailPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 
