@@ -61,12 +61,14 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     }
     svg {
       max-width: 100% !important;
+      min-width: 80% !important;
       height: auto !important;
       width: auto !important;
     }
-    /* Gantt 차트 최적화 */
+    /* Gantt 차트 최적화 - 더 넓게 표시 */
     svg[data-type="gantt"] {
-      max-width: 95% !important;
+      max-width: 100% !important;
+      min-width: 90% !important;
       width: auto !important;
     }
   </style>
@@ -161,7 +163,7 @@ ${escapedChart}
   return (
     <div className="my-8 w-full flex justify-center">
       <div className={`mermaid-container border border-border rounded-lg overflow-visible bg-background relative ${
-        isGanttChart ? 'max-w-[95%]' : 'w-full'
+        isGanttChart ? 'w-full max-w-[98%]' : 'w-full'
       }`}>
         {onEdit && (
           <div className="absolute top-2 right-2 z-10">
