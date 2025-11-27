@@ -24,6 +24,9 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
 
+  // Gantt 차트인지 확인
+  const isGanttChart = cleanedChart.toLowerCase().includes('gantt');
+
   // iframe 내부에서 사용할 HTML 생성
   const iframeContent = useMemo(() => {
     const escapedChart = cleanedChart
@@ -64,6 +67,14 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       height: auto !important;
       width: auto !important;
     }
+    ${isGanttChart ? `
+    /* Gantt 차트만 특별 처리 - 크기 축소 */
+    svg {
+      max-width: 75% !important;
+      transform: scale(0.85) !important;
+      transform-origin: center top !important;
+    }
+    ` : ''}
   </style>
 </head>
 <body>
@@ -83,12 +94,12 @@ ${escapedChart}
         curve: 'basis'
       },
       gantt: {
-        fontSize: 11,
-        sectionFontSize: 12,
-        leftPadding: 60,
-        gridLineStartPadding: 30,
-        bottomPadding: 20,
-        topPadding: 20
+        fontSize: 10,
+        sectionFontSize: 11,
+        leftPadding: 50,
+        gridLineStartPadding: 25,
+        bottomPadding: 15,
+        topPadding: 15
       }
     });
     
@@ -100,6 +111,11 @@ ${escapedChart}
         setTimeout(() => {
           const svg = document.querySelector('svg');
           if (svg && window.parent) {
+            ${isGanttChart ? `
+            // Gantt 차트는 크기를 85%로 축소
+            svg.style.transform = 'scale(0.85)';
+            svg.style.transformOrigin = 'center top';
+            ` : ''}
             const height = svg.getBoundingClientRect().height + 40; // 패딩 포함
             window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
             window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
@@ -115,7 +131,7 @@ ${escapedChart}
   </script>
 </body>
 </html>`;
-  }, [cleanedChart, index]);
+  }, [cleanedChart, index, isGanttChart]);
 
   // iframe에서 오는 메시지 처리
   useEffect(() => {
@@ -164,9 +180,6 @@ ${escapedChart}
     );
   }
 
-  // Gantt 차트인지 확인
-  const isGanttChart = cleanedChart.toLowerCase().includes('gantt');
-
   return (
     <div className="my-8 w-full flex justify-center">
       <div className="mermaid-container w-full max-w-5xl border border-border rounded-lg overflow-visible bg-background relative">
@@ -189,7 +202,7 @@ ${escapedChart}
           className="w-full border-0"
           style={{ 
             width: '100%', 
-            minHeight: isGanttChart ? '450px' : '350px',
+            minHeight: isGanttChart ? '400px' : '350px',
             border: 'none',
             display: 'block',
             overflow: 'visible'
