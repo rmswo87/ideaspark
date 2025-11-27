@@ -24,15 +24,15 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
 
-  // Gantt 차트인지 확인
-  const isGanttChart = cleanedChart.toLowerCase().includes('gantt');
-
   // iframe 내부에서 사용할 HTML 생성
   const iframeContent = useMemo(() => {
     const escapedChart = cleanedChart
       .replace(/\\/g, '\\\\')
       .replace(/`/g, '\\`')
       .replace(/\$/g, '\\$');
+    
+    // Gantt 차트인지 정확히 감지 (gantt 키워드로 시작하는지 확인)
+    const isGanttChart = /^\s*gantt\s/i.test(cleanedChart);
     
     return `
 <!DOCTYPE html>
@@ -82,6 +82,9 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
 ${escapedChart}
   </div>
   <script>
+    // Gantt 차트인지 정확히 감지
+    const isGantt = /^\s*gantt\s/i.test(\`${escapedChart.replace(/`/g, '\\`')}\`);
+    
     mermaid.initialize({
       startOnLoad: true,
       theme: 'default',
@@ -112,9 +115,11 @@ ${escapedChart}
           const svg = document.querySelector('svg');
           if (svg && window.parent) {
             ${isGanttChart ? `
-            // Gantt 차트는 크기를 85%로 축소
-            svg.style.transform = 'scale(0.85)';
-            svg.style.transformOrigin = 'center top';
+            // Gantt 차트만 크기를 85%로 축소
+            if (isGantt) {
+              svg.style.transform = 'scale(0.85)';
+              svg.style.transformOrigin = 'center top';
+            }
             ` : ''}
             const height = svg.getBoundingClientRect().height + 40; // 패딩 포함
             window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
@@ -131,7 +136,7 @@ ${escapedChart}
   </script>
 </body>
 </html>`;
-  }, [cleanedChart, index, isGanttChart]);
+  }, [cleanedChart, index]);
 
   // iframe에서 오는 메시지 처리
   useEffect(() => {
@@ -179,6 +184,9 @@ ${escapedChart}
       </div>
     );
   }
+
+  // Gantt 차트인지 확인 (컨테이너 크기 조정용)
+  const isGanttChart = /^\s*gantt\s/i.test(cleanedChart);
 
   return (
     <div className="my-8 w-full flex justify-center">
