@@ -102,21 +102,6 @@ export function IdeaDetailPage() {
     }
   }
 
-  /**
-   * Reddit 번역 페이지 URL 생성
-   * Reddit은 URL에 ?lang=ko 파라미터를 추가하면 번역된 페이지를 제공합니다
-   */
-  function getTranslatedUrl(originalUrl: string): string {
-    try {
-      const url = new URL(originalUrl);
-      url.searchParams.set('lang', 'ko');
-      return url.toString();
-    } catch (error) {
-      console.error('Invalid URL:', originalUrl);
-      return originalUrl;
-    }
-  }
-
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -177,15 +162,6 @@ export function IdeaDetailPage() {
                   rel="noopener noreferrer"
                 >
                   Reddit 원문 페이지 열기
-                </a>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <a 
-                  href={getTranslatedUrl(idea.url)} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
-                  Reddit 번역 페이지 열기 (Chrome 자동 번역)
                 </a>
               </Button>
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3 text-sm">
