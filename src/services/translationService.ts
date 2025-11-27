@@ -1,4 +1,33 @@
 // 번역 서비스 (무료 번역 API 사용)
+
+/**
+ * API 엔드포인트 URL 가져오기
+ */
+function getApiUrl(endpoint: string): string {
+  const provider = import.meta.env.VITE_API_PROVIDER || 'vercel';
+  const baseUrl = window.location.origin;
+  
+  if (provider === 'supabase') {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      console.warn('[TranslationService] VITE_SUPABASE_URL not set, falling back to Vercel');
+      return `${baseUrl}${endpoint}`;
+    }
+    // Supabase Edge Functions URL 형식: https://[project].supabase.co/functions/v1/[function-name]
+    return `${supabaseUrl}/functions/v1${endpoint.replace('/api/', '')}`;
+  } else if (provider === 'cloudflare') {
+    const workerUrl = import.meta.env.VITE_CLOUDFLARE_WORKER_URL;
+    if (!workerUrl) {
+      console.warn('[TranslationService] VITE_CLOUDFLARE_WORKER_URL not set, falling back to Vercel');
+      return `${baseUrl}${endpoint}`;
+    }
+    return `${workerUrl}${endpoint}`;
+  } else {
+    // Vercel (기본값)
+    return `${baseUrl}${endpoint}`;
+  }
+}
+
 export interface TranslatedContent {
   title: string | null;
   content: string | null;
@@ -29,10 +58,17 @@ export async function translateText(
   }
 
   try {
-    const response = await fetch('/api/translate-text', {
+    // API Provider에 따라 엔드포인트 선택
+    const apiUrl = getApiUrl('/api/translate-text');
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // Supabase Edge Functions에 필요한 인증 헤더 (익명 키)
+        ...(import.meta.env.VITE_API_PROVIDER === 'supabase' && import.meta.env.VITE_SUPABASE_ANON_KEY && {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        })
       },
       body: JSON.stringify({
         text: text,

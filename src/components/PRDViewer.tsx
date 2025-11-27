@@ -197,7 +197,18 @@ ${escapedChart}
 
   // 에러 발생 시 텍스트로 표시
   if (error) {
-    const mermaidLiveUrl = `https://mermaid.live/edit#pako:${btoa(cleanedChart)}`;
+    // UTF-8 문자열을 안전하게 base64 인코딩
+    // btoa는 Latin1만 지원하므로 UTF-8을 먼저 인코딩해야 함
+    const encodeBase64 = (str: string): string => {
+      try {
+        // UTF-8로 인코딩 후 base64 변환
+        return btoa(unescape(encodeURIComponent(str)));
+      } catch (e) {
+        // 인코딩 실패 시 URL 인코딩 사용
+        return encodeURIComponent(str);
+      }
+    };
+    const mermaidLiveUrl = `https://mermaid.live/edit#pako:${encodeBase64(cleanedChart)}`;
     return (
       <div className="my-6 p-5 bg-muted/30 border border-border rounded-lg">
         <div className="flex items-center justify-between mb-3">
@@ -303,12 +314,20 @@ function processMermaidContent(content: string) {
   return parts;
 }
 
-export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
+export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showMermaidEditor, setShowMermaidEditor] = useState(false);
   const [editingMermaidIndex, setEditingMermaidIndex] = useState<number | null>(null);
   const [editingMermaidCode, setEditingMermaidCode] = useState<string>('');
-  const [saving, setSaving] = useState(false);
+  const [prdContent, setPrdContent] = useState(prd.content);
+  const [saving, setSaving] = useState(false); // saving state 추가
+
+  // prd prop이 변경될 때 prdContent 상태 동기화
+  useEffect(() => {
+    setPrdContent(prd.content);
+  }, [prd.content]);
+
+  const processedParts = processMermaidContent(prdContent);
 
   const handleDownloadMarkdown = () => {
     const blob = new Blob([prd.content], { type: 'text/markdown;charset=utf-8' });
@@ -370,14 +389,6 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
       alert('PDF 다운로드 중 오류가 발생했습니다.');
     }
   };
-
-  const [prdContent, setPrdContent] = useState(prd.content);
-  const processedParts = processMermaidContent(prdContent);
-
-  // prd.content가 변경되면 prdContent 동기화
-  useEffect(() => {
-    setPrdContent(prd.content);
-  }, [prd.content]);
 
   // Mermaid 에디터 열기
   const handleOpenMermaidEditor = (mermaidIndex: number, mermaidCode: string) => {
@@ -614,10 +625,9 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
             setEditingMermaidIndex(null);
             setEditingMermaidCode('');
           }}
-          saving={saving}
+          saving={saving} // saving prop 전달
         />
       )}
     </Card>
   );
 }
-
