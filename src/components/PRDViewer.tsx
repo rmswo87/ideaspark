@@ -1,9 +1,9 @@
 // PRD 뷰어 컴포넌트 (개선된 마크다운 렌더링 및 Mermaid 지원)
-import { useRef } from 'react';
+import { useRef, useEffect, useState, useLayoutEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-// Mermaid import 제거 - React DOM 충돌 방지를 위해 렌더링 비활성화
+import mermaid from 'mermaid';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Edit, FileText } from 'lucide-react';
@@ -15,34 +15,139 @@ interface PRDViewerProps {
   onEdit?: () => void;
 }
 
-// Mermaid 다이어그램 컴포넌트 (React DOM 충돌 방지를 위해 텍스트로만 표시)
-// Mermaid 렌더링은 React의 가상 DOM과 충돌하므로, 안전하게 텍스트로만 표시합니다.
+// Mermaid 다이어그램 컴포넌트 (React DOM 충돌 방지를 위한 안전한 렌더링)
+// 참고: https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
-  const cleanedChart = chart.trim();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [rendered, setRendered] = useState(false);
+  const [svgContent, setSvgContent] = useState<string | null>(null);
   
-  // Mermaid Live Editor URL 생성 (base64 인코딩)
-  const encodedChart = encodeURIComponent(cleanedChart);
-  const mermaidLiveUrl = `https://mermaid.live/edit#pako:${btoa(cleanedChart)}`;
+  // 안정적인 ID 생성 (재렌더링 시에도 동일한 ID 유지)
+  const mermaidId = useMemo(() => `mermaid-${index}`, [index]);
+  const cleanedChart = useMemo(() => chart.trim(), [chart]);
+
+  // Mermaid 초기화 (한 번만)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !(window as any).__mermaidInitialized) {
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+          fontFamily: 'inherit',
+        });
+        (window as any).__mermaidInitialized = true;
+      } catch (err) {
+        console.error('Mermaid initialization error:', err);
+      }
+    }
+  }, []);
+
+  // useLayoutEffect를 사용하여 DOM이 완전히 준비된 후 렌더링
+  useLayoutEffect(() => {
+    // 이미 렌더링된 경우 재렌더링하지 않음
+    if (rendered || !containerRef.current || !cleanedChart) return;
+
+    const container = containerRef.current;
+    let isMounted = true;
+
+    // Mermaid 렌더링 (비동기)
+    const renderDiagram = async () => {
+      try {
+        // 컨테이너 초기화
+        container.innerHTML = '';
+        
+        // mermaid.render()를 사용하여 SVG 생성
+        const { svg } = await mermaid.render(mermaidId, cleanedChart);
+        
+        if (!isMounted || !containerRef.current) return;
+
+        // SVG를 최적화하여 설정
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
+        const svgElement = svgDoc.documentElement;
+        
+        // SVG 크기 조정
+        svgElement.removeAttribute('width');
+        svgElement.removeAttribute('height');
+        svgElement.setAttribute('width', '100%');
+        svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svgElement.style.maxWidth = '100%';
+        svgElement.style.height = 'auto';
+        svgElement.style.display = 'block';
+
+        // SVG를 문자열로 변환하여 상태에 저장 (React가 제어하도록)
+        const svgString = svgElement.outerHTML;
+        setSvgContent(svgString);
+        setRendered(true);
+        setError(null);
+      } catch (err) {
+        console.error('Mermaid rendering error:', err);
+        if (isMounted) {
+          const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
+          setError(`다이어그램 렌더링 실패: ${errorMessage}`);
+        }
+      }
+    };
+
+    // 약간의 지연 후 렌더링 (React의 렌더링 사이클 완료 대기)
+    const timer = setTimeout(() => {
+      renderDiagram();
+    }, 100);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [cleanedChart, mermaidId, rendered]);
+
+  // 에러 발생 시 텍스트로 표시
+  if (error) {
+    const mermaidLiveUrl = `https://mermaid.live/edit#pako:${btoa(cleanedChart)}`;
+    return (
+      <div className="my-6 p-5 bg-muted/30 border border-border rounded-lg">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold text-foreground">📊 Mermaid 다이어그램</p>
+          <a
+            href={mermaidLiveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline font-medium"
+          >
+            Mermaid Live에서 보기 →
+          </a>
+        </div>
+        <p className="text-sm text-destructive mb-2">{error}</p>
+        <pre className="text-xs bg-background p-4 rounded overflow-x-auto whitespace-pre-wrap border border-border font-mono">
+          {cleanedChart}
+        </pre>
+      </div>
+    );
+  }
 
   return (
-    <div className="my-6 p-5 bg-muted/30 border border-border rounded-lg">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-foreground">📊 Mermaid 다이어그램</p>
-        <a
-          href={mermaidLiveUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-primary hover:underline font-medium"
-        >
-          Mermaid Live에서 보기 →
-        </a>
+    <div className="my-8 w-full flex justify-center">
+      <div 
+        ref={containerRef}
+        className="mermaid-container w-full max-w-4xl"
+        suppressHydrationWarning
+      >
+        {!rendered && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">다이어그램 렌더링 중...</p>
+            </div>
+          </div>
+        )}
+        {svgContent && (
+          <div 
+            dangerouslySetInnerHTML={{ __html: svgContent }}
+            suppressHydrationWarning
+          />
+        )}
       </div>
-      <pre className="text-xs bg-background p-4 rounded overflow-x-auto whitespace-pre-wrap border border-border font-mono">
-        {cleanedChart}
-      </pre>
-      <p className="text-xs text-muted-foreground mt-3">
-        💡 위 코드를 <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer" className="text-primary underline">Mermaid Live Editor</a>에 붙여넣어 다이어그램을 확인하실 수 있습니다.
-      </p>
     </div>
   );
 }
