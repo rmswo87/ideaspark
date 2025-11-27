@@ -23,8 +23,9 @@ import { Square, Circle, Diamond, Minus, Hexagon, Cylinder, FileText, Layers } f
 
 interface MermaidVisualEditorProps {
   initialMermaidCode?: string;
-  onSave: (mermaidCode: string) => void;
+  onSave: (mermaidCode: string) => void | Promise<void>;
   onClose: () => void;
+  saving?: boolean;
 }
 
 // 커스텀 노드 타입들
@@ -106,12 +107,11 @@ const SubroutineNode = ({ data, selected }: any) => (
 
 const CylindricalNode = ({ data, selected }: any) => (
   <div
-    className={`px-4 py-2 bg-orange-500 text-white border-2 border-orange-700 rounded-t-full rounded-b-full min-w-[100px] text-center shadow-md ${
+    className={`px-4 py-2 bg-orange-500 text-white border-2 border-orange-700 rounded min-w-[100px] text-center shadow-md ${
       selected ? 'ring-2 ring-orange-400 ring-offset-2' : ''
     }`}
     style={{
-      borderTopWidth: '3px',
-      borderBottomWidth: '3px',
+      clipPath: 'polygon(0% 0%, 100% 0%, 95% 100%, 5% 100%)',
     }}
   >
     <Handle type="target" position={Position.Top} className="w-3 h-3 bg-orange-700" />
@@ -120,31 +120,20 @@ const CylindricalNode = ({ data, selected }: any) => (
   </div>
 );
 
-const HexagonNode = ({ data, selected }: any) => {
-  return (
-    <div
-      className={`relative flex items-center justify-center ${
-        selected ? 'ring-2 ring-teal-400 ring-offset-2' : ''
-      }`}
-      style={{
-        width: '120px',
-        height: '80px',
-      }}
-    >
-      <svg width="120" height="80" className="absolute drop-shadow-md">
-        <polygon
-          points="60,5 110,25 110,55 60,75 10,55 10,25"
-          fill="#14b8a6"
-          stroke="#0f766e"
-          strokeWidth="2"
-        />
-      </svg>
-      <Handle type="target" position={Position.Top} className="w-3 h-3 bg-teal-700" />
-      <div className="relative z-10 text-white text-sm text-center px-2 font-medium">{data.label}</div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-teal-700" />
-    </div>
-  );
-};
+const HexagonNode = ({ data, selected }: any) => (
+  <div
+    className={`px-4 py-2 bg-teal-500 text-white border-2 border-teal-700 min-w-[100px] text-center shadow-md ${
+      selected ? 'ring-2 ring-teal-400 ring-offset-2' : ''
+    }`}
+    style={{
+      clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
+    }}
+  >
+    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-teal-700" />
+    <div className="font-medium">{data.label}</div>
+    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-teal-700" />
+  </div>
+);
 
 const nodeTypes: NodeTypes = {
   box: BoxNode,
@@ -157,134 +146,97 @@ const nodeTypes: NodeTypes = {
   hexagon: HexagonNode,
 };
 
-// Mermaid 코드 파싱 (기본적인 파싱만)
-const parseMermaidToNodes = (code: string): { nodes: Node[]; edges: Edge[] } => {
+// Mermaid 코드를 노드와 엣지로 파싱
+function parseMermaidToNodes(mermaidCode: string): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
-  const nodeMap = new Map<string, string>();
+  const nodeMap = new Map<string, Node>();
 
-  // Mermaid 코드 블록 제거
-  const cleanCode = code.replace(/```mermaid\n?/g, '').replace(/```/g, '').trim();
-  const lines = cleanCode.split('\n').filter((line) => line.trim());
-  let nodeId = 0;
-
-  lines.forEach((line) => {
-    // 노드 정의: A[라벨] 또는 graph TD 등은 무시
-    if (line.trim().startsWith('graph')) return;
-    
-    const nodeDef = line.match(/(\w+)\[([^\]]+)\]/);
-    if (nodeDef) {
-      const id = nodeDef[1];
-      const label = nodeDef[2];
-      if (!nodeMap.has(id)) {
-        nodeMap.set(id, `node-${nodeId++}`);
-        nodes.push({
-          id: nodeMap.get(id)!,
-          type: 'box',
-          position: { x: (nodeId % 3) * 200 + 100, y: Math.floor(nodeId / 3) * 150 + 50 },
-          data: { label },
-        });
-      }
-    }
-
-    // 다이아몬드: A{라벨}
-    const diamondDef = line.match(/(\w+)\{([^}]+)\}/);
-    if (diamondDef && !nodeDef) {
-      const id = diamondDef[1];
-      const label = diamondDef[2];
-      if (!nodeMap.has(id)) {
-        nodeMap.set(id, `node-${nodeId++}`);
-        nodes.push({
-          id: nodeMap.get(id)!,
-          type: 'diamond',
-          position: { x: (nodeId % 3) * 200 + 100, y: Math.floor(nodeId / 3) * 150 + 50 },
-          data: { label },
-        });
-      }
-    }
-
-    // 화살표: A --> B
-    const arrow = line.match(/(\w+)\s*-->\s*(\w+)/);
-    if (arrow) {
-      const from = arrow[1];
-      const to = arrow[2];
-      if (nodeMap.has(from) && nodeMap.has(to)) {
-        edges.push({
-          id: `edge-${edges.length}`,
-          source: nodeMap.get(from)!,
-          target: nodeMap.get(to)!,
-        });
-      }
-    }
-  });
-
-  return { nodes: nodes.length > 0 ? nodes : getInitialNodes(), edges };
-};
-
-// Mermaid 코드 생성
-const generateMermaidCode = (nodes: Node[], edges: Edge[]): string => {
-  let code = 'graph TD\n';
+  // 간단한 파싱 (flowchart TB, TD, LR, RL 등)
+  const lines = mermaidCode.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('graph') && !line.startsWith('flowchart'));
   
-  nodes.forEach((node) => {
-    const type = node.type || 'box';
-    if (type === 'box') {
-      code += `    ${node.id}[${node.data.label}]\n`;
-    } else if (type === 'diamond') {
-      code += `    ${node.id}{${node.data.label}}\n`;
-    } else if (type === 'circle') {
-      code += `    ${node.id}((${node.data.label}))\n`;
-    } else if (type === 'round') {
-      code += `    ${node.id}(${node.data.label})\n`;
-    } else if (type === 'stadium') {
-      code += `    ${node.id}([${node.data.label}])\n`;
-    } else if (type === 'subroutine') {
-      code += `    ${node.id}[[:${node.data.label}]]\n`;
-    } else if (type === 'cylindrical') {
-      code += `    ${node.id}[(${node.data.label})]\n`;
-    } else if (type === 'hexagon') {
-      code += `    ${node.id}{{${node.data.label}}}\n`;
+  lines.forEach((line) => {
+    // A --> B 형식
+    const arrowMatch = line.match(/([A-Za-z0-9_]+)\s*-->?\s*([A-Za-z0-9_]+)/);
+    if (arrowMatch) {
+      const [, sourceId, targetId] = arrowMatch;
+      
+      if (!nodeMap.has(sourceId)) {
+        const node: Node = {
+          id: sourceId,
+          type: 'box',
+          position: { x: Math.random() * 400, y: Math.random() * 400 },
+          data: { label: sourceId },
+        };
+        nodes.push(node);
+        nodeMap.set(sourceId, node);
+      }
+      
+      if (!nodeMap.has(targetId)) {
+        const node: Node = {
+          id: targetId,
+          type: 'box',
+          position: { x: Math.random() * 400, y: Math.random() * 400 },
+          data: { label: targetId },
+        };
+        nodes.push(node);
+        nodeMap.set(targetId, node);
+      }
+      
+      edges.push({
+        id: `e${sourceId}-${targetId}`,
+        source: sourceId,
+        target: targetId,
+      });
+    }
+    
+    // A[Label] 형식
+    const labelMatch = line.match(/([A-Za-z0-9_]+)\[([^\]]+)\]/);
+    if (labelMatch) {
+      const [, nodeId, label] = labelMatch;
+      if (nodeMap.has(nodeId)) {
+        nodeMap.get(nodeId)!.data.label = label;
+      }
     }
   });
 
-  edges.forEach((edge) => {
-    const label = edge.label || '';
-    code += `    ${edge.source} -->${label ? `|${label}|` : ''} ${edge.target}\n`;
+  return { nodes, edges };
+}
+
+// 노드와 엣지를 Mermaid 코드로 변환
+function generateMermaidCode(nodes: Node[], edges: Edge[]): string {
+  let code = 'graph TB\n';
+  
+  // 노드 정의 (라벨이 있으면 사용)
+  nodes.forEach((node) => {
+    const label = node.data?.label || node.id;
+    code += `  ${node.id}[${label}]\n`;
   });
+  
+  // 엣지 정의
+  edges.forEach((edge) => {
+    code += `  ${edge.source} --> ${edge.target}\n`;
+  });
+  
+  return code.trim();
+}
 
-  return '```mermaid\n' + code + '```';
-};
-
-const getInitialNodes = (): Node[] => [
-  {
-    id: '1',
-    type: 'box',
-    position: { x: 250, y: 100 },
-    data: { label: '시작' },
-  },
-  {
-    id: '2',
-    type: 'diamond',
-    position: { x: 250, y: 250 },
-    data: { label: '조건' },
-  },
-  {
-    id: '3',
-    type: 'box',
-    position: { x: 100, y: 400 },
-    data: { label: '결과 1' },
-  },
-  {
-    id: '4',
-    type: 'box',
-    position: { x: 400, y: 400 },
-    data: { label: '결과 2' },
-  },
-];
+function getInitialNodes(): Node[] {
+  return [
+    {
+      id: 'start',
+      type: 'circle',
+      position: { x: 250, y: 100 },
+      data: { label: '시작' },
+    },
+  ];
+}
 
 export function MermaidVisualEditor({
   initialMermaidCode = '',
   onSave,
   onClose,
+  saving = false,
 }: MermaidVisualEditorProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(
     initialMermaidCode ? parseMermaidToNodes(initialMermaidCode).nodes : getInitialNodes()
@@ -313,92 +265,41 @@ export function MermaidVisualEditor({
       data: { label: nodeLabel || '새 노드' },
     };
     setNodes((nds) => [...nds, newNode]);
-    setShowNodeDialog(false);
     setNodeLabel('');
+    setShowNodeDialog(false);
   }, [selectedNodeType, nodeLabel, setNodes]);
 
   const deleteSelected = useCallback(() => {
-    // 선택된 노드 삭제
-    const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
     setNodes((nds) => nds.filter((node) => !node.selected));
-    
-    // 선택된 엣지 삭제
-    setEdges((eds) =>
-      eds.filter(
-        (edge) =>
-          !edge.selected && // 선택된 엣지가 아니고
-          !selectedNodeIds.includes(edge.source) && // 연결된 노드가 삭제되지 않는 경우
-          !selectedNodeIds.includes(edge.target)
-      )
-    );
-  }, [nodes, setNodes, setEdges]);
-
-  // 엣지 삭제 전용 함수
-  const deleteSelectedEdges = useCallback(() => {
     setEdges((eds) => eds.filter((edge) => !edge.selected));
-  }, [setEdges]);
+  }, [setNodes, setEdges]);
 
-  // 키보드 Delete 키로 삭제
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (edges.some((e) => e.selected)) {
-          deleteSelectedEdges();
-        } else if (nodes.some((n) => n.selected)) {
-          deleteSelected();
-        }
-      }
-    },
-    [edges, nodes, deleteSelectedEdges, deleteSelected]
-  );
-
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     const mermaidCode = generateMermaidCode(nodes, edges);
     onSave(mermaidCode);
-  };
+  }, [nodes, edges, onSave]);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-6">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Mermaid 시각적 에디터</DialogTitle>
+          <DialogTitle>Mermaid 다이어그램 편집</DialogTitle>
           <DialogDescription>
-            노드를 드래그하여 배치하고, 핸들을 드래그하여 연결하세요. Delete 키로 선택한 요소를 삭제할 수 있습니다.
+            노드를 드래그하여 이동하고, 연결점을 드래그하여 연결하세요. Delete 키로 선택한 노드를 삭제할 수 있습니다.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="flex-1 flex flex-col gap-4 min-h-0">
-          {/* 툴바 */}
-          <div className="flex items-center gap-2 pb-2 border-b">
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex gap-2 mb-2">
             <Button onClick={() => setShowNodeDialog(true)} variant="outline" size="sm">
               <Square className="h-4 w-4 mr-1" />
               노드 추가
             </Button>
-            <Button
-              onClick={deleteSelected}
-              variant="outline"
-              size="sm"
-              disabled={!nodes.some((n) => n.selected) && !edges.some((e) => e.selected)}
-            >
+            <Button onClick={deleteSelected} variant="outline" size="sm">
               <Minus className="h-4 w-4 mr-1" />
-              선택 삭제 (Delete 키)
-            </Button>
-            <div className="flex-1" />
-            <Button onClick={handleSave} variant="default" size="sm">
-              저장
-            </Button>
-            <Button onClick={onClose} variant="outline" size="sm">
-              취소
+              선택 삭제
             </Button>
           </div>
-
-          {/* React Flow 캔버스 */}
-          <div
-            className="flex-1 border rounded-lg overflow-hidden min-h-[500px] bg-white dark:bg-slate-900"
-            ref={reactFlowWrapper}
-            onKeyDown={handleKeyDown}
-            tabIndex={0}
-          >
+          <div ref={reactFlowWrapper} className="flex-1 border rounded-lg bg-muted/20 min-h-[500px]">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -406,75 +307,92 @@ export function MermaidVisualEditor({
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               nodeTypes={nodeTypes}
+              onKeyDown={(event) => {
+                if (event.key === 'Delete' || event.key === 'Backspace') {
+                  deleteSelected();
+                }
+              }}
               fitView
-              deleteKeyCode={['Delete', 'Backspace']}
             >
-              <Background color="#94a3b8" gap={16} />
               <Controls />
+              <Background />
             </ReactFlow>
           </div>
         </div>
+        <DialogFooter>
+          <Button onClick={onClose} variant="outline">
+            취소
+          </Button>
+          <Button onClick={handleSave} variant="default" size="sm" disabled={saving}>
+            {saving ? '저장 중...' : '저장'}
+          </Button>
+        </DialogFooter>
 
-        {/* 노드 추가 다이얼로그 */}
         <Dialog open={showNodeDialog} onOpenChange={setShowNodeDialog}>
-          <DialogContent className="max-w-md z-[110]">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>노드 추가</DialogTitle>
+              <DialogDescription>
+                노드 타입과 라벨을 선택하세요.
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>노드 타입</Label>
-                <Select value={selectedNodeType} onValueChange={(v: any) => setSelectedNodeType(v)}>
-                  <SelectTrigger>
+                <Label htmlFor="node-type">노드 타입</Label>
+                <Select
+                  value={selectedNodeType}
+                  onValueChange={(value: any) => setSelectedNodeType(value)}
+                >
+                  <SelectTrigger id="node-type">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="z-[120]">
+                  <SelectContent>
                     <SelectItem value="box">
                       <div className="flex items-center gap-2">
                         <Square className="h-4 w-4" />
-                        박스 {'[라벨]'}
+                        <span>박스</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="diamond">
                       <div className="flex items-center gap-2">
                         <Diamond className="h-4 w-4" />
-                        다이아몬드 {'{라벨}'} (조건)
+                        <span>다이아몬드</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="circle">
                       <div className="flex items-center gap-2">
                         <Circle className="h-4 w-4" />
-                        이중원 {'((라벨))'}
+                        <span>원형</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="round">
                       <div className="flex items-center gap-2">
                         <Circle className="h-4 w-4" />
-                        둥근 모서리 {'(라벨)'}
+                        <span>둥근 박스</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="stadium">
                       <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        경기장형 {'([라벨])'}
+                        <Layers className="h-4 w-4" />
+                        <span>스타디움</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="subroutine">
                       <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4" />
-                        서브루틴 {'[[:라벨]]'}
+                        <FileText className="h-4 w-4" />
+                        <span>서브루틴</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="cylindrical">
                       <div className="flex items-center gap-2">
                         <Cylinder className="h-4 w-4" />
-                        실린더 {'[(라벨)]'}
+                        <span>원통형</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="hexagon">
                       <div className="flex items-center gap-2">
                         <Hexagon className="h-4 w-4" />
-                        육각형 {'{{라벨}}'}
+                        <span>육각형</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
