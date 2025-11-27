@@ -25,6 +25,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
   useEffect(() => {
     let isMounted = true;
     let renderTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let initTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function renderMermaid() {
       if (!containerRef.current || !isMounted) return;
@@ -34,17 +35,24 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
       const cleanedChart = chart.trim();
 
       if (!cleanedChart) {
-        setError('다이어그램 코드가 비어있습니다.');
+        if (isMounted) {
+          setError('다이어그램 코드가 비어있습니다.');
+        }
         return;
       }
 
       try {
         // innerHTML만 사용하여 안전하게 초기화 (removeChild 절대 사용 안 함)
-        container.innerHTML = '';
-        setIsRendered(false);
-        setError(null);
+        if (container) {
+          container.innerHTML = '';
+        }
+        
+        if (isMounted) {
+          setIsRendered(false);
+          setError(null);
+        }
 
-        // Mermaid 초기화
+        // Mermaid 초기화 (한 번만)
         try {
           mermaid.initialize({
             startOnLoad: false,
@@ -81,7 +89,9 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
             svgElement.style.display = 'block';
 
             // innerHTML만 사용하여 설정 (removeChild 절대 사용 안 함)
-            containerRef.current.innerHTML = svgElement.outerHTML;
+            if (containerRef.current) {
+              containerRef.current.innerHTML = svgElement.outerHTML;
+            }
             
             if (isMounted) {
               setError(null);
@@ -100,7 +110,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
               `;
             }
           }
-        }, 300); // React의 DOM 조작 완료 대기
+        }, 500); // React의 DOM 조작 완료 대기 (더 긴 지연)
       } catch (err) {
         console.error('Mermaid render error:', err);
         if (isMounted && containerRef.current) {
@@ -116,9 +126,11 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
     }
 
     // 약간의 지연 후 렌더링 시작
-    const initTimer = setTimeout(() => {
-      renderMermaid();
-    }, 100);
+    initTimer = setTimeout(() => {
+      if (isMounted) {
+        renderMermaid();
+      }
+    }, 200);
 
     return () => {
       isMounted = false;
@@ -131,6 +143,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
       // cleanup: innerHTML만 사용 (removeChild 절대 사용 안 함)
       if (containerRef.current) {
         try {
+          // React가 처리하도록 최소한의 cleanup만 수행
           containerRef.current.innerHTML = '';
         } catch (e) {
           // 에러 무시

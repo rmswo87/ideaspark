@@ -29,12 +29,17 @@ export function IdeaDetailPage() {
     isMountedRef.current = true;
     fetchIdea();
     fetchUser();
-    checkExistingPRD();
+    
+    // 사용자 정보를 먼저 가져온 후 PRD 확인
+    const userTimer = setTimeout(() => {
+      checkExistingPRD();
+    }, 100);
     
     return () => {
       isMountedRef.current = false;
+      clearTimeout(userTimer);
     };
-  }, [id]);
+  }, [id, user]);
 
   async function fetchIdea() {
     if (!id) return;
@@ -63,7 +68,9 @@ export function IdeaDetailPage() {
       const prds = await getPRDs({ ideaId: id, userId: user.id, limit: 1 });
       if (prds.length > 0) {
         const fullPRD = await getPRD(prds[0].id);
-        setPrd(fullPRD);
+        if (isMountedRef.current) {
+          setPrd(fullPRD);
+        }
       }
     } catch (error) {
       console.error('Error checking existing PRD:', error);
@@ -78,6 +85,19 @@ export function IdeaDetailPage() {
 
     if (!isMountedRef.current) return;
 
+    // 기존 PRD 확인
+    try {
+      const existingPRDs = await getPRDs({ ideaId: id, userId: user.id, limit: 1 });
+      if (existingPRDs.length > 0) {
+        const confirmMessage = '이미 이 아이디어에 대한 PRD가 있습니다. 새로 생성하시겠습니까? (기존 PRD는 유지됩니다)';
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing PRD:', error);
+    }
+
     setGenerating(true);
     setError(null);
     
@@ -86,13 +106,11 @@ export function IdeaDetailPage() {
       
       if (!isMountedRef.current) return;
       
-      // 상태 업데이트를 requestAnimationFrame으로 지연
-      requestAnimationFrame(() => {
-        if (isMountedRef.current) {
-          setPrd(newPRD);
-          setGenerating(false);
-        }
-      });
+      // 상태 업데이트를 즉시 수행 (지연 제거)
+      setPrd(newPRD);
+      setGenerating(false);
+      
+      // PRD 생성 후 기존 PRD 확인 함수를 다시 호출하지 않음 (충돌 방지)
     } catch (error) {
       console.error('PRD generation error:', error);
       if (!isMountedRef.current) return;
@@ -112,6 +130,20 @@ export function IdeaDetailPage() {
 
     if (!isMountedRef.current) return;
 
+    // 기존 개발 계획서 확인
+    try {
+      const existingPlans = await getPRDs({ ideaId: id, userId: user.id, limit: 10 });
+      const hasPlan = existingPlans.some(p => p.title.includes('개발 계획서'));
+      if (hasPlan) {
+        const confirmMessage = '이미 이 아이디어에 대한 개발 계획서가 있습니다. 새로 생성하시겠습니까? (기존 계획서는 유지됩니다)';
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing plan:', error);
+    }
+
     setGeneratingPlan(true);
     setError(null);
     
@@ -122,13 +154,9 @@ export function IdeaDetailPage() {
       
       if (!isMountedRef.current) return;
       
-      // 상태 업데이트를 requestAnimationFrame으로 지연
-      requestAnimationFrame(() => {
-        if (isMountedRef.current) {
-          setPrd(newPlan);
-          setGeneratingPlan(false);
-        }
-      });
+      // 상태 업데이트를 즉시 수행 (지연 제거)
+      setPrd(newPlan);
+      setGeneratingPlan(false);
     } catch (error) {
       console.error('Development plan generation error:', error);
       if (!isMountedRef.current) return;
