@@ -25,21 +25,23 @@ export function IdeaDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
+  // 아이디어와 사용자 정보 가져오기 (id 변경 시에만)
   useEffect(() => {
     isMountedRef.current = true;
     fetchIdea();
     fetchUser();
     
-    // 사용자 정보를 먼저 가져온 후 PRD 확인
-    const userTimer = setTimeout(() => {
-      checkExistingPRD();
-    }, 100);
-    
     return () => {
       isMountedRef.current = false;
-      clearTimeout(userTimer);
     };
-  }, [id, user]);
+  }, [id]);
+
+  // 사용자 정보가 로드된 후 PRD 확인 (user?.id 변경 시에만)
+  useEffect(() => {
+    if (user?.id && id) {
+      checkExistingPRD();
+    }
+  }, [user?.id, id]);
 
   async function fetchIdea() {
     if (!id) return;
