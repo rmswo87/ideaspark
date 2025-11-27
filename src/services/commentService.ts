@@ -35,7 +35,10 @@ export async function createComment(
       content,
       parent_id: parentId || null,
     })
-    .select()
+    .select(`
+      *,
+      user:profiles(id, email)
+    `)
     .single();
 
   if (error) {
@@ -46,7 +49,7 @@ export async function createComment(
   // 댓글 수 증가
   await supabase.rpc('increment_comment_count', { post_id_param: postId });
 
-  return comment;
+  return comment as unknown as Comment;
 }
 
 /**
@@ -57,7 +60,7 @@ export async function getComments(postId: string): Promise<Comment[]> {
     .from('comments')
     .select(`
       *,
-      user:auth.users!comments_user_id_fkey(id, email)
+      user:profiles(id, email)
     `)
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
@@ -114,7 +117,10 @@ export async function updateComment(
       updated_at: new Date().toISOString(),
     })
     .eq('id', commentId)
-    .select()
+    .select(`
+      *,
+      user:profiles(id, email)
+    `)
     .single();
 
   if (error) {
@@ -122,7 +128,7 @@ export async function updateComment(
     throw error;
   }
 
-  return data;
+  return data as unknown as Comment;
 }
 
 /**
@@ -175,7 +181,7 @@ export function subscribeToComments(
           .from('comments')
           .select(`
             *,
-            user:auth.users!comments_user_id_fkey(id, email)
+            user:profiles(id, email)
           `)
           .eq('id', payload.new.id)
           .single();
@@ -191,5 +197,3 @@ export function subscribeToComments(
     supabase.removeChannel(channel);
   };
 }
-
-
