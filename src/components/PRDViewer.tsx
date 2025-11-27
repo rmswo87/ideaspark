@@ -65,7 +65,7 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       padding: 20px;
     }
     svg {
-      max-width: 85% !important;
+      max-width: 95% !important;
       height: auto !important;
       width: auto !important;
     }
@@ -93,54 +93,75 @@ ${escapedChart}
     // Gantt 차트인지 정확히 감지
     const isGantt = /^\s*gantt\s/i.test(\`${escapedChart.replace(/`/g, '\\`')}\`);
     
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'default',
-      securityLevel: 'loose',
-      fontFamily: 'inherit',
-      fontSize: 12,
-      flowchart: {
-        nodeSpacing: 40,
-        rankSpacing: 40,
-        curve: 'basis'
-      },
-      er: {
-        fontSize: 12,
-        entityPadding: 10,
-        padding: 15
-      },
-      gantt: {
-        fontSize: 11,
-        sectionFontSize: 12,
-        leftPadding: 50,
-        gridLineStartPadding: 25,
-        bottomPadding: 15,
-        topPadding: 15,
-        barHeight: 20,
-        barGap: 3
-      }
-    });
-    
-    // 렌더링 완료 후 부모에게 알림
-    window.addEventListener('load', function() {
+    // Mermaid 초기화 및 렌더링
+    function renderMermaid() {
       try {
-        mermaid.run();
-        // 렌더링 성공 및 높이 전달
-        setTimeout(() => {
-          const svg = document.querySelector('svg');
-          if (svg && window.parent) {
-            const height = svg.getBoundingClientRect().height + 40; // 패딩 포함
-            window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
-            window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+          fontFamily: 'inherit',
+          fontSize: ${isGanttChart ? '11' : '14'},
+          flowchart: {
+            nodeSpacing: 60,
+            rankSpacing: 60,
+            curve: 'basis'
+          },
+          er: {
+            fontSize: 14,
+            entityPadding: 12,
+            padding: 18
+          },
+          gantt: {
+            fontSize: 11,
+            sectionFontSize: 12,
+            leftPadding: 50,
+            gridLineStartPadding: 25,
+            bottomPadding: 15,
+            topPadding: 15,
+            barHeight: 20,
+            barGap: 3
           }
-        }, 100);
+        });
+        
+        // Mermaid 렌더링 실행
+        mermaid.run({
+          querySelector: '.mermaid',
+          suppressErrors: false
+        }).then(() => {
+          // 렌더링 성공 후 높이 전달
+          setTimeout(() => {
+            const svg = document.querySelector('svg');
+            if (svg && window.parent) {
+              const height = svg.getBoundingClientRect().height + 40; // 패딩 포함
+              window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
+              window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
+            } else if (window.parent) {
+              // SVG가 없으면 에러로 처리
+              window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'SVG not found after rendering', index: ${index} }, '*');
+            }
+          }, 200);
+        }).catch((err) => {
+          // 렌더링 실패
+          if (window.parent) {
+            window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed', index: ${index} }, '*');
+          }
+        });
       } catch (err) {
-        // 렌더링 실패
+        // 초기화 실패
         if (window.parent) {
-          window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message, index: ${index} }, '*');
+          window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Initialization failed', index: ${index} }, '*');
         }
       }
-    });
+    }
+    
+    // DOM 로드 후 렌더링
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', renderMermaid);
+    } else {
+      // 이미 로드된 경우 약간의 지연 후 렌더링
+      setTimeout(renderMermaid, 100);
+    }
   </script>
 </body>
 </html>`;
@@ -284,6 +305,11 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
   const [editingMermaidCode, setEditingMermaidCode] = useState<string>('');
   const [prdContent, setPrdContent] = useState(prd.content);
   const [saving, setSaving] = useState(false);
+
+  // prd prop이 변경되면 prdContent 업데이트
+  useEffect(() => {
+    setPrdContent(prd.content);
+  }, [prd.content]);
 
   const handleDownloadMarkdown = () => {
     const blob = new Blob([prdContent], { type: 'text/markdown;charset=utf-8' });
@@ -545,8 +571,7 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
                   blockquote: ({ node, ...props }) => (
                     <blockquote
                       className="border-l-4 border-primary pl-6 italic my-6 text-muted-foreground bg-muted/30 py-3 rounded-r"
-                      {...props}
-                    />
+                      {...props} />
                   ),
                   // 테이블 스타일링 (더 명확한 구분)
                   table: ({ node, ...props }) => (
