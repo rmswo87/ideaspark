@@ -160,9 +160,9 @@ export async function getFriendRequests(): Promise<FriendRequest[]> {
     throw error;
   }
 
-  return (data || []).map(item => ({
+  return (data || []).map((item: any) => ({
     id: item.id,
-    requester: item.requester,
+    requester: Array.isArray(item.requester) ? item.requester[0] : item.requester,
     status: item.status,
     created_at: item.created_at,
   })) as FriendRequest[];
