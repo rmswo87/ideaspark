@@ -76,7 +76,17 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   }
 
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card 
+      className="hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={(e) => {
+        // 버튼이나 링크 클릭이 아닌 경우에만 상세 페이지로 이동
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('a')) {
+          return;
+        }
+        onCardClick();
+      }}
+    >
       <CardHeader>
         <CardTitle className="line-clamp-2">
           {showTranslation && translatedTitle ? translatedTitle : idea.title}
@@ -111,9 +121,9 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
               {isTranslating ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : showTranslation ? (
-                '원문 보기'
+                '원문'
               ) : (
-                '번역 보기'
+                '번역'
               )}
             </Button>
           </div>
@@ -208,7 +218,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
             }}
           >
             <Languages className="h-4 w-4 mr-2" />
-            {showTranslation ? '원문 보기' : '번역 보기'}
+            {showTranslation ? '원문' : '번역'}
           </Button>
           <Button
             variant="outline"
@@ -218,7 +228,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
           >
             <a href={idea.url} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4 mr-2" />
-              원문 보기
+              Reddit 열기
             </a>
           </Button>
           <Button
@@ -229,7 +239,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
               onCardClick();
             }}
           >
-            PRD 생성
+            상세 보기
           </Button>
         </div>
       </CardContent>
