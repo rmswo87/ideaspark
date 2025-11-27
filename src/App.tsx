@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Sparkles, Calendar, User, ExternalLink, RefreshCw } from "lucide-react"
+import { Search, Sparkles, RefreshCw } from "lucide-react"
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
 import { supabase } from '@/lib/supabase'
@@ -18,6 +18,7 @@ import { AdminDashboard } from '@/pages/AdminDashboard'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, MessageSquare, Shield } from 'lucide-react'
+import { IdeaCard } from '@/components/IdeaCard'
 
 function HomePage() {
   const { user } = useAuth()
@@ -319,59 +320,12 @@ function HomePage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {ideas.map((idea) => (
-              <Card key={idea.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/idea/${idea.id}`)}>
-                <CardHeader>
-                  <CardTitle className="line-clamp-2">{idea.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    <span>{idea.author}</span>
-                    <span>·</span>
-                    <span>r/{idea.subreddit}</span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-                    {idea.content}
-                  </p>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {idea.collected_at ? formatDate(idea.collected_at) : '날짜 없음'}
-                      </span>
-                      <span className="px-2 py-1 bg-secondary rounded-md text-xs">
-                        {idea.category}
-                      </span>
-                      {idea.upvotes > 0 && (
-                        <span className="text-xs">👍 {idea.upvotes}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      asChild
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <a href={idea.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        원문 보기
-                      </a>
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigate(`/idea/${idea.id}`)
-                      }}
-                    >
-                      PRD 생성
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <IdeaCard
+                key={idea.id}
+                idea={idea}
+                onCardClick={() => navigate(`/idea/${idea.id}`)}
+                formatDate={formatDate}
+              />
             ))}
           </div>
         )}
