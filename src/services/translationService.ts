@@ -9,6 +9,8 @@ export interface TranslatedContent {
 
 /**
  * 텍스트 번역 (Google Translate, Papago, 또는 LibreTranslate)
+ * Google Translate API 무료 티어: 월 500,000자
+ * 한도 관리를 위해 제목은 100자, 내용은 200자로 제한
  */
 export async function translateText(
   text: string,
@@ -17,6 +19,13 @@ export async function translateText(
 ): Promise<string> {
   if (!text || text.trim().length === 0) {
     return text;
+  }
+
+  // 한도 관리를 위한 텍스트 길이 제한
+  // 제목: 최대 100자, 내용: 최대 200자
+  const maxLength = 200; // 안전한 한도 관리
+  if (text.length > maxLength) {
+    text = text.substring(0, maxLength);
   }
 
   try {
