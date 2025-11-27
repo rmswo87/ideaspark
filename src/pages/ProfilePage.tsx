@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest } from '@/services/friendService';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
+import { getMyComments } from '@/services/commentService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import type { FriendRequest, Friend } from '@/services/friendService';
@@ -41,6 +42,9 @@ export function ProfilePage() {
   const [postsDialogType, setPostsDialogType] = useState<'my' | 'liked' | 'bookmarked'>('my');
   const [postsList, setPostsList] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [commentsDialogOpen, setCommentsDialogOpen] = useState(false);
+  const [commentsList, setCommentsList] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -261,6 +265,26 @@ export function ProfilePage() {
     fetchPostsList(type);
   }
 
+  async function fetchCommentsList() {
+    if (!user) return;
+
+    setLoadingComments(true);
+    try {
+      const comments = await getMyComments(user.id);
+      setCommentsList(comments);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      alert('댓글 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingComments(false);
+    }
+  }
+
+  function handleOpenCommentsDialog() {
+    setCommentsDialogOpen(true);
+    fetchCommentsList();
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -406,7 +430,10 @@ export function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleOpenCommentsDialog()}
+            >
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
@@ -415,6 +442,7 @@ export function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">{stats.comments}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
 
@@ -525,6 +553,50 @@ export function ProfilePage() {
                             {post.bookmark_count}
                           </span>
                         </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={commentsDialogOpen} onOpenChange={setCommentsDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>작성한 댓글</DialogTitle>
+              </DialogHeader>
+              {loadingComments ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">로딩 중...</p>
+                </div>
+              ) : commentsList.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">댓글이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {commentsList.map((comment: any) => (
+                    <Card
+                      key={comment.id}
+                      className="cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => {
+                        if (comment.post?.id) {
+                          navigate(`/community/${comment.post.id}`);
+                          setCommentsDialogOpen(false);
+                        }
+                      }}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-sm mb-2 line-clamp-2">
+                          {comment.post?.title || '게시글 제목 없음'}
+                        </CardTitle>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>{formatDate(comment.created_at)}</span>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm line-clamp-3">{comment.content}</p>
                       </CardContent>
                     </Card>
                   ))}
