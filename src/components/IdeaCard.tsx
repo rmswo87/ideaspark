@@ -146,14 +146,25 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
-                    번역된 내용을 불러올 수 없습니다. 번역 페이지를 직접 확인해주세요.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
+                      번역된 내용을 불러올 수 없습니다.
+                    </p>
+                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-2 text-xs">
+                      <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                        💡 Chrome 자동 번역 사용하기
+                      </p>
+                      <ul className="text-blue-800 dark:text-blue-200 space-y-0.5 list-disc list-inside">
+                        <li>우측 상단 번역 아이콘 클릭</li>
+                        <li>또는 우클릭 → "한국어로 번역" 선택</li>
+                      </ul>
+                    </div>
+                  </div>
                   {translatedUrl && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full text-xs h-7"
+                      className="w-full text-xs h-7 mt-2"
                       asChild
                       onClick={(e) => e.stopPropagation()}
                     >
