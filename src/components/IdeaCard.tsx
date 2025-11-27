@@ -40,12 +40,15 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
       try {
         // 제목과 내용을 번역
         const result = await getTranslatedContent(idea.url, idea.title, idea.content);
-        // 번역이 성공했거나 원본 텍스트를 반환한 경우
-        if (result.success || result.title || result.content) {
-          setTranslatedTitle(result.title || idea.title);
-          setTranslatedContent(result.content || idea.content);
+        
+        // 번역 결과 설정
+        // 번역이 성공한 경우 번역된 텍스트 사용, 실패한 경우 null로 설정하여 원문 표시
+        if (result.success) {
+          // 번역 성공: 번역된 텍스트 사용
+          setTranslatedTitle(result.title);
+          setTranslatedContent(result.content);
         } else {
-          // 완전 실패 시 원본 사용
+          // 번역 실패: null로 설정하여 UI에서 원문 표시
           setTranslatedTitle(null);
           setTranslatedContent(null);
         }
