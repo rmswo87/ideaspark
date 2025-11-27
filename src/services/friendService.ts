@@ -184,3 +184,92 @@ export async function getFriendStatus(userId: string): Promise<'none' | 'pending
   if (error || !data) return 'none';
   return data.status as 'pending' | 'accepted' | 'blocked';
 }
+
+/**
+ * 사용자 차단하기
+ */
+export async function blockUser(userId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  // 이미 관계가 있는지 확인
+  const { data: existing } = await supabase
+    .from('friends')
+    .select('*')
+    .or(`and(requester_id.eq.${user.id},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${user.id})`)
+    .maybeSingle();
+
+  if (existing) {
+    // 기존 관계를 차단으로 업데이트
+    const { error } = await supabase
+      .from('friends')
+      .update({ 
+        status: 'blocked', 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', existing.id);
+
+    if (error) {
+      console.error('Error blocking user:', error);
+      throw error;
+    }
+  } else {
+    // 새로운 차단 관계 생성
+    const { error } = await supabase
+      .from('friends')
+      .insert({
+        requester_id: user.id,
+        addressee_id: userId,
+        status: 'blocked',
+      });
+
+    if (error) {
+      console.error('Error blocking user:', error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * 차단 해제하기
+ */
+export async function unblockUser(userId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  const { error } = await supabase
+    .from('friends')
+    .delete()
+    .or(`and(requester_id.eq.${user.id},addressee_id.eq.${userId}),and(requester_id.eq.${userId},addressee_id.eq.${user.id})`)
+    .eq('status', 'blocked');
+
+  if (error) {
+    console.error('Error unblocking user:', error);
+    throw error;
+  }
+}
+
+/**
+ * 차단한 사용자 목록 가져오기
+ */
+export async function getBlockedUsers(): Promise<Friend[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  const { data, error } = await supabase
+    .from('friends')
+    .select(`
+      *,
+      requester:profiles!friends_requester_id_fkey(id, email, nickname, is_public),
+      addressee:profiles!friends_addressee_id_fkey(id, email, nickname, is_public)
+    `)
+    .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+    .eq('status', 'blocked');
+
+  if (error) {
+    console.error('Error fetching blocked users:', error);
+    throw error;
+  }
+
+  return (data || []) as unknown as Friend[];
+}
