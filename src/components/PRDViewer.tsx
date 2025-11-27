@@ -41,6 +41,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
         if (isMounted) {
           setError('다이어그램 코드가 비어있습니다.');
           setShowAsText(true);
+          hasRenderedRef.current = true;
         }
         return;
       }
@@ -85,17 +86,31 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
             svgElement.style.height = 'auto';
             svgElement.style.display = 'block';
 
-            // innerHTML만 사용하여 설정 (removeChild 절대 사용 안 함)
+            // innerHTML만 사용하여 설정 (removeChild, insertBefore 절대 사용 안 함)
             // React가 이 요소를 건드리지 않도록 하기 위해 매우 신중하게 처리
             if (containerRef.current && containerRef.current.parentNode) {
-              containerRef.current.innerHTML = svgElement.outerHTML;
-              hasRenderedRef.current = true;
-              
-              if (isMounted) {
-                setError(null);
-                setIsRendered(true);
-                setShowAsText(false);
-              }
+              // requestAnimationFrame을 사용하여 React의 렌더링 사이클과 완전히 분리
+              requestAnimationFrame(() => {
+                if (!isMounted || !containerRef.current || hasRenderedRef.current) return;
+                
+                try {
+                  containerRef.current!.innerHTML = svgElement.outerHTML;
+                  hasRenderedRef.current = true;
+                  
+                  if (isMounted) {
+                    setError(null);
+                    setIsRendered(true);
+                    setShowAsText(false);
+                  }
+                } catch (domError) {
+                  console.error('DOM manipulation error:', domError);
+                  if (isMounted) {
+                    setError('다이어그램 렌더링 중 DOM 오류가 발생했습니다.');
+                    setShowAsText(true);
+                    hasRenderedRef.current = true;
+                  }
+                }
+              });
             }
           } catch (err) {
             console.error('Mermaid rendering error:', err);
@@ -106,7 +121,7 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
               hasRenderedRef.current = true; // 에러 발생 시에도 재시도 방지
             }
           }
-        }, 1000); // 1초 지연으로 React의 모든 DOM 조작 완료 대기
+        }, 1500); // 1.5초 지연으로 React의 모든 DOM 조작 완료 대기
       } catch (err) {
         console.error('Mermaid render error:', err);
         if (isMounted) {
@@ -118,12 +133,12 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
       }
     }
 
-    // 초기 렌더링 지연
+    // 초기 렌더링 지연 (더 긴 지연)
     const initTimer = setTimeout(() => {
       if (isMounted && !hasRenderedRef.current) {
         renderMermaid();
       }
-    }, 300);
+    }, 500);
 
     return () => {
       isMounted = false;
@@ -178,7 +193,8 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
 // 마크다운 콘텐츠를 Mermaid와 일반 텍스트로 분리
 function processMermaidContent(content: string) {
   const parts: Array<{ type: 'text' | 'mermaid'; content: string; index?: number }> = [];
-  const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+  // 다양한 Mermaid 코드 블록 형식 지원 (```mermaid, ``` mermaid, ```mermaid\n 등)
+  const mermaidRegex = /```\s*mermaid\s*\n([\s\S]*?)```/g;
   let lastIndex = 0;
   let mermaidIndex = 0;
   let match;
@@ -388,7 +404,13 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
                     <em className="italic text-foreground font-medium" {...props} />
                   ),
                   // 코드 스타일링 (더 큰 폰트, 더 명확한 배경)
+                  // Mermaid 코드 블록은 이미 processMermaidContent에서 제거되었으므로 여기서는 렌더링하지 않음
                   code: ({ node, inline, className, children, ...props }: any) => {
+                    // Mermaid 코드 블록은 이미 별도로 처리되므로 여기서는 렌더링하지 않음
+                    if (className && className.includes('language-mermaid')) {
+                      return null;
+                    }
+                    
                     if (inline) {
                       return (
                         <code
