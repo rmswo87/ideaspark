@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IdeaSpark</title>
+    <script>
+      // GitHub Pages SPA 라우팅 지원
+      // 모든 404 요청을 index.html로 리다이렉트
+      (function() {
+        var path = window.location.pathname;
+        var base = '/ideaspark';
+        
+        // 현재 경로가 base path로 시작하는지 확인
+        if (path.startsWith(base)) {
+          // base path 제거
+          path = path.substring(base.length);
+        }
+        
+        // index.html로 리다이렉트 (쿼리 스트링과 해시 유지)
+        var redirect = base + '/index.html' + path + window.location.search + window.location.hash;
+        window.location.replace(redirect);
+      })();
+    </script>
+  </head>
+  <body>
+    <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+      <h1>리다이렉트 중...</h1>
+      <p>잠시만 기다려주세요.</p>
+    </div>
+  </body>
+</html>
