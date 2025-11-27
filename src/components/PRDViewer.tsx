@@ -63,15 +63,22 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       padding: 20px;
     }
     svg {
-      max-width: 95% !important;
+      max-width: 85% !important;
       height: auto !important;
       width: auto !important;
     }
     ${isGanttChart ? `
-    /* Gantt 차트는 전체 너비 사용, 글자 크기만 최적화 */
+    /* Gantt 차트는 전체 너비 사용하되, 내부 요소는 컴팩트하게 */
     svg {
       max-width: 100% !important;
       width: 100% !important;
+    }
+    /* Gantt 차트 내부 텍스트와 간격 최적화 */
+    .mermaid .taskText, .mermaid .taskTextOutsideRight, .mermaid .taskTextOutsideLeft {
+      font-size: 11px !important;
+    }
+    .mermaid .sectionTitle {
+      font-size: 12px !important;
     }
     ` : ''}
   </style>
@@ -89,19 +96,26 @@ ${escapedChart}
       theme: 'default',
       securityLevel: 'loose',
       fontFamily: 'inherit',
-      fontSize: 16,
+      fontSize: 12,
       flowchart: {
-        nodeSpacing: 50,
-        rankSpacing: 50,
+        nodeSpacing: 40,
+        rankSpacing: 40,
         curve: 'basis'
       },
+      er: {
+        fontSize: 12,
+        entityPadding: 10,
+        padding: 15
+      },
       gantt: {
-        fontSize: 14,
-        sectionFontSize: 16,
-        leftPadding: 60,
-        gridLineStartPadding: 30,
-        bottomPadding: 20,
-        topPadding: 20
+        fontSize: 11,
+        sectionFontSize: 12,
+        leftPadding: 50,
+        gridLineStartPadding: 25,
+        bottomPadding: 15,
+        topPadding: 15,
+        barHeight: 20,
+        barGap: 3
       }
     });
     
