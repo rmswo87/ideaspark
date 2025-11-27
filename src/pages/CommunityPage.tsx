@@ -163,7 +163,7 @@ export function CommunityPage() {
                   <Checkbox
                     id="anonymous"
                     checked={newPost.isAnonymous}
-                    onCheckedChange={(checked) => setNewPost({ ...newPost, isAnonymous: checked === true })}
+                    onCheckedChange={(checked: boolean) => setNewPost({ ...newPost, isAnonymous: checked === true })}
                   />
                   <Label htmlFor="anonymous" className="text-sm font-normal cursor-pointer">
                     익명으로 작성하기
