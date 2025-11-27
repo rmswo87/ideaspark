@@ -21,18 +21,24 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   // 컴포넌트 마운트 시 번역된 내용 가져오기 (한 번만 시도)
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+    
+    // 안전한 상태 업데이트 헬퍼 함수
+    function safeSetState<T>(setter: (value: T) => void, value: T) {
+      const timeoutId = setTimeout(() => {
+        if (isMounted) {
+          setter(value);
+        }
+      }, 0);
+      timeoutIds.push(timeoutId);
+    }
     
     async function fetchTranslation() {
       // 컴포넌트가 이미 언마운트되었으면 번역 시도하지 않음
       if (!isMounted) return;
       
       // 상태 업데이트를 다음 틱으로 지연시켜 React의 reconciliation이 완료된 후 실행
-      timeoutId = setTimeout(() => {
-        if (isMounted) {
-          setIsTranslating(true);
-        }
-      }, 0);
+      safeSetState(setIsTranslating, true);
       
       try {
         // 제목과 내용을 번역
@@ -41,23 +47,18 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
         // 컴포넌트가 언마운트되었으면 상태 업데이트하지 않음
         if (!isMounted) return;
         
-        // 상태 업데이트를 안전하게 처리
-        timeoutId = setTimeout(() => {
-          if (!isMounted) return;
-          
-          // 번역 결과 설정
-          // 번역이 성공한 경우 번역된 텍스트 사용, 실패한 경우 null로 설정하여 원문 표시
-          if (result.success) {
-            // 번역 성공: 번역된 텍스트 사용
-            setTranslatedTitle(result.title);
-            setTranslatedContent(result.content);
-          } else {
-            // 번역 실패: null로 설정하여 UI에서 원문 표시
-            setTranslatedTitle(null);
-            setTranslatedContent(null);
-          }
-          setIsTranslating(false);
-        }, 0);
+        // 번역 결과 설정
+        // 번역이 성공한 경우 번역된 텍스트 사용, 실패한 경우 null로 설정하여 원문 표시
+        if (result.success) {
+          // 번역 성공: 번역된 텍스트 사용
+          safeSetState(setTranslatedTitle, result.title);
+          safeSetState(setTranslatedContent, result.content);
+        } else {
+          // 번역 실패: null로 설정하여 UI에서 원문 표시
+          safeSetState(setTranslatedTitle, null);
+          safeSetState(setTranslatedContent, null);
+        }
+        safeSetState(setIsTranslating, false);
       } catch (error) {
         // 컴포넌트가 언마운트되었으면 에러 처리하지 않음
         if (!isMounted) return;
@@ -67,14 +68,10 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
           console.debug('Translation unavailable for this idea');
         }
         
-        // 상태 업데이트를 안전하게 처리
-        timeoutId = setTimeout(() => {
-          if (!isMounted) return;
-          // 실패 시 원본 사용
-          setTranslatedTitle(null);
-          setTranslatedContent(null);
-          setIsTranslating(false);
-        }, 0);
+        // 실패 시 원본 사용
+        safeSetState(setTranslatedTitle, null);
+        safeSetState(setTranslatedContent, null);
+        safeSetState(setIsTranslating, false);
       }
     }
 
@@ -82,9 +79,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
     
     return () => {
       isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      timeoutIds.forEach(id => clearTimeout(id));
     };
   }, [idea.id]); // idea.id만 의존성으로 사용하여 같은 아이디어에 대해 재시도 방지
 
