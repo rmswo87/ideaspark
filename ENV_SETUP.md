@@ -25,7 +25,7 @@ REDDIT_CLIENT_SECRET=여기에_Reddit_Secret_입력
 # OpenRouter: https://openrouter.ai/
 # 무료 할당량: 일일 50회, 분당 20회
 VITE_OPENROUTER_API_KEY=여기에_OpenRouter_API_Key_입력
-VITE_OPENROUTER_MODEL=google/gemini-flash-1.5
+VITE_OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct
 # 다른 무료 모델 옵션:
 # - meta-llama/llama-3.1-8b-instruct
 # - mistralai/mistral-7b-instruct
@@ -37,6 +37,20 @@ VITE_AI_PROVIDER=openrouter
 # 기타 AI API (선택사항)
 # VITE_OPENAI_API_KEY=
 # VITE_CLAUDE_API_KEY=
+
+# 번역 API 설정 (선택사항, 없으면 LibreTranslate 무료 버전 사용)
+# Google Translate API (무료 티어: 월 500,000자)
+# https://cloud.google.com/translate/docs/setup
+GOOGLE_TRANSLATE_API_KEY=
+
+# Papago API (무료 티어: 일 10,000자)
+# https://developers.naver.com/apps/#/register
+PAPAGO_CLIENT_ID=
+PAPAGO_CLIENT_SECRET=
+
+# 번역 API Provider 선택 (google, papago, libretranslate)
+# libretranslate는 완전 무료이므로 API 키가 없어도 사용 가능
+TRANSLATION_PROVIDER=libretranslate
 ```
 
 ## Reddit Secret 확인 방법
@@ -45,6 +59,32 @@ VITE_AI_PROVIDER=openrouter
 2. 로그인 후 생성한 앱 선택
 3. "secret" 필드 확인
 4. 위의 `VITE_REDDIT_CLIENT_SECRET`과 `REDDIT_CLIENT_SECRET`에 입력
+
+## 번역 API 설정 (선택사항)
+
+### LibreTranslate (기본값, 완전 무료)
+- API 키 불필요
+- 자동으로 사용됨
+- 품질: 보통 (기계 번역 수준)
+
+### Google Translate API (선택사항)
+1. https://cloud.google.com/translate/docs/setup 접속
+2. Google Cloud 프로젝트 생성
+3. Translation API 활성화
+4. API 키 생성
+5. `GOOGLE_TRANSLATE_API_KEY`에 입력
+6. `TRANSLATION_PROVIDER=google` 설정
+- 무료 티어: 월 500,000자
+- 품질: 높음
+
+### Papago API (선택사항)
+1. https://developers.naver.com/apps/#/register 접속
+2. 애플리케이션 등록
+3. Client ID와 Client Secret 확인
+4. `PAPAGO_CLIENT_ID`와 `PAPAGO_CLIENT_SECRET`에 입력
+5. `TRANSLATION_PROVIDER=papago` 설정
+- 무료 티어: 일 10,000자
+- 품질: 높음 (한국어 번역 특화)
 
 ## 로컬 개발 서버 실행
 
@@ -66,9 +106,14 @@ Vercel 대시보드에서 다음 환경 변수를 설정하세요:
 
 - `REDDIT_CLIENT_ID`: VDotRqwD04VR1c1bshVLbQ
 - `REDDIT_CLIENT_SECRET`: (Reddit Secret)
+- `TRANSLATION_PROVIDER`: libretranslate (또는 google, papago)
+- `GOOGLE_TRANSLATE_API_KEY`: (선택사항)
+- `PAPAGO_CLIENT_ID`: (선택사항)
+- `PAPAGO_CLIENT_SECRET`: (선택사항)
 
 ## 중요 사항
 
 - `.env.local` 파일은 Git에 커밋하지 마세요 (이미 .gitignore에 포함됨)
 - Reddit Secret은 절대 공개하지 마세요
 - 로컬 개발 시에는 두 개의 터미널이 필요합니다 (API 서버 + 개발 서버)
+- 번역 API는 기본적으로 LibreTranslate를 사용하므로 추가 설정 없이도 작동합니다

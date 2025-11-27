@@ -38,7 +38,8 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
     async function fetchTranslation() {
       setLoadingTranslation(true);
       try {
-        const result = await getTranslatedContent(idea.url);
+        // 제목과 내용을 번역
+        const result = await getTranslatedContent(idea.url, idea.title, idea.content);
         setTranslatedTitle(result.title);
         setTranslatedContent(result.content);
         setTranslatedUrl(result.translatedUrl);
@@ -53,7 +54,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
     }
 
     fetchTranslation();
-  }, [idea.url]);
+  }, [idea.url, idea.title, idea.content]);
 
   /**
    * 번역 토글
