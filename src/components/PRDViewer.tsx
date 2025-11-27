@@ -15,20 +15,24 @@ interface PRDViewerProps {
   onEdit?: () => void;
 }
 
-// Mermaid 다이어그램 컴포넌트 (removeChild를 전혀 사용하지 않는 안전한 버전)
+// Mermaid 다이어그램 컴포넌트 (완전히 안전한 버전 - React와 완전 분리)
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendered, setIsRendered] = useState(false);
-  const mermaidIdRef = useRef<string>(`mermaid-${index}-${Date.now()}`);
+  const [showAsText, setShowAsText] = useState(false);
+  const mermaidIdRef = useRef<string>(`mermaid-${index}-${Math.random().toString(36).substr(2, 9)}`);
+  const hasRenderedRef = useRef(false);
 
   useEffect(() => {
+    // 이미 렌더링된 경우 다시 렌더링하지 않음
+    if (hasRenderedRef.current) return;
+
     let isMounted = true;
     let renderTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let initTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function renderMermaid() {
-      if (!containerRef.current || !isMounted) return;
+      if (!containerRef.current || !isMounted || hasRenderedRef.current) return;
 
       const container = containerRef.current;
       const id = mermaidIdRef.current;
@@ -37,42 +41,36 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
       if (!cleanedChart) {
         if (isMounted) {
           setError('다이어그램 코드가 비어있습니다.');
+          setShowAsText(true);
         }
         return;
       }
 
       try {
-        // innerHTML만 사용하여 안전하게 초기화 (removeChild 절대 사용 안 함)
-        if (container) {
-          container.innerHTML = '';
-        }
-        
-        if (isMounted) {
-          setIsRendered(false);
-          setError(null);
-        }
-
-        // Mermaid 초기화 (한 번만)
-        try {
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: 'default',
-            securityLevel: 'loose',
-            fontFamily: 'inherit',
-          });
-        } catch (err) {
-          console.error('Mermaid initialization error:', err);
+        // Mermaid 초기화 (전역적으로 한 번만)
+        if (typeof window !== 'undefined' && !(window as any).__mermaidInitialized) {
+          try {
+            mermaid.initialize({
+              startOnLoad: false,
+              theme: 'default',
+              securityLevel: 'loose',
+              fontFamily: 'inherit',
+            });
+            (window as any).__mermaidInitialized = true;
+          } catch (err) {
+            console.error('Mermaid initialization error:', err);
+          }
         }
 
-        // 렌더링 지연 (React의 DOM 조작 완료 대기)
+        // 매우 긴 지연으로 React의 모든 DOM 조작이 완료되도록 대기
         renderTimeoutId = setTimeout(async () => {
-          if (!isMounted || !containerRef.current) return;
+          if (!isMounted || !containerRef.current || hasRenderedRef.current) return;
 
           try {
             // mermaid.render()를 사용하여 SVG를 직접 생성
             const { svg } = await mermaid.render(id, cleanedChart);
             
-            if (!isMounted || !containerRef.current) return;
+            if (!isMounted || !containerRef.current || hasRenderedRef.current) return;
 
             // SVG를 최적화하여 설정
             const parser = new DOMParser();
@@ -89,48 +87,44 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
             svgElement.style.display = 'block';
 
             // innerHTML만 사용하여 설정 (removeChild 절대 사용 안 함)
-            if (containerRef.current) {
+            // React가 이 요소를 건드리지 않도록 하기 위해 매우 신중하게 처리
+            if (containerRef.current && containerRef.current.parentNode) {
               containerRef.current.innerHTML = svgElement.outerHTML;
-            }
-            
-            if (isMounted) {
-              setError(null);
-              setIsRendered(true);
+              hasRenderedRef.current = true;
+              
+              if (isMounted) {
+                setError(null);
+                setIsRendered(true);
+                setShowAsText(false);
+              }
             }
           } catch (err) {
             console.error('Mermaid rendering error:', err);
-            if (isMounted && containerRef.current) {
+            if (isMounted) {
               const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
               setError(`다이어그램 렌더링 실패: ${errorMessage}`);
-              // 에러 메시지도 innerHTML로 설정
-              containerRef.current.innerHTML = `
-                <div class="p-4 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
-                  다이어그램 렌더링 실패: ${errorMessage}
-                </div>
-              `;
+              setShowAsText(true);
+              hasRenderedRef.current = true; // 에러 발생 시에도 재시도 방지
             }
           }
-        }, 500); // React의 DOM 조작 완료 대기 (더 긴 지연)
+        }, 1000); // 1초 지연으로 React의 모든 DOM 조작 완료 대기
       } catch (err) {
         console.error('Mermaid render error:', err);
-        if (isMounted && containerRef.current) {
+        if (isMounted) {
           const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
           setError(`다이어그램 렌더링 중 오류: ${errorMessage}`);
-          containerRef.current.innerHTML = `
-            <div class="p-4 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
-              다이어그램 렌더링 중 오류: ${errorMessage}
-            </div>
-          `;
+          setShowAsText(true);
+          hasRenderedRef.current = true;
         }
       }
     }
 
-    // 약간의 지연 후 렌더링 시작
-    initTimer = setTimeout(() => {
-      if (isMounted) {
+    // 초기 렌더링 지연
+    const initTimer = setTimeout(() => {
+      if (isMounted && !hasRenderedRef.current) {
         renderMermaid();
       }
-    }, 200);
+    }, 300);
 
     return () => {
       isMounted = false;
@@ -140,25 +134,24 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
       if (renderTimeoutId) {
         clearTimeout(renderTimeoutId);
       }
-      // cleanup: innerHTML만 사용 (removeChild 절대 사용 안 함)
-      if (containerRef.current) {
-        try {
-          // React가 처리하도록 최소한의 cleanup만 수행
-          containerRef.current.innerHTML = '';
-        } catch (e) {
-          // 에러 무시
-        }
-      }
+      // cleanup 최소화 - React가 처리하도록
     };
   }, [chart, index]);
 
-  if (error) {
+  // 에러가 발생하거나 텍스트로 표시해야 하는 경우
+  if (error || showAsText) {
     return (
-      <div className="my-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-        <p className="text-sm text-destructive">{error}</p>
-        <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap">
+      <div className="my-4 p-4 bg-muted/50 border border-border rounded-md">
+        <p className="text-sm font-semibold mb-2">Mermaid 다이어그램</p>
+        {error && (
+          <p className="text-sm text-destructive mb-2">{error}</p>
+        )}
+        <pre className="mt-2 text-xs bg-background p-4 rounded overflow-x-auto whitespace-pre-wrap border border-border">
           {chart}
         </pre>
+        <p className="text-xs text-muted-foreground mt-2">
+          💡 Mermaid 다이어그램은 <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer" className="text-primary underline">Mermaid Live Editor</a>에서 확인하실 수 있습니다.
+        </p>
       </div>
     );
   }
@@ -342,7 +335,7 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
             if (part.type === 'mermaid') {
               return (
                 <MermaidDiagram
-                  key={`mermaid-${part.index}-${idx}-${Date.now()}`}
+                  key={`mermaid-${part.index}-${idx}`}
                   chart={part.content}
                   index={part.index || 0}
                 />
