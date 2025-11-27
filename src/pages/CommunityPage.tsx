@@ -8,11 +8,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, Calendar, User, Sparkles } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, Calendar, User, Sparkles, UserPlus, Ban, MoreVertical } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { sendFriendRequest, getFriendStatus, blockUser } from '@/services/friendService';
+import { sendMessage } from '@/services/messageService';
+import { supabase } from '@/lib/supabase';
 import type { Post } from '@/services/postService';
 
 export function CommunityPage() {
@@ -23,10 +27,22 @@ export function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newPost, setNewPost] = useState({ title: '', content: '', category: '자유', isAnonymous: false });
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageTargetUserId, setMessageTargetUserId] = useState<string | null>(null);
+  const [messageContent, setMessageContent] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [authorProfiles, setAuthorProfiles] = useState<Record<string, { is_public: boolean; nickname?: string }>>({});
+  const [friendStatuses, setFriendStatuses] = useState<Record<string, 'none' | 'pending' | 'accepted' | 'blocked'>>({});
 
   useEffect(() => {
     fetchPosts();
   }, [category]);
+
+  useEffect(() => {
+    if (user && posts.length > 0) {
+      fetchAuthorProfiles();
+    }
+  }, [user, posts]);
 
   async function fetchPosts() {
     setLoading(true);
@@ -41,6 +57,83 @@ export function CommunityPage() {
       setPosts([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchAuthorProfiles() {
+    if (!user) return;
+
+    const profiles: Record<string, { is_public: boolean; nickname?: string }> = {};
+    const statuses: Record<string, 'none' | 'pending' | 'accepted' | 'blocked'> = {};
+
+    for (const post of posts) {
+      if (post.anonymous_id || post.user_id === user.id) continue;
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_public, nickname')
+          .eq('id', post.user_id)
+          .single();
+
+        if (profile) {
+          profiles[post.user_id] = profile;
+          if (profile.is_public) {
+            const status = await getFriendStatus(post.user_id);
+            statuses[post.user_id] = status;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    }
+
+    setAuthorProfiles(profiles);
+    setFriendStatuses(statuses);
+  }
+
+  async function handleAddFriend(userId: string) {
+    if (!user) return;
+
+    try {
+      await sendFriendRequest(userId);
+      setFriendStatuses(prev => ({ ...prev, [userId]: 'pending' }));
+      alert('친구 요청을 보냈습니다.');
+    } catch (error: any) {
+      alert(error.message || '친구 요청에 실패했습니다.');
+    }
+  }
+
+  async function handleBlockUser(userId: string) {
+    if (!user || !confirm('이 사용자를 차단하시겠습니까?')) return;
+
+    try {
+      await blockUser(userId);
+      setFriendStatuses(prev => ({ ...prev, [userId]: 'blocked' }));
+      alert('사용자를 차단했습니다.');
+    } catch (error: any) {
+      alert(error.message || '차단에 실패했습니다.');
+    }
+  }
+
+  function handleOpenMessageDialog(userId: string) {
+    setMessageTargetUserId(userId);
+    setMessageDialogOpen(true);
+  }
+
+  async function handleSendMessage() {
+    if (!user || !messageTargetUserId || !messageContent.trim()) return;
+
+    setSendingMessage(true);
+    try {
+      await sendMessage(messageTargetUserId, messageContent);
+      setMessageContent('');
+      setMessageDialogOpen(false);
+      alert('쪽지를 보냈습니다.');
+    } catch (error: any) {
+      alert(error.message || '쪽지 전송에 실패했습니다.');
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -207,10 +300,60 @@ export function CommunityPage() {
                       <div className="flex-1">
                         <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
                             <User className="h-4 w-4" />
-                            {post.anonymous_id || post.user?.email || '익명'}
-                          </span>
+                            {post.anonymous_id ? (
+                              <span>{post.anonymous_id}</span>
+                            ) : user && post.user_id !== user.id && authorProfiles[post.user_id]?.is_public ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    className="flex items-center gap-1 hover:text-foreground"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <span>{authorProfiles[post.user_id]?.nickname || post.user?.email || '익명'}</span>
+                                    <MoreVertical className="h-3 w-3" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                  {friendStatuses[post.user_id] === 'none' && (
+                                    <DropdownMenuItem onClick={() => handleAddFriend(post.user_id)}>
+                                      <UserPlus className="h-4 w-4 mr-2" />
+                                      친구 추가
+                                    </DropdownMenuItem>
+                                  )}
+                                  {friendStatuses[post.user_id] === 'pending' && (
+                                    <DropdownMenuItem disabled>
+                                      요청 대기 중
+                                    </DropdownMenuItem>
+                                  )}
+                                  {friendStatuses[post.user_id] === 'accepted' && (
+                                    <DropdownMenuItem disabled>
+                                      친구
+                                    </DropdownMenuItem>
+                                  )}
+                                  {friendStatuses[post.user_id] !== 'blocked' && (
+                                    <DropdownMenuItem onClick={() => handleOpenMessageDialog(post.user_id)}>
+                                      <MessageSquare className="h-4 w-4 mr-2" />
+                                      쪽지 보내기
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  {friendStatuses[post.user_id] !== 'blocked' && (
+                                    <DropdownMenuItem 
+                                      onClick={() => handleBlockUser(post.user_id)}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Ban className="h-4 w-4 mr-2" />
+                                      차단하기
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <span>{post.user?.email || '익명'}</span>
+                            )}
+                          </div>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
                             {formatDate(post.created_at)}
@@ -248,6 +391,29 @@ export function CommunityPage() {
         </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>쪽지 보내기</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="쪽지 내용을 입력하세요"
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              rows={6}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={sendingMessage || !messageContent.trim()}
+              className="w-full"
+            >
+              {sendingMessage ? '전송 중...' : '보내기'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

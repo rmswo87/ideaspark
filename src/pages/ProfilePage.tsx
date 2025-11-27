@@ -10,7 +10,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest } from '@/services/friendService';
+import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest, getBlockedUsers, unblockUser } from '@/services/friendService';
+import { getPRDs } from '@/services/prdService';
+import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
@@ -45,6 +47,11 @@ export function ProfilePage() {
   const [commentsDialogOpen, setCommentsDialogOpen] = useState(false);
   const [commentsList, setCommentsList] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<Friend[]>([]);
+  const [prdsDialogOpen, setPrdsDialogOpen] = useState(false);
+  const [prdsList, setPrdsList] = useState<any[]>([]);
+  const [loadingPrds, setLoadingPrds] = useState(false);
+  const [selectedPrd, setSelectedPrd] = useState<any | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -55,6 +62,7 @@ export function ProfilePage() {
       fetchFriends();
       fetchFriendRequests();
       fetchConversations();
+      fetchBlockedUsers();
     }
   }, [user, loading, navigate]);
 
@@ -285,6 +293,47 @@ export function ProfilePage() {
     fetchCommentsList();
   }
 
+  async function fetchBlockedUsers() {
+    if (!user) return;
+
+    try {
+      const data = await getBlockedUsers();
+      setBlockedUsers(data);
+    } catch (error) {
+      console.error('Error fetching blocked users:', error);
+    }
+  }
+
+  async function handleUnblockUser(userId: string) {
+    try {
+      await unblockUser(userId);
+      await fetchBlockedUsers();
+      alert('차단을 해제했습니다.');
+    } catch (error: any) {
+      alert(error.message || '차단 해제에 실패했습니다.');
+    }
+  }
+
+  async function fetchPrdsList() {
+    if (!user) return;
+
+    setLoadingPrds(true);
+    try {
+      const prds = await getPRDs({ userId: user.id });
+      setPrdsList(prds);
+    } catch (error) {
+      console.error('Error fetching PRDs:', error);
+      alert('PRD 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingPrds(false);
+    }
+  }
+
+  function handleOpenPrdsDialog() {
+    setPrdsDialogOpen(true);
+    fetchPrdsList();
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -478,7 +527,10 @@ export function ProfilePage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={handleOpenPrdsDialog}
+            >
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -487,6 +539,7 @@ export function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">{stats.prds}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
           </div>
@@ -611,7 +664,7 @@ export function ProfilePage() {
             {friendRequests.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>받은 친구 요청</CardTitle>
+                  <CardTitle>받은 친구 요청 ({friendRequests.length})</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {friendRequests.map((request) => (
@@ -669,6 +722,36 @@ export function ProfilePage() {
                 )}
               </CardContent>
             </Card>
+            {blockedUsers.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>차단한 사용자 ({blockedUsers.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {blockedUsers.map((blocked) => {
+                      const blockedUser = blocked.requester_id === user?.id ? blocked.addressee : blocked.requester;
+                      return (
+                        <div key={blocked.id} className="flex items-center justify-between p-2 border rounded">
+                          <span>{blockedUser?.nickname || blockedUser?.email || '익명'}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (blockedUser) {
+                                handleUnblockUser(blockedUser.id);
+                              }
+                            }}
+                          >
+                            차단 해제
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -771,6 +854,59 @@ export function ProfilePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={prdsDialogOpen} onOpenChange={setPrdsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>생성한 PRD</DialogTitle>
+          </DialogHeader>
+          {loadingPrds ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">로딩 중...</p>
+            </div>
+          ) : prdsList.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">PRD가 없습니다.</p>
+            </div>
+          ) : selectedPrd ? (
+            <div>
+              <Button
+                variant="ghost"
+                onClick={() => setSelectedPrd(null)}
+                className="mb-4"
+              >
+                ← 목록으로
+              </Button>
+              <PRDViewer prd={selectedPrd} />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {prdsList.map((prd) => (
+                <Card
+                  key={prd.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => setSelectedPrd(prd)}
+                >
+                  <CardHeader>
+                    <CardTitle className="line-clamp-2 mb-2">{prd.title}</CardTitle>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>{formatDate(prd.created_at)}</span>
+                      <span className="px-2 py-1 bg-secondary rounded-md text-xs">
+                        {prd.status}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground line-clamp-3">
+                      {prd.content.substring(0, 200)}...
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
