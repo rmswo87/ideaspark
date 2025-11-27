@@ -7,7 +7,7 @@ import { getIdeas } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Loader2, Sparkles, ArrowLeft, Languages } from 'lucide-react';
+import { Loader2, Sparkles, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Idea } from '@/services/ideaService';
 import type { PRD } from '@/services/prdService';
@@ -19,7 +19,6 @@ export function IdeaDetailPage() {
   const [prd, setPrd] = useState<PRD | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -108,18 +107,14 @@ export function IdeaDetailPage() {
    * Reddit은 URL에 ?lang=ko 파라미터를 추가하면 번역된 페이지를 제공합니다
    */
   function getTranslatedUrl(originalUrl: string): string {
-    // Reddit URL에 언어 파라미터 추가
-    const url = new URL(originalUrl);
-    url.searchParams.set('lang', 'ko');
-    return url.toString();
-  }
-
-  function handleShowTranslation() {
-    setShowTranslation(true);
-  }
-
-  function handleShowOriginal() {
-    setShowTranslation(false);
+    try {
+      const url = new URL(originalUrl);
+      url.searchParams.set('lang', 'ko');
+      return url.toString();
+    } catch (error) {
+      console.error('Invalid URL:', originalUrl);
+      return originalUrl;
+    }
   }
 
   if (loading) {
@@ -172,61 +167,37 @@ export function IdeaDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="mb-4">
-              {showTranslation ? (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-primary">번역된 페이지</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleShowOriginal}
-                    >
-                      원문 보기
-                    </Button>
-                  </div>
-                  <div className="border rounded-lg overflow-hidden" style={{ height: '600px' }}>
-                    <iframe
-                      src={getTranslatedUrl(idea.url)}
-                      className="w-full h-full"
-                      title="Reddit 번역된 페이지"
-                      sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">원문</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleShowTranslation}
-                    >
-                      번역 보기
-                    </Button>
-                  </div>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{idea.content}</p>
-                </div>
-              )}
+              <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{idea.content}</p>
             </div>
-            <div className="mt-4 flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={showTranslation ? handleShowOriginal : handleShowTranslation}
-              >
-                <Languages className="h-4 w-4 mr-2" />
-                {showTranslation ? '원문 보기' : '번역 보기'}
-              </Button>
+            <div className="mt-4 flex flex-col gap-2">
               <Button variant="outline" size="sm" asChild>
                 <a 
-                  href={showTranslation ? getTranslatedUrl(idea.url) : idea.url} 
+                  href={idea.url} 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
-                  {showTranslation ? '번역 페이지 열기' : '원문 페이지 열기'}
+                  Reddit 원문 페이지 열기
                 </a>
               </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a 
+                  href={getTranslatedUrl(idea.url)} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  Reddit 번역 페이지 열기 (Chrome 자동 번역)
+                </a>
+              </Button>
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3 text-sm">
+                <p className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  💡 Chrome 자동 번역 사용하기
+                </p>
+                <ul className="text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside text-xs">
+                  <li>Reddit 페이지에서 우측 상단 번역 아이콘 클릭</li>
+                  <li>또는 우클릭 → "한국어로 번역" 선택</li>
+                  <li>Chrome의 자동 번역 기능이 가장 정확하고 빠릅니다</li>
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>
