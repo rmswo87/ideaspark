@@ -1,4 +1,4 @@
-// 무료 번역 API (Google Translate 또는 Papago)
+// 무료 번역 API (LibreTranslate, Google Translate, 또는 Papago)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(
@@ -24,23 +24,39 @@ export default async function handler(
     return res.status(400).json({ error: 'Text is required' });
   }
 
+  // 텍스트가 너무 길면 잘라내기 (5000자 제한)
+  const textToTranslate = text.substring(0, 5000);
+
   try {
-    // Google Translate API 사용 (무료 티어: 월 500,000자)
-    // 또는 Papago API 사용 (무료 티어: 일 10,000자)
+    // 기본값: LibreTranslate (완전 무료)
+    // 환경변수로 provider 설정 가능: 'libretranslate', 'google', 'papago'
     const provider = process.env.TRANSLATION_PROVIDER || 'libretranslate';
     
     if (provider === 'papago') {
-      return await translateWithPapago(text, sourceLang, targetLang, res);
+      return await translateWithPapago(textToTranslate, sourceLang, targetLang, res);
     } else if (provider === 'google') {
-      return await translateWithGoogle(text, sourceLang, targetLang, res);
+      return await translateWithGoogle(textToTranslate, sourceLang, targetLang, res);
     } else {
-      return await translateWithLibreTranslate(text, sourceLang, targetLang, res);
+      // 기본값: LibreTranslate
+      return await translateWithLibreTranslate(textToTranslate, sourceLang, targetLang, res);
     }
   } catch (error) {
     console.error('Translation error:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Unknown error',
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Translation error details:', {
+      message: errorMessage,
+      textLength: textToTranslate.length,
+      sourceLang,
+      targetLang,
+    });
+    
+    // 실패 시 원본 텍스트 반환 (에러가 아닌 성공 응답으로)
+    return res.status(200).json({
+      translatedText: textToTranslate,
       success: false,
+      provider: 'none',
+      error: errorMessage,
+      note: '번역에 실패했습니다. 원본 텍스트를 표시합니다.',
     });
   }
 }
@@ -53,7 +69,7 @@ async function translateWithGoogle(
   sourceLang: string,
   targetLang: string,
   res: VercelResponse
-) {
+): Promise<VercelResponse> {
   const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
   
   if (!apiKey) {
@@ -75,22 +91,25 @@ async function translateWithGoogle(
           target: targetLang,
           format: 'text',
         }),
+        signal: AbortSignal.timeout(10000), // 10초 타임아웃
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Google Translate API error: ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Google Translate API error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { data?: { translations?: Array<{ translatedText?: string }> } };
     
-    if (!data.data || !data.data.translations || !data.data.translations[0]) {
+    if (!data.data || !data.data.translations || !data.data.translations[0] || !data.data.translations[0].translatedText) {
       throw new Error('Invalid response from Google Translate API');
     }
 
     return res.status(200).json({
       translatedText: data.data.translations[0].translatedText,
       success: true,
+      provider: 'google',
     });
   } catch (error) {
     console.error('Google Translate error:', error);
@@ -107,7 +126,7 @@ async function translateWithPapago(
   sourceLang: string,
   targetLang: string,
   res: VercelResponse
-) {
+): Promise<VercelResponse> {
   const clientId = process.env.PAPAGO_CLIENT_ID;
   const clientSecret = process.env.PAPAGO_CLIENT_SECRET;
 
@@ -133,13 +152,15 @@ async function translateWithPapago(
         target: papagoTargetLang,
         text: text.substring(0, 5000), // Papago는 최대 5000자
       }),
+      signal: AbortSignal.timeout(10000), // 10초 타임아웃
     });
 
     if (!response.ok) {
-      throw new Error(`Papago API error: ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Papago API error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { message?: { result?: { translatedText?: string } } };
     
     if (!data.message || !data.message.result || !data.message.result.translatedText) {
       throw new Error('Invalid response from Papago API');
@@ -148,6 +169,7 @@ async function translateWithPapago(
     return res.status(200).json({
       translatedText: data.message.result.translatedText,
       success: true,
+      provider: 'papago',
     });
   } catch (error) {
     console.error('Papago error:', error);
@@ -165,37 +187,70 @@ async function translateWithLibreTranslate(
   sourceLang: string,
   targetLang: string,
   res: VercelResponse
-) {
+): Promise<VercelResponse> {
   try {
     // LibreTranslate 공개 인스턴스 사용
-    const response = await fetch('https://libretranslate.com/translate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        q: text.substring(0, 5000), // LibreTranslate는 최대 5000자
-        source: sourceLang,
-        target: targetLang,
-        format: 'text',
-      }),
-    });
+    // 여러 인스턴스 시도 (rate limit 대비)
+    const instances = [
+      'https://libretranslate.com',
+      'https://translate.argosopentech.com',
+    ];
 
-    if (!response.ok) {
-      throw new Error(`LibreTranslate API error: ${response.status}`);
+    let lastError: Error | null = null;
+
+    for (const instance of instances) {
+      try {
+        const response = await fetch(`${instance}/translate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            q: text,
+            source: sourceLang,
+            target: targetLang,
+            format: 'text',
+          }),
+          // 타임아웃 설정 (10초)
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          console.warn(`LibreTranslate instance ${instance} failed: ${response.status} ${errorText}`);
+          lastError = new Error(`LibreTranslate API error: ${response.status}`);
+          continue; // 다음 인스턴스 시도
+        }
+
+        const data = await response.json() as { translatedText?: string; error?: string };
+        
+        if (data.error) {
+          console.warn(`LibreTranslate instance ${instance} returned error: ${data.error}`);
+          lastError = new Error(data.error);
+          continue;
+        }
+
+        if (!data.translatedText) {
+          console.warn(`LibreTranslate instance ${instance} returned invalid response`);
+          lastError = new Error('Invalid response from LibreTranslate API');
+          continue;
+        }
+
+        // 성공
+        return res.status(200).json({
+          translatedText: data.translatedText,
+          success: true,
+          provider: 'libretranslate',
+        });
+      } catch (instanceError) {
+        console.warn(`LibreTranslate instance ${instance} failed:`, instanceError);
+        lastError = instanceError instanceof Error ? instanceError : new Error('Unknown error');
+        continue; // 다음 인스턴스 시도
+      }
     }
 
-    const data = await response.json();
-    
-    if (!data.translatedText) {
-      throw new Error('Invalid response from LibreTranslate API');
-    }
-
-    return res.status(200).json({
-      translatedText: data.translatedText,
-      success: true,
-      provider: 'libretranslate',
-    });
+    // 모든 인스턴스 실패
+    throw lastError || new Error('All LibreTranslate instances failed');
   } catch (error) {
     console.error('LibreTranslate error:', error);
     throw error;
