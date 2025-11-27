@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, UserPlus, Settings, Mail } from 'lucide-react';
+import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest } from '@/services/friendService';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import type { FriendRequest, Friend } from '@/services/friendService';
 import type { Conversation, Message } from '@/services/messageService';
@@ -317,7 +317,7 @@ export function ProfilePage() {
                 <Checkbox
                   id="is_public"
                   checked={profile?.is_public || false}
-                  onCheckedChange={async (checked) => {
+                  onCheckedChange={async (checked: boolean) => {
                     try {
                       await updateProfile({ is_public: checked === true });
                     } catch (error) {
