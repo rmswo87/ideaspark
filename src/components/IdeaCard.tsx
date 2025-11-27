@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, User, ExternalLink, Languages } from 'lucide-react';
+import { Calendar, User, ExternalLink, Languages, Loader2 } from 'lucide-react';
 import type { Idea } from '@/services/ideaService';
+import { getTranslatedContent } from '@/services/translationService';
 
 interface IdeaCardProps {
   idea: Idea;
@@ -13,7 +14,10 @@ interface IdeaCardProps {
 
 export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   const [showTranslation, setShowTranslation] = useState(true); // 기본적으로 번역 모드
+  const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [translatedUrl, setTranslatedUrl] = useState<string | null>(null);
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
 
   /**
    * Reddit 번역 페이지 URL 생성
@@ -29,10 +33,26 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
     }
   }
 
-  // 컴포넌트 마운트 시 번역 URL 생성
+  // 컴포넌트 마운트 시 번역된 내용 가져오기
   useEffect(() => {
-    const translatedUrl = getTranslatedUrl(idea.url);
-    setTranslatedContent(translatedUrl);
+    async function fetchTranslation() {
+      setLoadingTranslation(true);
+      try {
+        const result = await getTranslatedContent(idea.url);
+        setTranslatedTitle(result.title);
+        setTranslatedContent(result.content);
+        setTranslatedUrl(result.translatedUrl);
+      } catch (error) {
+        console.error('Failed to fetch translation:', error);
+        // 실패 시 번역 URL만 설정
+        const url = getTranslatedUrl(idea.url);
+        setTranslatedUrl(url);
+      } finally {
+        setLoadingTranslation(false);
+      }
+    }
+
+    fetchTranslation();
   }, [idea.url]);
 
   /**
@@ -45,7 +65,9 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader>
-        <CardTitle className="line-clamp-2">{idea.title}</CardTitle>
+        <CardTitle className="line-clamp-2">
+          {showTranslation && translatedTitle ? translatedTitle : idea.title}
+        </CardTitle>
         <CardDescription className="flex items-center gap-2">
           <User className="h-4 w-4" />
           <span>{idea.author}</span>
@@ -71,32 +93,64 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
                 e.stopPropagation();
                 toggleTranslation();
               }}
+              disabled={loadingTranslation}
             >
-              {showTranslation ? '원문 보기' : '번역 보기'}
+              {loadingTranslation ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : showTranslation ? (
+                '원문 보기'
+              ) : (
+                '번역 보기'
+              )}
             </Button>
           </div>
           
-          {showTranslation && translatedContent ? (
+          {showTranslation ? (
             <div className="space-y-2">
-              <div className="border rounded-lg overflow-hidden bg-muted/30" style={{ height: '180px' }}>
-                <iframe
-                  src={translatedContent}
-                  className="w-full h-full"
-                  title="Reddit 번역된 페이지"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs h-7"
-                asChild
-                onClick={(e) => e.stopPropagation()}
-              >
-                <a href={translatedContent} target="_blank" rel="noopener noreferrer">
-                  번역 페이지 전체 보기 →
-                </a>
-              </Button>
+              {loadingTranslation ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">번역 중...</span>
+                </div>
+              ) : translatedContent ? (
+                <>
+                  <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
+                    {translatedContent}
+                  </p>
+                  {translatedUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs h-7"
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <a href={translatedUrl} target="_blank" rel="noopener noreferrer">
+                        번역 페이지 전체 보기 →
+                      </a>
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
+                    번역된 내용을 불러올 수 없습니다. 번역 페이지를 직접 확인해주세요.
+                  </p>
+                  {translatedUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs h-7"
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <a href={translatedUrl} target="_blank" rel="noopener noreferrer">
+                        번역 페이지 열기 →
+                      </a>
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground line-clamp-4 leading-relaxed">
