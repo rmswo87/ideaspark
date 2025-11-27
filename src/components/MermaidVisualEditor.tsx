@@ -168,7 +168,7 @@ const parseMermaidToNodes = (code: string): { nodes: Node[]; edges: Edge[] } => 
   const lines = cleanCode.split('\n').filter((line) => line.trim());
   let nodeId = 0;
 
-  lines.forEach((line, idx) => {
+  lines.forEach((line) => {
     // 노드 정의: A[라벨] 또는 graph TD 등은 무시
     if (line.trim().startsWith('graph')) return;
     
@@ -286,10 +286,10 @@ export function MermaidVisualEditor({
   onSave,
   onClose,
 }: MermaidVisualEditorProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>(
+  const [nodes, setNodes, onNodesChange] = useNodesState(
     initialMermaidCode ? parseMermaidToNodes(initialMermaidCode).nodes : getInitialNodes()
   );
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>(
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
     initialMermaidCode ? parseMermaidToNodes(initialMermaidCode).edges : []
   );
   
