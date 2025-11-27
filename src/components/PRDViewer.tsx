@@ -15,70 +15,34 @@ interface PRDViewerProps {
   onEdit?: () => void;
 }
 
-// Mermaid 다이어그램 컴포넌트 (완전히 분리된 안전한 버전)
+// Mermaid 다이어그램 컴포넌트 (removeChild를 전혀 사용하지 않는 안전한 버전)
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendered, setIsRendered] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
   const mermaidIdRef = useRef<string>(`mermaid-${index}-${Date.now()}`);
-  const renderAttemptRef = useRef(0);
 
-  // 컴포넌트가 마운트된 후에만 렌더링 시작
   useEffect(() => {
-    // 약간의 지연 후 렌더링 시작 (React의 렌더링 완료 대기)
-    const timer = setTimeout(() => {
-      setShouldRender(true);
-    }, 200);
-    
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
-
-  // shouldRender가 true가 된 후에만 Mermaid 렌더링 시도
-  useEffect(() => {
-    if (!shouldRender || !containerRef.current) return;
-
     let isMounted = true;
     let renderTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    const maxAttempts = 3;
-    const currentAttempt = renderAttemptRef.current;
 
     async function renderMermaid() {
-      if (!containerRef.current || !isMounted || currentAttempt >= maxAttempts) {
-        if (currentAttempt >= maxAttempts) {
-          setError('다이어그램 렌더링에 실패했습니다. 최대 시도 횟수를 초과했습니다.');
-        }
-        return;
-      }
+      if (!containerRef.current || !isMounted) return;
 
       const container = containerRef.current;
       const id = mermaidIdRef.current;
+      const cleanedChart = chart.trim();
+
+      if (!cleanedChart) {
+        setError('다이어그램 코드가 비어있습니다.');
+        return;
+      }
 
       try {
-        // 기존 내용 제거 (안전하게)
-        if (container.firstChild) {
-          try {
-            container.removeChild(container.firstChild);
-          } catch (e) {
-            // 이미 제거된 경우 무시
-            container.innerHTML = '';
-          }
-        } else {
-          container.innerHTML = '';
-        }
-
+        // innerHTML만 사용하여 안전하게 초기화 (removeChild 절대 사용 안 함)
+        container.innerHTML = '';
         setIsRendered(false);
         setError(null);
-
-        // 새로운 div 생성
-        const mermaidDiv = document.createElement('div');
-        mermaidDiv.id = id;
-        mermaidDiv.className = 'mermaid';
-        mermaidDiv.textContent = chart;
-
-        container.appendChild(mermaidDiv);
 
         // Mermaid 초기화
         try {
@@ -92,73 +56,88 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
           console.error('Mermaid initialization error:', err);
         }
 
-        // 렌더링 지연
-        renderTimeoutId = setTimeout(() => {
+        // 렌더링 지연 (React의 DOM 조작 완료 대기)
+        renderTimeoutId = setTimeout(async () => {
           if (!isMounted || !containerRef.current) return;
 
-          const currentDiv = containerRef.current.querySelector(`#${id}`);
-          if (!currentDiv || !currentDiv.parentNode) {
-            renderAttemptRef.current++;
-            if (renderAttemptRef.current < maxAttempts) {
-              // 재시도
-              setTimeout(() => renderMermaid(), 300);
-            } else {
-              setError('다이어그램 렌더링에 실패했습니다.');
-            }
-            return;
-          }
+          try {
+            // mermaid.render()를 사용하여 SVG를 직접 생성
+            const { svg } = await mermaid.render(id, cleanedChart);
+            
+            if (!isMounted || !containerRef.current) return;
 
-          mermaid.run({
-            nodes: [currentDiv as HTMLElement],
-            suppressErrors: true,
-          }).then(() => {
-            if (isMounted && containerRef.current) {
+            // SVG를 최적화하여 설정
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
+            const svgElement = svgDoc.documentElement;
+            
+            // SVG 크기 조정
+            svgElement.removeAttribute('width');
+            svgElement.removeAttribute('height');
+            svgElement.setAttribute('width', '100%');
+            svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svgElement.style.maxWidth = '100%';
+            svgElement.style.height = 'auto';
+            svgElement.style.display = 'block';
+
+            // innerHTML만 사용하여 설정 (removeChild 절대 사용 안 함)
+            containerRef.current.innerHTML = svgElement.outerHTML;
+            
+            if (isMounted) {
               setError(null);
               setIsRendered(true);
             }
-          }).catch((err) => {
-            if (isMounted) {
-              console.error('Mermaid rendering error:', err);
-              renderAttemptRef.current++;
-              if (renderAttemptRef.current < maxAttempts) {
-                // 재시도
-                setTimeout(() => renderMermaid(), 300);
-              } else {
-                setError('다이어그램 렌더링에 실패했습니다.');
-                setIsRendered(false);
-              }
+          } catch (err) {
+            console.error('Mermaid rendering error:', err);
+            if (isMounted && containerRef.current) {
+              const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
+              setError(`다이어그램 렌더링 실패: ${errorMessage}`);
+              // 에러 메시지도 innerHTML로 설정
+              containerRef.current.innerHTML = `
+                <div class="p-4 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
+                  다이어그램 렌더링 실패: ${errorMessage}
+                </div>
+              `;
             }
-          });
-        }, 200);
+          }
+        }, 300); // React의 DOM 조작 완료 대기
       } catch (err) {
         console.error('Mermaid render error:', err);
-        if (isMounted) {
-          setError('다이어그램 렌더링 중 오류가 발생했습니다.');
+        if (isMounted && containerRef.current) {
+          const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
+          setError(`다이어그램 렌더링 중 오류: ${errorMessage}`);
+          containerRef.current.innerHTML = `
+            <div class="p-4 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
+              다이어그램 렌더링 중 오류: ${errorMessage}
+            </div>
+          `;
         }
       }
     }
 
-    renderMermaid();
+    // 약간의 지연 후 렌더링 시작
+    const initTimer = setTimeout(() => {
+      renderMermaid();
+    }, 100);
 
     return () => {
       isMounted = false;
+      if (initTimer) {
+        clearTimeout(initTimer);
+      }
       if (renderTimeoutId) {
         clearTimeout(renderTimeoutId);
       }
-      // cleanup은 최소화 (React가 처리하도록)
-      if (containerRef.current && containerRef.current.firstChild) {
+      // cleanup: innerHTML만 사용 (removeChild 절대 사용 안 함)
+      if (containerRef.current) {
         try {
-          // 안전하게 제거 시도
-          const child = containerRef.current.firstChild;
-          if (child.parentNode === containerRef.current) {
-            containerRef.current.removeChild(child);
-          }
+          containerRef.current.innerHTML = '';
         } catch (e) {
-          // 에러 무시 - React가 처리할 것
+          // 에러 무시
         }
       }
     };
-  }, [shouldRender, chart, index]);
+  }, [chart, index]);
 
   if (error) {
     return (
