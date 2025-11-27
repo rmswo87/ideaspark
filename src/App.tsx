@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Sparkles, Calendar, User, ExternalLink, RefreshCw } from "lucide-react"
-import { getIdeas, getIdeaStats } from '@/services/ideaService'
+import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
 import { supabase } from '@/lib/supabase'
 import type { Idea } from '@/services/ideaService'
@@ -24,23 +24,33 @@ function HomePage() {
   const { isAdmin } = useAdmin()
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [subredditFilter, setSubredditFilter] = useState('all')
+  const [sortOption, setSortOption] = useState<'latest' | 'popular' | 'subreddit'>('latest')
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(true)
   const [collecting, setCollecting] = useState(false)
-  const [stats, setStats] = useState({ total: 0, byCategory: {} as Record<string, number> })
+  const [stats, setStats] = useState({ 
+    total: 0, 
+    byCategory: {} as Record<string, number>,
+    bySubreddit: {} as Record<string, number>
+  })
+  const [subreddits, setSubreddits] = useState<string[]>([])
   const navigate = useNavigate()
 
   // 아이디어 목록 가져오기
   useEffect(() => {
     fetchIdeas()
     fetchStats()
-  }, [categoryFilter])
+    fetchSubreddits()
+  }, [categoryFilter, subredditFilter, sortOption])
 
   async function fetchIdeas() {
     setLoading(true)
     try {
       const data = await getIdeas({
         category: categoryFilter === 'all' ? undefined : categoryFilter,
+        subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
+        sort: sortOption,
         limit: 50,
         search: searchQuery || undefined,
       })
@@ -51,6 +61,15 @@ function HomePage() {
       setIdeas([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchSubreddits() {
+    try {
+      const data = await getSubreddits()
+      setSubreddits(data)
+    } catch (error) {
+      console.error('Error fetching subreddits:', error)
     }
   }
 
@@ -185,47 +204,102 @@ function HomePage() {
 
           {/* Stats */}
           {stats.total > 0 && (
-            <div className="flex gap-4 text-sm text-muted-foreground mb-4">
-              <span>총 {stats.total}개 아이디어</span>
-              {Object.entries(stats.byCategory).map(([cat, count]) => (
-                <span key={cat}>{cat}: {count}</span>
-              ))}
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
+              <span className="font-medium">총 {stats.total}개 아이디어</span>
+              {Object.entries(stats.byCategory).length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  <span className="font-medium">카테고리:</span>
+                  {Object.entries(stats.byCategory).map(([cat, count]) => (
+                    <span key={cat} className="px-2 py-0.5 bg-secondary rounded text-xs">
+                      {cat} ({count})
+                    </span>
+                  ))}
+                </div>
+              )}
+              {Object.entries(stats.bySubreddit || {}).length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  <span className="font-medium">서브레딧:</span>
+                  {Object.entries(stats.bySubreddit || {})
+                    .sort(([, a], [, b]) => (b as number) - (a as number))
+                    .slice(0, 5)
+                    .map(([sub, count]) => (
+                      <span key={sub} className="px-2 py-0.5 bg-secondary rounded text-xs">
+                        r/{sub} ({count})
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="아이디어 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          <div className="space-y-4">
+            {/* 검색 및 기본 필터 */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="아이디어 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button 
+                onClick={handleCollectIdeas} 
+                disabled={collecting}
+                variant="outline"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${collecting ? 'animate-spin' : ''}`} />
+                {collecting ? '수집 중...' : '아이디어 수집'}
+              </Button>
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="카테고리" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="development">개발</SelectItem>
-                <SelectItem value="design">디자인</SelectItem>
-                <SelectItem value="business">비즈니스</SelectItem>
-                <SelectItem value="education">교육</SelectItem>
-                <SelectItem value="product">제품</SelectItem>
-                <SelectItem value="general">일반</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button 
-              onClick={handleCollectIdeas} 
-              disabled={collecting}
-              variant="outline"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${collecting ? 'animate-spin' : ''}`} />
-              {collecting ? '수집 중...' : '아이디어 수집'}
-            </Button>
+
+            {/* 필터 그룹 */}
+            <div className="flex flex-wrap gap-4">
+              {/* 카테고리 필터 */}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="카테고리" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 카테고리</SelectItem>
+                  <SelectItem value="development">개발</SelectItem>
+                  <SelectItem value="design">디자인</SelectItem>
+                  <SelectItem value="business">비즈니스</SelectItem>
+                  <SelectItem value="education">교육</SelectItem>
+                  <SelectItem value="product">제품</SelectItem>
+                  <SelectItem value="general">일반</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* 서브레딧 필터 */}
+              <Select value={subredditFilter} onValueChange={setSubredditFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="서브레딧" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 서브레딧</SelectItem>
+                  {subreddits.map((subreddit) => (
+                    <SelectItem key={subreddit} value={subreddit}>
+                      r/{subreddit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* 정렬 옵션 */}
+              <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'subreddit') => setSortOption(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="정렬" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latest">최신순</SelectItem>
+                  <SelectItem value="popular">추천순</SelectItem>
+                  <SelectItem value="subreddit">서브레딧순</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 

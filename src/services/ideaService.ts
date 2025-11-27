@@ -94,6 +94,11 @@ function categorizeIdea(idea: RedditPost): string {
 }
 
 /**
+ * 정렬 옵션 타입
+ */
+export type SortOption = 'latest' | 'popular' | 'subreddit';
+
+/**
  * 아이디어 목록 가져오기
  */
 export async function getIdeas(filters?: {
@@ -101,14 +106,34 @@ export async function getIdeas(filters?: {
   limit?: number;
   offset?: number;
   search?: string;
+  sort?: SortOption;
+  subreddit?: string;
 }): Promise<Idea[]> {
   let query = supabase
     .from('ideas')
-    .select('*')
-    .order('collected_at', { ascending: false });
+    .select('*');
 
+  // 카테고리 필터
   if (filters?.category && filters.category !== 'all') {
     query = query.eq('category', filters.category);
+  }
+
+  // 서브레딧 필터
+  if (filters?.subreddit && filters.subreddit !== 'all') {
+    query = query.eq('subreddit', filters.subreddit);
+  }
+
+  // 정렬 옵션에 따른 쿼리 설정
+  if (filters?.sort === 'popular') {
+    // 추천순: upvotes 기준 내림차순
+    query = query.order('upvotes', { ascending: false });
+  } else if (filters?.sort === 'subreddit') {
+    // 서브레딧순: 서브레딧 이름 기준 오름차순, 그 다음 최신순
+    query = query.order('subreddit', { ascending: true })
+                 .order('collected_at', { ascending: false });
+  } else {
+    // 최신순 (기본값)
+    query = query.order('collected_at', { ascending: false });
   }
 
   if (filters?.limit) {
@@ -127,7 +152,7 @@ export async function getIdeas(filters?: {
     throw error;
   }
 
-  // 데이터가 없으면 빈 배열 반환 (샘플 데이터 제거)
+  // 데이터가 없으면 빈 배열 반환
   if (!data || data.length === 0) {
     return [];
   }
@@ -137,7 +162,8 @@ export async function getIdeas(filters?: {
     const searchLower = filters.search.toLowerCase();
     return data.filter(idea =>
       idea.title.toLowerCase().includes(searchLower) ||
-      idea.content.toLowerCase().includes(searchLower)
+      idea.content.toLowerCase().includes(searchLower) ||
+      idea.subreddit.toLowerCase().includes(searchLower)
     );
   }
 
@@ -150,24 +176,50 @@ export async function getIdeas(filters?: {
 export async function getIdeaStats(): Promise<{
   total: number;
   byCategory: Record<string, number>;
+  bySubreddit: Record<string, number>;
 }> {
   const { data, error } = await supabase
     .from('ideas')
-    .select('category');
+    .select('category, subreddit');
 
   if (error) {
     console.error('Error fetching stats:', error);
-    return { total: 0, byCategory: {} };
+    return { total: 0, byCategory: {}, bySubreddit: {} };
   }
 
   const byCategory: Record<string, number> = {};
+  const bySubreddit: Record<string, number> = {};
+  
   (data || []).forEach(idea => {
     byCategory[idea.category] = (byCategory[idea.category] || 0) + 1;
+    bySubreddit[idea.subreddit] = (bySubreddit[idea.subreddit] || 0) + 1;
   });
 
   return {
     total: data?.length || 0,
     byCategory,
+    bySubreddit,
   };
+}
+
+/**
+ * 고유한 서브레딧 목록 가져오기
+ */
+export async function getSubreddits(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('ideas')
+    .select('subreddit');
+
+  if (error) {
+    console.error('Error fetching subreddits:', error);
+    return [];
+  }
+
+  // 중복 제거 및 정렬
+  const uniqueSubreddits = Array.from(
+    new Set((data || []).map(idea => idea.subreddit))
+  ).sort();
+
+  return uniqueSubreddits;
 }
 
