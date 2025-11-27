@@ -24,13 +24,17 @@ export default async function handler(
     return res.status(400).json({ error: 'Text is required' });
   }
 
-  // 텍스트가 너무 길면 잘라내기 (5000자 제한)
-  const textToTranslate = text.substring(0, 5000);
+  // Google Translate API 무료 티어: 월 500,000자
+  // 안전하게 제한: 제목은 100자, 내용은 200자로 제한하여 한도 관리
+  // 카드당 약 300자 × 100개 = 30,000자 (월 한도의 6%만 사용)
+  const maxLength = 300; // 안전한 한도 관리
+  const textToTranslate = text.substring(0, maxLength);
 
   try {
-    // 기본값: LibreTranslate (완전 무료)
+    // 기본값: Google Translate (API 키가 있으면), 없으면 LibreTranslate
     // 환경변수로 provider 설정 가능: 'libretranslate', 'google', 'papago'
-    const provider = process.env.TRANSLATION_PROVIDER || 'libretranslate';
+    const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
+    const provider = apiKey ? (process.env.TRANSLATION_PROVIDER || 'google') : 'libretranslate';
     
     if (provider === 'papago') {
       return await translateWithPapago(textToTranslate, sourceLang, targetLang, res);
@@ -75,6 +79,16 @@ async function translateWithGoogle(
   if (!apiKey) {
     // API 키가 없으면 LibreTranslate 사용 (완전 무료)
     return await translateWithLibreTranslate(text, sourceLang, targetLang, res);
+  }
+
+  // Google Translate API 무료 티어: 월 500,000자
+  // 텍스트 길이 제한으로 한도 관리 (제목 + 간략한 내용만)
+  const textLength = text.length;
+  const safeLimit = 300; // 안전한 한도 (카드당)
+  
+  if (textLength > safeLimit) {
+    console.warn(`Text too long (${textLength} chars), truncating to ${safeLimit} for quota management`);
+    text = text.substring(0, safeLimit);
   }
 
   try {
