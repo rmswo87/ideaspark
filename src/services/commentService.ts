@@ -43,11 +43,25 @@ export async function createComment(
 
   if (error) {
     console.error('Error creating comment:', error);
+    console.error('Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      postId,
+      userId,
+      contentLength: content.length,
+    });
     throw error;
   }
 
-  // 댓글 수 증가
-  await supabase.rpc('increment_comment_count', { post_id_param: postId });
+  // 댓글 수 증가 (실패해도 댓글은 저장됨)
+  try {
+    await supabase.rpc('increment_comment_count', { post_id_param: postId });
+  } catch (rpcError) {
+    console.warn('Failed to increment comment count:', rpcError);
+    // RPC 실패는 무시하고 댓글은 반환
+  }
 
   return comment as unknown as Comment;
 }
