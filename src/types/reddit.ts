@@ -28,6 +28,7 @@ export interface RedditApiResponse {
         subreddit: string;
         author: string;
         ups: number;
+        num_comments?: number;
         permalink: string;
         created_utc: number;
       };

@@ -112,6 +112,7 @@ class RedditClient {
       subreddit: child.data.subreddit,
       author: child.data.author,
       upvotes: child.data.ups || 0,
+      numComments: child.data.num_comments || 0,
       // permalink는 이미 /r/subreddit/comments/post_id/slug/ 형식으로 제공됨
       // www.reddit.com과 결합하여 완전한 URL 생성
       url: `https://www.reddit.com${child.data.permalink}`,
