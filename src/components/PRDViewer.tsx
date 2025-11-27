@@ -60,15 +60,13 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       padding: 20px;
     }
     svg {
-      max-width: 100% !important;
-      min-width: 80% !important;
+      max-width: 90% !important;
       height: auto !important;
       width: auto !important;
     }
-    /* Gantt 차트 최적화 - 더 넓게 표시 */
+    /* Gantt 차트 최적화 - 적절한 크기 유지 */
     svg[data-type="gantt"] {
-      max-width: 100% !important;
-      min-width: 90% !important;
+      max-width: 95% !important;
       width: auto !important;
     }
   </style>
@@ -83,6 +81,19 @@ ${escapedChart}
       theme: 'default',
       securityLevel: 'loose',
       fontFamily: 'inherit',
+      fontSize: 14,
+      flowchart: {
+        nodeSpacing: 50,
+        rankSpacing: 50,
+        curve: 'basis'
+      },
+      gantt: {
+        fontSize: 12,
+        sectionFontSize: 14,
+        leftPadding: 75,
+        gridLineStartPadding: 35,
+        bottomPadding: 25
+      }
     });
     
     // 렌더링 완료 후 부모에게 알림
@@ -162,9 +173,7 @@ ${escapedChart}
 
   return (
     <div className="my-8 w-full flex justify-center">
-      <div className={`mermaid-container border border-border rounded-lg overflow-visible bg-background relative ${
-        isGanttChart ? 'w-full max-w-[98%]' : 'w-full'
-      }`}>
+      <div className="mermaid-container w-full max-w-5xl border border-border rounded-lg overflow-visible bg-background relative">
         {onEdit && (
           <div className="absolute top-2 right-2 z-10">
             <Button
@@ -184,7 +193,7 @@ ${escapedChart}
           className="w-full border-0"
           style={{ 
             width: '100%', 
-            minHeight: isGanttChart ? '500px' : '400px',
+            minHeight: isGanttChart ? '450px' : '350px',
             border: 'none',
             display: 'block',
             overflow: 'visible'
