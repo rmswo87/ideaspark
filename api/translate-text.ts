@@ -92,6 +92,13 @@ async function translateWithGoogle(
   }
 
   try {
+    console.log('Calling Google Translate API:', {
+      textLength: text.length,
+      sourceLang,
+      targetLang,
+      hasApiKey: !!apiKey,
+    });
+
     const response = await fetch(
       `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
       {
@@ -111,22 +118,45 @@ async function translateWithGoogle(
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
-      throw new Error(`Google Translate API error: ${response.status} ${errorText}`);
+      console.error('Google Translate API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText.substring(0, 200),
+      });
+      throw new Error(`Google Translate API error: ${response.status} ${errorText.substring(0, 100)}`);
     }
 
     const data = await response.json() as { data?: { translations?: Array<{ translatedText?: string }> } };
     
+    console.log('Google Translate API response:', {
+      hasData: !!data.data,
+      hasTranslations: !!data.data?.translations,
+      translationCount: data.data?.translations?.length || 0,
+      hasTranslatedText: !!data.data?.translations?.[0]?.translatedText,
+    });
+    
     if (!data.data || !data.data.translations || !data.data.translations[0] || !data.data.translations[0].translatedText) {
+      console.error('Invalid Google Translate API response structure:', JSON.stringify(data).substring(0, 200));
       throw new Error('Invalid response from Google Translate API');
     }
 
+    const translatedText = data.data.translations[0].translatedText;
+    console.log('Google Translate success:', {
+      originalLength: text.length,
+      translatedLength: translatedText.length,
+      preview: translatedText.substring(0, 50),
+    });
+
     return res.status(200).json({
-      translatedText: data.data.translations[0].translatedText,
+      translatedText: translatedText,
       success: true,
       provider: 'google',
     });
   } catch (error) {
-    console.error('Google Translate error:', error);
+    console.error('Google Translate error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     // 실패 시 LibreTranslate로 폴백
     return await translateWithLibreTranslate(text, sourceLang, targetLang, res);
   }
