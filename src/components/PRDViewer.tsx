@@ -314,20 +314,12 @@ function processMermaidContent(content: string) {
   return parts;
 }
 
-export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
+export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showMermaidEditor, setShowMermaidEditor] = useState(false);
   const [editingMermaidIndex, setEditingMermaidIndex] = useState<number | null>(null);
   const [editingMermaidCode, setEditingMermaidCode] = useState<string>('');
-  const [prdContent, setPrdContent] = useState(prd.content);
-  const [saving, setSaving] = useState(false); // saving state 추가
-
-  // prd prop이 변경될 때 prdContent 상태 동기화
-  useEffect(() => {
-    setPrdContent(prd.content);
-  }, [prd.content]);
-
-  const processedParts = processMermaidContent(prdContent);
+  const [saving, setSaving] = useState(false);
 
   const handleDownloadMarkdown = () => {
     const blob = new Blob([prd.content], { type: 'text/markdown;charset=utf-8' });
@@ -389,6 +381,14 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
       alert('PDF 다운로드 중 오류가 발생했습니다.');
     }
   };
+
+  const [prdContent, setPrdContent] = useState(prd.content);
+  const processedParts = processMermaidContent(prdContent);
+
+  // prd.content가 변경되면 prdContent 동기화
+  useEffect(() => {
+    setPrdContent(prd.content);
+  }, [prd.content]);
 
   // Mermaid 에디터 열기
   const handleOpenMermaidEditor = (mermaidIndex: number, mermaidCode: string) => {
@@ -625,7 +625,7 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
             setEditingMermaidIndex(null);
             setEditingMermaidCode('');
           }}
-          saving={saving} // saving prop 전달
+          saving={saving}
         />
       )}
     </Card>
