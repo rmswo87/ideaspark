@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,14 +38,7 @@ function HomePage() {
   const [subreddits, setSubreddits] = useState<string[]>([])
   const navigate = useNavigate()
 
-  // 아이디어 목록 가져오기
-  useEffect(() => {
-    fetchIdeas()
-    fetchStats()
-    fetchSubreddits()
-  }, [categoryFilter, subredditFilter, sortOption])
-
-  async function fetchIdeas() {
+  const fetchIdeas = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getIdeas({
@@ -63,7 +56,25 @@ function HomePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [categoryFilter, subredditFilter, sortOption, searchQuery])
+
+  // 아이디어 목록 가져오기
+  useEffect(() => {
+    let isMounted = true;
+    
+    async function fetchIdeasSafe() {
+      if (!isMounted) return;
+      await fetchIdeas();
+    }
+    
+    fetchIdeasSafe();
+    fetchStats();
+    fetchSubreddits();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchIdeas])
 
   async function fetchSubreddits() {
     try {

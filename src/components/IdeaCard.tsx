@@ -21,9 +21,14 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   // 컴포넌트 마운트 시 번역된 내용 가져오기 (한 번만 시도)
   useEffect(() => {
     let isMounted = true;
+    let abortController: AbortController | null = null;
     
     async function fetchTranslation() {
+      // 컴포넌트가 이미 언마운트되었으면 번역 시도하지 않음
+      if (!isMounted) return;
+      
       setIsTranslating(true);
+      
       try {
         // 제목과 내용을 번역
         const result = await getTranslatedContent(idea.url, idea.title, idea.content);
@@ -43,16 +48,18 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
           setTranslatedContent(null);
         }
       } catch (error) {
+        // 컴포넌트가 언마운트되었으면 에러 처리하지 않음
+        if (!isMounted) return;
+        
         // 개발 환경에서만 에러 로그 출력
-        if (import.meta.env.DEV && isMounted) {
+        if (import.meta.env.DEV) {
           console.debug('Translation unavailable for this idea');
         }
         // 실패 시 원본 사용
-        if (isMounted) {
-          setTranslatedTitle(null);
-          setTranslatedContent(null);
-        }
+        setTranslatedTitle(null);
+        setTranslatedContent(null);
       } finally {
+        // 컴포넌트가 마운트되어 있을 때만 상태 업데이트
         if (isMounted) {
           setIsTranslating(false);
         }
@@ -63,6 +70,9 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
     
     return () => {
       isMounted = false;
+      if (abortController) {
+        abortController.abort();
+      }
     };
   }, [idea.id]); // idea.id만 의존성으로 사용하여 같은 아이디어에 대해 재시도 방지
 
