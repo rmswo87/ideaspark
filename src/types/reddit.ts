@@ -7,6 +7,7 @@ export interface RedditPost {
   subreddit: string;
   author: string;
   upvotes: number;
+  numComments: number;
   url: string;
   createdAt: Date;
 }

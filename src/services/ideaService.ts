@@ -10,6 +10,7 @@ export interface Idea {
   subreddit: string;
   author: string;
   upvotes: number;
+  num_comments?: number;
   url: string;
   category: string;
   collected_at?: string;
@@ -35,6 +36,7 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
     subreddit: idea.subreddit,
     author: idea.author,
     upvotes: idea.upvotes,
+    num_comments: idea.numComments || 0,
     url: idea.url,
     category: categorizeIdea(idea),
   }));
@@ -96,7 +98,7 @@ function categorizeIdea(idea: RedditPost): string {
 /**
  * 정렬 옵션 타입
  */
-export type SortOption = 'latest' | 'popular' | 'subreddit';
+export type SortOption = 'latest' | 'popular' | 'subreddit' | 'comments';
 
 /**
  * 특정 ID의 아이디어 가져오기
@@ -148,6 +150,10 @@ export async function getIdeas(filters?: {
   } else if (filters?.sort === 'subreddit') {
     // 서브레딧순: 서브레딧 이름 기준 오름차순, 그 다음 최신순
     query = query.order('subreddit', { ascending: true })
+                 .order('collected_at', { ascending: false });
+  } else if (filters?.sort === 'comments') {
+    // 댓글순: num_comments 기준 내림차순 (없으면 최신순)
+    query = query.order('num_comments', { ascending: false, nullsFirst: false })
                  .order('collected_at', { ascending: false });
   } else {
     // 최신순 (기본값)
@@ -240,4 +246,3 @@ export async function getSubreddits(): Promise<string[]> {
 
   return uniqueSubreddits;
 }
-
