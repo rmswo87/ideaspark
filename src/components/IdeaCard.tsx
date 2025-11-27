@@ -17,7 +17,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   const [translatedTitle, setTranslatedTitle] = useState<string | null>(null);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   const [translatedUrl, setTranslatedUrl] = useState<string | null>(null);
-  const [loadingTranslation, setLoadingTranslation] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(true); // 초기 로딩 상태
 
   /**
    * Reddit 번역 페이지 URL 생성
@@ -36,20 +36,29 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   // 컴포넌트 마운트 시 번역된 내용 가져오기
   useEffect(() => {
     async function fetchTranslation() {
-      setLoadingTranslation(true);
+      setIsTranslating(true);
       try {
         // 제목과 내용을 번역
         const result = await getTranslatedContent(idea.url, idea.title, idea.content);
-        setTranslatedTitle(result.title);
-        setTranslatedContent(result.content);
+        // 번역이 성공했거나 원본 텍스트를 반환한 경우
+        if (result.success || result.title || result.content) {
+          setTranslatedTitle(result.title || idea.title);
+          setTranslatedContent(result.content || idea.content);
+        } else {
+          // 완전 실패 시 원본 사용
+          setTranslatedTitle(null);
+          setTranslatedContent(null);
+        }
         setTranslatedUrl(result.translatedUrl);
       } catch (error) {
         console.error('Failed to fetch translation:', error);
-        // 실패 시 번역 URL만 설정
+        // 실패 시 원본 사용 및 번역 URL 설정
+        setTranslatedTitle(null);
+        setTranslatedContent(null);
         const url = getTranslatedUrl(idea.url);
         setTranslatedUrl(url);
       } finally {
-        setLoadingTranslation(false);
+        setIsTranslating(false);
       }
     }
 
@@ -94,9 +103,9 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
                 e.stopPropagation();
                 toggleTranslation();
               }}
-              disabled={loadingTranslation}
+              disabled={isTranslating}
             >
-              {loadingTranslation ? (
+              {isTranslating ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : showTranslation ? (
                 '원문 보기'
@@ -108,7 +117,7 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
           
           {showTranslation ? (
             <div className="space-y-2">
-              {loadingTranslation ? (
+              {isTranslating ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   <span className="ml-2 text-sm text-muted-foreground">번역 중...</span>
