@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Sparkles, RefreshCw } from "lucide-react"
+import { IdeaCard } from '@/components/IdeaCard'
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
 import { supabase } from '@/lib/supabase'
@@ -18,7 +18,6 @@ import { AdminDashboard } from '@/pages/AdminDashboard'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, MessageSquare, Shield } from 'lucide-react'
-import { IdeaCard } from '@/components/IdeaCard'
 
 function HomePage() {
   const { user } = useAuth()
