@@ -16,7 +16,7 @@ import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts, deletePost } from '@/services/postService';
 import { getMyComments, deleteComment } from '@/services/commentService';
-import { deletePRD, updatePRD } from '@/services/prdService';
+import { deletePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import type { FriendRequest, Friend } from '@/services/friendService';
@@ -523,7 +523,7 @@ export function ProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text3xl font-bold">{stats.bookmarks}</p>
+                <p className="text-3xl font-bold">{stats.bookmarks}</p>
                 <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
