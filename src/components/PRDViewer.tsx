@@ -1,9 +1,9 @@
 // PRD 뷰어 컴포넌트 (개선된 마크다운 렌더링 및 Mermaid 지원)
-import { useRef, useEffect, useState, useLayoutEffect, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import mermaid from 'mermaid';
+// Mermaid는 iframe 내부에서 CDN으로 로드하므로 import 불필요
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Edit, FileText } from 'lucide-react';
@@ -15,92 +15,95 @@ interface PRDViewerProps {
   onEdit?: () => void;
 }
 
-// Mermaid 다이어그램 컴포넌트 (React DOM 충돌 방지를 위한 안전한 렌더링)
+// Mermaid 다이어그램 컴포넌트 (iframe을 사용한 완전 분리 렌더링)
+// iframe을 사용하면 React의 가상 DOM과 완전히 분리되어 DOM 충돌이 발생하지 않습니다.
 // 참고: https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95
 function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [rendered, setRendered] = useState(false);
-  const [svgContent, setSvgContent] = useState<string | null>(null);
-  
-  // 안정적인 ID 생성 (재렌더링 시에도 동일한 ID 유지)
-  const mermaidId = useMemo(() => `mermaid-${index}`, [index]);
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
 
-  // Mermaid 초기화 (한 번만)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !(window as any).__mermaidInitialized) {
-      try {
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: 'default',
-          securityLevel: 'loose',
-          fontFamily: 'inherit',
-        });
-        (window as any).__mermaidInitialized = true;
-      } catch (err) {
-        console.error('Mermaid initialization error:', err);
-      }
+  // iframe 내부에서 사용할 HTML 생성
+  const iframeContent = useMemo(() => {
+    const escapedChart = cleanedChart
+      .replace(/\\/g, '\\\\')
+      .replace(/`/g, '\\`')
+      .replace(/\$/g, '\\$');
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: transparent;
+      font-family: inherit;
     }
-  }, []);
-
-  // useLayoutEffect를 사용하여 DOM이 완전히 준비된 후 렌더링
-  useLayoutEffect(() => {
-    // 이미 렌더링된 경우 재렌더링하지 않음
-    if (rendered || !containerRef.current || !cleanedChart) return;
-
-    const container = containerRef.current;
-    let isMounted = true;
-
-    // Mermaid 렌더링 (비동기)
-    const renderDiagram = async () => {
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="mermaid">
+${escapedChart}
+  </div>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: 'inherit',
+    });
+    
+    // 렌더링 완료 후 부모에게 알림
+    window.addEventListener('load', function() {
       try {
-        // 컨테이너 초기화
-        container.innerHTML = '';
-        
-        // mermaid.render()를 사용하여 SVG 생성
-        const { svg } = await mermaid.render(mermaidId, cleanedChart);
-        
-        if (!isMounted || !containerRef.current) return;
-
-        // SVG를 최적화하여 설정
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svg, 'image/svg+xml');
-        const svgElement = svgDoc.documentElement;
-        
-        // SVG 크기 조정
-        svgElement.removeAttribute('width');
-        svgElement.removeAttribute('height');
-        svgElement.setAttribute('width', '100%');
-        svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-        svgElement.style.maxWidth = '100%';
-        svgElement.style.height = 'auto';
-        svgElement.style.display = 'block';
-
-        // SVG를 문자열로 변환하여 상태에 저장 (React가 제어하도록)
-        const svgString = svgElement.outerHTML;
-        setSvgContent(svgString);
-        setRendered(true);
-        setError(null);
+        mermaid.run();
+        // 렌더링 성공
+        if (window.parent) {
+          window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
+        }
       } catch (err) {
-        console.error('Mermaid rendering error:', err);
-        if (isMounted) {
-          const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
-          setError(`다이어그램 렌더링 실패: ${errorMessage}`);
+        // 렌더링 실패
+        if (window.parent) {
+          window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message, index: ${index} }, '*');
+        }
+      }
+    });
+  </script>
+</body>
+</html>`;
+  }, [cleanedChart, index]);
+
+  // iframe에서 오는 메시지 처리
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'mermaid-rendered' && event.data?.index === index) {
+        if (!event.data.success) {
+          setError(event.data.error || '렌더링 실패');
+        } else {
+          setError(null);
         }
       }
     };
 
-    // 약간의 지연 후 렌더링 (React의 렌더링 사이클 완료 대기)
-    const timer = setTimeout(() => {
-      renderDiagram();
-    }, 100);
-
+    window.addEventListener('message', handleMessage);
     return () => {
-      isMounted = false;
-      clearTimeout(timer);
+      window.removeEventListener('message', handleMessage);
     };
-  }, [cleanedChart, mermaidId, rendered]);
+  }, [index]);
 
   // 에러 발생 시 텍스트로 표시
   if (error) {
@@ -128,25 +131,15 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
 
   return (
     <div className="my-8 w-full flex justify-center">
-      <div 
-        ref={containerRef}
-        className="mermaid-container w-full max-w-4xl"
-        suppressHydrationWarning
-      >
-        {!rendered && (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm text-muted-foreground">다이어그램 렌더링 중...</p>
-            </div>
-          </div>
-        )}
-        {svgContent && (
-          <div 
-            dangerouslySetInnerHTML={{ __html: svgContent }}
-            suppressHydrationWarning
-          />
-        )}
+      <div className="mermaid-container w-full max-w-4xl border border-border rounded-lg overflow-hidden">
+        <iframe
+          srcDoc={iframeContent}
+          className="w-full border-0"
+          style={{ minHeight: '300px', width: '100%' }}
+          title={`Mermaid Diagram ${index}`}
+          sandbox="allow-scripts allow-same-origin"
+          loading="lazy"
+        />
       </div>
     </div>
   );
