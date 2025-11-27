@@ -10,7 +10,7 @@
 4. 다음 환경변수 추가:
 
 ```
-GOOGLE_TRANSLATE_API_KEY = AIzaSyD1x3i3rJ_9SUMsTvFkaHhz5Q2Xsr83XgY
+GOOGLE_TRANSLATE_API_KEY = 여기에_Google_Translate_API_Key_입력
 ```
 
 **중요**: 
