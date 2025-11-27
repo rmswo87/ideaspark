@@ -27,15 +27,14 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
 
   // iframe 내부에서 사용할 HTML 생성
+  // Mermaid 가이드에 따라 iframe으로 완전 분리하여 React와 충돌 방지
   const iframeContent = useMemo(() => {
     const escapedChart = cleanedChart
       .replace(/\\/g, '\\\\')
       .replace(/`/g, '\\`')
       .replace(/\$/g, '\\$');
     
-    // Gantt 차트인지 정확히 감지 (gantt 키워드로 시작하는지 확인)
-    const isGanttChart = /^\s*gantt\s/i.test(cleanedChart);
-    
+    // 통일된 Mermaid 설정 (모든 다이어그램 타입에 동일한 스타일 적용)
     return `
 <!DOCTYPE html>
 <html>
@@ -46,48 +45,29 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
   <style>
     * {
       box-sizing: border-box;
-    }
-    html, body {
       margin: 0;
       padding: 0;
+    }
+    html, body {
       width: 100%;
       height: 100%;
       overflow: visible;
       background: transparent;
-      font-family: inherit;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     }
     .mermaid {
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       width: 100%;
       min-height: 100%;
-      padding: 20px;
+      padding: 24px;
     }
     svg {
-      max-width: 95% !important;
+      max-width: 100% !important;
       height: auto !important;
       width: auto !important;
     }
-    ${isGanttChart ? `
-    /* Gantt 차트는 전체 너비 사용하되, 내부 요소는 컴팩트하게 */
-    svg {
-      max-width: 100% !important;
-      width: 100% !important;
-      transform: scale(0.75) !important;
-      transform-origin: left top !important;
-    }
-    /* Gantt 차트 내부 텍스트와 간격 최적화 */
-    .mermaid .taskText, .mermaid .taskTextOutsideRight, .mermaid .taskTextOutsideLeft {
-      font-size: 9px !important;
-    }
-    .mermaid .sectionTitle {
-      font-size: 10px !important;
-    }
-    .mermaid .task {
-      font-size: 9px !important;
-    }
-    ` : ''}
   </style>
 </head>
 <body>
@@ -95,37 +75,51 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
 ${escapedChart}
   </div>
   <script>
-    // Gantt 차트인지 정확히 감지
-    const isGantt = /^\\s*gantt\\s/i.test(\`${escapedChart.replace(/`/g, '\\`')}\`);
-    
-    // Mermaid 초기화 및 렌더링
+    // Mermaid 초기화 및 렌더링 (통일된 설정)
     function renderMermaid() {
       try {
         mermaid.initialize({
           startOnLoad: false,
           theme: 'default',
           securityLevel: 'loose',
-          fontFamily: 'inherit',
-          fontSize: ${isGanttChart ? '9' : '14'},
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
+          fontSize: 14,
           flowchart: {
-            nodeSpacing: 60,
-            rankSpacing: 60,
-            curve: 'basis'
+            nodeSpacing: 50,
+            rankSpacing: 50,
+            curve: 'basis',
+            fontSize: 14
+          },
+          sequence: {
+            fontSize: 14,
+            actorMargin: 50,
+            width: 150,
+            height: 65,
+            boxMargin: 10,
+            boxTextMargin: 5,
+            noteMargin: 10,
+            messageMargin: 35
+          },
+          gantt: {
+            fontSize: 14,
+            sectionFontSize: 14,
+            leftPadding: 75,
+            gridLineStartPadding: 35,
+            bottomPadding: 25,
+            topPadding: 25,
+            barHeight: 20,
+            barGap: 4
           },
           er: {
             fontSize: 14,
-            entityPadding: 12,
-            padding: 18
+            entityPadding: 15,
+            padding: 20
           },
-          gantt: {
-            fontSize: 9,
-            sectionFontSize: 10,
-            leftPadding: 40,
-            gridLineStartPadding: 20,
-            bottomPadding: 12,
-            topPadding: 12,
-            barHeight: 16,
-            barGap: 2
+          pie: {
+            fontSize: 14
+          },
+          gitgraph: {
+            fontSize: 14
           }
         });
         
@@ -138,22 +132,19 @@ ${escapedChart}
           setTimeout(() => {
             const svg = document.querySelector('svg');
             if (svg && window.parent) {
-              const height = svg.getBoundingClientRect().height + 40; // 패딩 포함
+              const height = svg.getBoundingClientRect().height + 48; // 패딩 포함
               window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
               window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
             } else if (window.parent) {
-              // SVG가 없으면 에러로 처리
               window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'SVG not found after rendering', index: ${index} }, '*');
             }
           }, 200);
         }).catch((err) => {
-          // 렌더링 실패
           if (window.parent) {
             window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed', index: ${index} }, '*');
           }
         });
       } catch (err) {
-        // 초기화 실패
         if (window.parent) {
           window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Initialization failed', index: ${index} }, '*');
         }
@@ -164,7 +155,6 @@ ${escapedChart}
     if (document.readyState === 'loading') {
       window.addEventListener('DOMContentLoaded', renderMermaid);
     } else {
-      // 이미 로드된 경우 약간의 지연 후 렌더링
       setTimeout(renderMermaid, 100);
     }
   </script>
@@ -197,54 +187,47 @@ ${escapedChart}
 
   // 에러 발생 시 텍스트로 표시
   if (error) {
-    // UTF-8 문자열을 안전하게 base64 인코딩
-    // btoa는 Latin1만 지원하므로 UTF-8을 먼저 인코딩해야 함
     const encodeBase64 = (str: string): string => {
       try {
-        // UTF-8로 인코딩 후 base64 변환
         return btoa(unescape(encodeURIComponent(str)));
       } catch (e) {
-        // 인코딩 실패 시 URL 인코딩 사용
         return encodeURIComponent(str);
       }
     };
     const mermaidLiveUrl = `https://mermaid.live/edit#pako:${encodeBase64(cleanedChart)}`;
     return (
-      <div className="my-6 p-5 bg-muted/30 border border-border rounded-lg">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-foreground">📊 Mermaid 다이어그램</p>
+      <div className="my-6 p-4 border border-destructive/20 rounded-md bg-destructive/5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium text-foreground">Mermaid 다이어그램 렌더링 오류</p>
           <a
             href={mermaidLiveUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-primary hover:underline font-medium"
+            className="text-xs text-primary hover:underline"
           >
-            Mermaid Live에서 보기 →
+            Mermaid Live에서 보기
           </a>
         </div>
-        <p className="text-sm text-destructive mb-2">{error}</p>
-        <pre className="text-xs bg-background p-4 rounded overflow-x-auto whitespace-pre-wrap border border-border font-mono">
+        <p className="text-sm text-destructive mb-3">{error}</p>
+        <pre className="text-xs bg-background p-3 rounded overflow-x-auto whitespace-pre-wrap border border-border font-mono">
           {cleanedChart}
         </pre>
       </div>
     );
   }
 
-  // Gantt 차트인지 확인
-  const isGanttChart = cleanedChart.toLowerCase().includes('gantt');
-
   return (
-    <div className="my-8 w-full flex justify-center">
-      <div className="mermaid-container w-full max-w-5xl border border-border rounded-lg overflow-visible bg-background relative">
+    <div className="my-6 w-full">
+      <div className="mermaid-container w-full relative">
         {onEdit && (
           <div className="absolute top-2 right-2 z-10">
             <Button
               variant="outline"
               size="sm"
               onClick={onEdit}
-              className="bg-background/80 backdrop-blur-sm"
+              className="bg-background/90 backdrop-blur-sm shadow-sm"
             >
-              <Pencil className="h-4 w-4 mr-1" />
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
               편집
             </Button>
           </div>
@@ -255,7 +238,7 @@ ${escapedChart}
           className="w-full border-0"
           style={{ 
             width: '100%', 
-            minHeight: isGanttChart ? '400px' : '350px',
+            minHeight: '400px',
             border: 'none',
             display: 'block',
             overflow: 'visible'
@@ -481,10 +464,12 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
       <CardContent>
         <div 
           ref={contentRef} 
-          className="prose prose-slate dark:prose-invert max-w-none prd-content"
+          className="prd-content"
           style={{
-            fontSize: '16px',
-            lineHeight: '1.8',
+            fontSize: '15px',
+            lineHeight: '1.7',
+            color: 'var(--foreground)',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
           }}
         >
           {processedParts.map((part, idx) => {
@@ -505,50 +490,48 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
                 components={{
-                  // 헤더 스타일링 (더 큰 크기, 더 명확한 구분)
+                  // 헤더 스타일링 (통일된 크기와 간격)
                   h1: ({ node, ...props }) => (
-                    <h1 className="text-4xl font-bold mt-10 mb-6 pb-3 border-b-2 border-primary/20 text-foreground" {...props} />
+                    <h1 className="text-2xl font-semibold mt-8 mb-4 text-foreground" {...props} />
                   ),
                   h2: ({ node, ...props }) => (
-                    <h2 className="text-3xl font-semibold mt-8 mb-4 pb-2 border-b border-border text-foreground" {...props} />
+                    <h2 className="text-xl font-semibold mt-7 mb-3 text-foreground" {...props} />
                   ),
                   h3: ({ node, ...props }) => (
-                    <h3 className="text-2xl font-semibold mt-6 mb-3 text-foreground" {...props} />
+                    <h3 className="text-lg font-semibold mt-6 mb-3 text-foreground" {...props} />
                   ),
                   h4: ({ node, ...props }) => (
-                    <h4 className="text-xl font-medium mt-5 mb-2 text-foreground" {...props} />
+                    <h4 className="text-base font-semibold mt-5 mb-2 text-foreground" {...props} />
                   ),
                   h5: ({ node, ...props }) => (
-                    <h5 className="text-lg font-medium mt-4 mb-2 text-foreground" {...props} />
+                    <h5 className="text-sm font-semibold mt-4 mb-2 text-foreground" {...props} />
                   ),
                   h6: ({ node, ...props }) => (
-                    <h6 className="text-base font-medium mt-3 mb-2 text-foreground" {...props} />
+                    <h6 className="text-sm font-medium mt-4 mb-2 text-foreground" {...props} />
                   ),
-                  // 단락 스타일링 (더 큰 줄 간격, 더 명확한 구분)
+                  // 단락 스타일링 (통일된 간격)
                   p: ({ node, ...props }) => (
-                    <p className="mb-5 leading-8 text-foreground text-base whitespace-pre-wrap" {...props} />
+                    <p className="mb-4 leading-7 text-foreground" {...props} />
                   ),
-                  // 리스트 스타일링 (더 큰 간격)
+                  // 리스트 스타일링 (통일된 간격)
                   ul: ({ node, ...props }) => (
-                    <ul className="mb-6 ml-8 list-disc space-y-3 text-base" {...props} />
+                    <ul className="mb-4 ml-6 list-disc space-y-1" {...props} />
                   ),
                   ol: ({ node, ...props }) => (
-                    <ol className="mb-6 ml-8 list-decimal space-y-3 text-base" {...props} />
+                    <ol className="mb-4 ml-6 list-decimal space-y-1" {...props} />
                   ),
                   li: ({ node, ...props }) => (
-                    <li className="leading-8 text-foreground" {...props} />
+                    <li className="leading-7 text-foreground" {...props} />
                   ),
-                  // 강조 스타일링 (더 명확한 효과)
+                  // 강조 스타일링 (통일된 크기)
                   strong: ({ node, ...props }) => (
-                    <strong className="font-bold text-foreground text-lg" {...props} />
+                    <strong className="font-semibold text-foreground" {...props} />
                   ),
                   em: ({ node, ...props }) => (
-                    <em className="italic text-foreground font-medium" {...props} />
+                    <em className="italic text-foreground" {...props} />
                   ),
-                  // 코드 스타일링 (더 큰 폰트, 더 명확한 배경)
-                  // Mermaid 코드 블록은 이미 processMermaidContent에서 제거되었으므로 여기서는 렌더링하지 않음
+                  // 코드 스타일링 (통일된 스타일)
                   code: ({ node, inline, className, children, ...props }: any) => {
-                    // Mermaid 코드 블록은 이미 별도로 처리되므로 여기서는 렌더링하지 않음
                     if (className && className.includes('language-mermaid')) {
                       return null;
                     }
@@ -556,7 +539,7 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
                     if (inline) {
                       return (
                         <code
-                          className="bg-muted/80 px-2 py-1 rounded-md text-sm font-mono text-foreground border border-border"
+                          className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground"
                           {...props}
                         >
                           {children}
@@ -564,9 +547,9 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
                       );
                     }
                     return (
-                      <div className="my-6">
+                      <div className="my-4">
                         <code
-                          className="block bg-muted/50 p-5 rounded-lg text-sm font-mono overflow-x-auto border border-border"
+                          className="block bg-muted p-4 rounded text-sm font-mono overflow-x-auto border border-border"
                           {...props}
                         >
                           {children}
@@ -574,37 +557,37 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
                       </div>
                     );
                   },
-                  // 링크 스타일링 (더 명확한 색상)
+                  // 링크 스타일링
                   a: ({ node, ...props }) => (
                     <a
-                      className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                      className="text-primary underline underline-offset-2 hover:text-primary/80"
                       target="_blank"
                       rel="noopener noreferrer"
                       {...props}
                     />
                   ),
-                  // 인용구 스타일링 (더 명확한 스타일)
+                  // 인용구 스타일링
                   blockquote: ({ node, ...props }) => (
                     <blockquote
-                      className="border-l-4 border-primary pl-6 italic my-6 text-muted-foreground bg-muted/30 py-3 rounded-r"
+                      className="border-l-2 border-border pl-4 italic my-4 text-muted-foreground"
                       {...props}
                     />
                   ),
-                  // 테이블 스타일링 (더 명확한 구분)
+                  // 테이블 스타일링
                   table: ({ node, ...props }) => (
-                    <div className="overflow-x-auto my-6 border border-border rounded-lg">
-                      <table className="min-w-full border-collapse" {...props} />
+                    <div className="overflow-x-auto my-4">
+                      <table className="min-w-full border-collapse border border-border" {...props} />
                     </div>
                   ),
                   th: ({ node, ...props }) => (
-                    <th className="border border-border px-4 py-3 bg-muted font-semibold text-left text-base" {...props} />
+                    <th className="border border-border px-3 py-2 bg-muted font-semibold text-left text-sm" {...props} />
                   ),
                   td: ({ node, ...props }) => (
-                    <td className="border border-border px-4 py-3 text-base" {...props} />
+                    <td className="border border-border px-3 py-2 text-sm" {...props} />
                   ),
-                  // 구분선 (더 명확한 구분)
+                  // 구분선
                   hr: ({ node, ...props }) => (
-                    <hr className="my-10 border-t-2 border-border" {...props} />
+                    <hr className="my-6 border-t border-border" {...props} />
                   ),
                 }}
               >
