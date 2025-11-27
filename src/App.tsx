@@ -18,7 +18,7 @@ import { AdminDashboard } from '@/pages/AdminDashboard'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
-import { LogOut, User as UserIcon, MessageSquare, Shield } from 'lucide-react'
+import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 function HomePage() {
