@@ -164,3 +164,51 @@ export async function deletePRD(prdId: string): Promise<void> {
   }
 }
 
+/**
+ * 개발 계획서 생성
+ */
+export async function generateDevelopmentPlan(
+  ideaId: string,
+  userId: string,
+  prdContent?: string
+): Promise<PRD> {
+  // 아이디어 조회
+  const { data: idea, error: ideaError } = await supabase
+    .from('ideas')
+    .select('*')
+    .eq('id', ideaId)
+    .single();
+
+  if (ideaError || !idea) {
+    throw new Error('Idea not found');
+  }
+
+  // AI로 개발 계획서 생성
+  let planContent: string;
+  try {
+    planContent = await aiClient.generateDevelopmentPlan(idea as Idea, prdContent);
+  } catch (error) {
+    console.error('Development plan generation error:', error);
+    throw new Error(`개발 계획서 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  // 개발 계획서 저장
+  const { data: plan, error: planError } = await supabase
+    .from('prds')
+    .insert({
+      idea_id: ideaId,
+      user_id: userId,
+      title: `${idea.title} - 개발 계획서`,
+      content: planContent,
+      status: 'draft',
+    })
+    .select()
+    .single();
+
+  if (planError) {
+    console.error('Development plan save error:', planError);
+    throw planError;
+  }
+
+  return plan;
+}
