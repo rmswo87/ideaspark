@@ -66,7 +66,7 @@ export async function getPosts(filters?: {
     .from('posts')
     .select(`
       *,
-      user:auth.users!posts_user_id_fkey(id, email)
+      user:profiles!posts_user_id_fkey(id, email)
     `)
     .order('created_at', { ascending: false });
 
@@ -104,7 +104,7 @@ export async function getPost(postId: string): Promise<Post | null> {
     .from('posts')
     .select(`
       *,
-      user:auth.users!posts_user_id_fkey(id, email)
+      user:profiles!posts_user_id_fkey(id, email)
     `)
     .eq('id', postId)
     .single();
@@ -288,5 +288,4 @@ export async function isBookmarked(postId: string, userId: string): Promise<bool
 
   return !!data;
 }
-
 
