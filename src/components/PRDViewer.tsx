@@ -1,10 +1,9 @@
 // PRD 뷰어 컴포넌트 (개선된 마크다운 렌더링 및 Mermaid 지원)
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 // Mermaid import 제거 - React DOM 충돌 방지를 위해 렌더링 비활성화
-// import mermaid from 'mermaid';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Edit, FileText } from 'lucide-react';
