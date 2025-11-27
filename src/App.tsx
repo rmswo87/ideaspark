@@ -15,6 +15,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { CommunityPage } from '@/pages/CommunityPage'
 import { PostDetailPage } from '@/pages/PostDetailPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, MessageSquare, Shield } from 'lucide-react'
@@ -344,6 +345,7 @@ function App() {
         <Route path="/idea/:id" element={<IdeaDetailPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/community/:id" element={<PostDetailPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   )
