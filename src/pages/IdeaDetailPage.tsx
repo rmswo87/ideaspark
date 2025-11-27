@@ -1,5 +1,5 @@
 // 아이디어 상세 페이지 및 PRD 생성
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { PRDViewer } from '@/components/PRDViewer';
 import { generatePRD, generateDevelopmentPlan, getPRD, getPRDs } from '@/services/prdService';
@@ -11,6 +11,7 @@ import { Loader2, Sparkles, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Idea } from '@/services/ideaService';
 import type { PRD } from '@/services/prdService';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export function IdeaDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,11 +22,18 @@ export function IdeaDetailPage() {
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetchIdea();
     fetchUser();
     checkExistingPRD();
+    
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [id]);
 
   async function fetchIdea() {
@@ -68,16 +76,31 @@ export function IdeaDetailPage() {
       return;
     }
 
+    if (!isMountedRef.current) return;
+
     setGenerating(true);
+    setError(null);
+    
     try {
       const newPRD = await generatePRD(id, user.id);
-      setPrd(newPRD);
-      alert('PRD가 성공적으로 생성되었습니다!');
+      
+      if (!isMountedRef.current) return;
+      
+      // 상태 업데이트를 requestAnimationFrame으로 지연
+      requestAnimationFrame(() => {
+        if (isMountedRef.current) {
+          setPrd(newPRD);
+          setGenerating(false);
+        }
+      });
     } catch (error) {
       console.error('PRD generation error:', error);
-      alert(`PRD 생성에 실패했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+      if (!isMountedRef.current) return;
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(`PRD 생성에 실패했습니다: ${errorMessage}`);
       setGenerating(false);
+      alert(`PRD 생성에 실패했습니다: ${errorMessage}`);
     }
   }
 
@@ -87,18 +110,33 @@ export function IdeaDetailPage() {
       return;
     }
 
+    if (!isMountedRef.current) return;
+
     setGeneratingPlan(true);
+    setError(null);
+    
     try {
       // PRD가 있으면 PRD 내용을 포함하여 개발 계획서 생성
       const prdContent = prd?.content;
       const newPlan = await generateDevelopmentPlan(id, user.id, prdContent);
-      setPrd(newPlan);
-      alert('개발 계획서가 성공적으로 생성되었습니다!');
+      
+      if (!isMountedRef.current) return;
+      
+      // 상태 업데이트를 requestAnimationFrame으로 지연
+      requestAnimationFrame(() => {
+        if (isMountedRef.current) {
+          setPrd(newPlan);
+          setGeneratingPlan(false);
+        }
+      });
     } catch (error) {
       console.error('Development plan generation error:', error);
-      alert(`개발 계획서 생성에 실패했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+      if (!isMountedRef.current) return;
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(`개발 계획서 생성에 실패했습니다: ${errorMessage}`);
       setGeneratingPlan(false);
+      alert(`개발 계획서 생성에 실패했습니다: ${errorMessage}`);
     }
   }
 
@@ -232,7 +270,16 @@ export function IdeaDetailPage() {
         </Card>
       ) : (
         <>
-          <PRDViewer prd={prd} />
+          {error && (
+            <Card className="mb-4 border-destructive">
+              <CardContent className="py-4">
+                <p className="text-destructive text-sm">{error}</p>
+              </CardContent>
+            </Card>
+          )}
+          <ErrorBoundary>
+            <PRDViewer prd={prd} />
+          </ErrorBoundary>
           {prd.title.includes('PRD') && (
             <Card className="mt-4">
               <CardContent className="py-6 text-center">

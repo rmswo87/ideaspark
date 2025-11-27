@@ -26,71 +26,93 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
     let isMounted = true;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let renderTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let animationFrameId: number | null = null;
 
     async function renderMermaid() {
       if (!containerRef.current || !isMounted) return;
 
       const container = containerRef.current;
       
-      // innerHTML을 사용하여 안전하게 초기화 (removeChild 대신)
-      container.innerHTML = '';
-      setIsRendered(false);
-      setError(null);
+      // requestAnimationFrame을 사용하여 React의 렌더링 사이클과 동기화
+      animationFrameId = requestAnimationFrame(() => {
+        if (!isMounted || !containerRef.current) return;
 
-      // 새로운 div 생성
-      const mermaidDiv = document.createElement('div');
-      const id = mermaidIdRef.current;
-      mermaidDiv.id = id;
-      mermaidDiv.className = 'mermaid';
-      mermaidDiv.textContent = chart;
-      container.appendChild(mermaidDiv);
+        // innerHTML을 사용하여 안전하게 초기화 (removeChild 대신)
+        try {
+          container.innerHTML = '';
+        } catch (e) {
+          // 에러 무시
+          return;
+        }
+        
+        setIsRendered(false);
+        setError(null);
 
-      // Mermaid 초기화는 한 번만 수행
-      try {
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: 'default',
-          securityLevel: 'loose',
-          fontFamily: 'inherit',
-        });
-      } catch (err) {
-        console.error('Mermaid initialization error:', err);
-      }
-
-      // 렌더링을 약간 지연시켜 React의 DOM 조작이 완료된 후 실행
-      renderTimeoutId = setTimeout(() => {
-        if (!isMounted || !containerRef.current || !mermaidDiv.parentNode) {
+        // 새로운 div 생성
+        const mermaidDiv = document.createElement('div');
+        const id = mermaidIdRef.current;
+        mermaidDiv.id = id;
+        mermaidDiv.className = 'mermaid';
+        mermaidDiv.textContent = chart;
+        
+        try {
+          container.appendChild(mermaidDiv);
+        } catch (e) {
+          console.error('Failed to append mermaid div:', e);
           return;
         }
 
-        // mermaidDiv가 여전히 DOM에 있는지 확인
-        const currentDiv = containerRef.current.querySelector(`#${id}`);
-        if (!currentDiv) {
-          return;
+        // Mermaid 초기화는 한 번만 수행
+        try {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            fontFamily: 'inherit',
+          });
+        } catch (err) {
+          console.error('Mermaid initialization error:', err);
         }
 
-        mermaid.run({
-          nodes: [currentDiv as HTMLElement],
-          suppressErrors: true,
-        }).then(() => {
-          if (isMounted && containerRef.current) {
-            setError(null);
-            setIsRendered(true);
+        // 렌더링을 약간 지연시켜 React의 DOM 조작이 완료된 후 실행
+        renderTimeoutId = setTimeout(() => {
+          if (!isMounted || !containerRef.current) {
+            return;
           }
-        }).catch((err) => {
-          if (isMounted) {
-            console.error('Mermaid rendering error:', err);
-            setError('다이어그램 렌더링 실패');
-            setIsRendered(false);
+
+          // mermaidDiv가 여전히 DOM에 있는지 확인
+          const currentDiv = containerRef.current.querySelector(`#${id}`);
+          if (!currentDiv || !currentDiv.parentNode) {
+            return;
           }
-        });
-      }, 100); // 100ms 지연으로 React의 DOM 조작 완료 대기
+
+          mermaid.run({
+            nodes: [currentDiv as HTMLElement],
+            suppressErrors: true,
+          }).then(() => {
+            requestAnimationFrame(() => {
+              if (isMounted && containerRef.current) {
+                setError(null);
+                setIsRendered(true);
+              }
+            });
+          }).catch((err) => {
+            requestAnimationFrame(() => {
+              if (isMounted) {
+                console.error('Mermaid rendering error:', err);
+                setError('다이어그램 렌더링 실패');
+                setIsRendered(false);
+              }
+            });
+          });
+        }, 150); // 150ms 지연으로 React의 DOM 조작 완료 대기
+      });
     }
 
     // 초기 렌더링을 약간 지연
     timeoutId = setTimeout(() => {
       renderMermaid();
-    }, 50);
+    }, 100);
 
     return () => {
       isMounted = false;
@@ -100,10 +122,22 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
       if (renderTimeoutId) {
         clearTimeout(renderTimeoutId);
       }
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
       // cleanup: innerHTML을 사용하여 안전하게 제거
       if (containerRef.current) {
         try {
-          containerRef.current.innerHTML = '';
+          // requestAnimationFrame으로 지연하여 안전하게 제거
+          requestAnimationFrame(() => {
+            if (containerRef.current) {
+              try {
+                containerRef.current.innerHTML = '';
+              } catch (e) {
+                // 에러 무시
+              }
+            }
+          });
         } catch (e) {
           // 에러 무시
         }
