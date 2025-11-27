@@ -1,7 +1,7 @@
 // 404 Not Found 페이지
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Home } from 'lucide-react';
 
 export function NotFoundPage() {
