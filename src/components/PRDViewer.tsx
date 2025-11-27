@@ -61,12 +61,14 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       align-items: flex-start;
       width: 100%;
       min-height: 100%;
-      padding: 24px;
+      padding: 16px;
     }
     svg {
       max-width: 100% !important;
+      max-height: 800px !important;
       height: auto !important;
       width: auto !important;
+      overflow: visible !important;
     }
   </style>
 </head>
@@ -83,62 +85,76 @@ ${escapedChart}
           theme: 'default',
           securityLevel: 'loose',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-          fontSize: 14,
+          fontSize: 13,
           flowchart: {
-            nodeSpacing: 50,
-            rankSpacing: 50,
+            nodeSpacing: 45,
+            rankSpacing: 45,
             curve: 'basis',
-            fontSize: 14
+            fontSize: 13,
+            padding: 8
           },
           sequence: {
-            fontSize: 14,
-            actorMargin: 50,
-            width: 150,
-            height: 65,
-            boxMargin: 10,
-            boxTextMargin: 5,
-            noteMargin: 10,
-            messageMargin: 35
+            fontSize: 13,
+            actorMargin: 45,
+            width: 140,
+            height: 60,
+            boxMargin: 8,
+            boxTextMargin: 4,
+            noteMargin: 8,
+            messageMargin: 30
           },
           gantt: {
-            fontSize: 14,
-            sectionFontSize: 14,
-            leftPadding: 75,
-            gridLineStartPadding: 35,
-            bottomPadding: 25,
-            topPadding: 25,
-            barHeight: 20,
-            barGap: 4
+            fontSize: 13,
+            sectionFontSize: 13,
+            leftPadding: 70,
+            gridLineStartPadding: 30,
+            bottomPadding: 20,
+            topPadding: 20,
+            barHeight: 18,
+            barGap: 3,
+            padding: 8
           },
           er: {
-            fontSize: 14,
-            entityPadding: 15,
-            padding: 20
+            fontSize: 13,
+            entityPadding: 12,
+            padding: 16
           },
           pie: {
-            fontSize: 14
+            fontSize: 13
           },
           gitgraph: {
-            fontSize: 14
+            fontSize: 13
           }
         });
         
-        // Mermaid 렌더링 실행
+        // Mermaid 렌더링 실행 (에러 발생 시에도 계속 시도)
         mermaid.run({
           querySelector: '.mermaid',
-          suppressErrors: false
+          suppressErrors: true
         }).then(() => {
-          // 렌더링 성공 후 높이 전달
-          setTimeout(() => {
+          // 렌더링 성공 후 높이 전달 (여러 번 시도하여 안정성 향상)
+          let attempts = 0;
+          const maxAttempts = 5;
+          const checkSVG = () => {
             const svg = document.querySelector('svg');
             if (svg && window.parent) {
-              const height = svg.getBoundingClientRect().height + 48; // 패딩 포함
-              window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
-              window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
-            } else if (window.parent) {
+              const rect = svg.getBoundingClientRect();
+              if (rect.height > 0 || attempts >= maxAttempts) {
+                const height = Math.min(rect.height + 32, 800); // 최대 높이 제한
+                window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
+                window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
+              } else {
+                attempts++;
+                setTimeout(checkSVG, 100);
+              }
+            } else if (window.parent && attempts >= maxAttempts) {
               window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'SVG not found after rendering', index: ${index} }, '*');
+            } else if (window.parent) {
+              attempts++;
+              setTimeout(checkSVG, 100);
             }
-          }, 200);
+          };
+          setTimeout(checkSVG, 200);
         }).catch((err) => {
           if (window.parent) {
             window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed', index: ${index} }, '*');
@@ -238,10 +254,11 @@ ${escapedChart}
           className="w-full border-0"
           style={{ 
             width: '100%', 
-            minHeight: '400px',
+            minHeight: '300px',
+            maxHeight: '800px',
             border: 'none',
             display: 'block',
-            overflow: 'visible'
+            overflow: 'hidden'
           }}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
@@ -614,3 +631,4 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
     </Card>
   );
 }
+

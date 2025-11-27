@@ -187,6 +187,14 @@ export async function generateDevelopmentPlan(
   let planContent: string;
   try {
     planContent = await aiClient.generateDevelopmentPlan(idea as Idea, prdContent);
+    
+    // 마지막 문구 제거 (Planning Expert v6.1 관련 메타 정보)
+    const metaInfoPattern = /---\s*\n\s*이 문서는 Planning Expert v6\.1.*$/s;
+    planContent = planContent.replace(metaInfoPattern, '').trim();
+    
+    // 추가로 마지막에 있는 설명 문구 제거
+    const trailingPattern = /\n\s*---\s*\n\s*이 문서는.*$/s;
+    planContent = planContent.replace(trailingPattern, '').trim();
   } catch (error) {
     console.error('Development plan generation error:', error);
     throw new Error(`개발 계획서 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -212,3 +220,4 @@ export async function generateDevelopmentPlan(
 
   return plan;
 }
+

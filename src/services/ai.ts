@@ -525,7 +525,8 @@ Risk #3: [세 번째 위험]
 - 각 Task에 우선순위 [P0/P1/P2/P3]를 명시하세요.
 - Mock-Free 원칙을 준수하고 실제 구현 가능한 계획을 수립하세요.
 - Mermaid 다이어그램을 적극 활용하여 시각화하세요.
-- 실제 개발에 바로 활용할 수 있도록 구체적으로 작성하세요.`;
+- 실제 개발에 바로 활용할 수 있도록 구체적으로 작성하세요.
+- 문서 마지막에 추가 설명이나 메타 정보를 포함하지 마세요.`;
   }
 
   /**
@@ -700,3 +701,4 @@ export const aiClient = new AIClient({
   apiKey,
   model: import.meta.env.VITE_OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct', // OpenRouter 무료 모델
 });
+
