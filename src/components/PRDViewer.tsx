@@ -7,9 +7,9 @@ import rehypeRaw from 'rehype-raw';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Edit, FileText, Pencil } from 'lucide-react';
+import { MermaidVisualEditor } from '@/components/MermaidVisualEditor';
 import type { PRD } from '@/services/prdService';
 import { jsPDF } from 'jspdf';
-import { MermaidVisualEditor } from '@/components/MermaidVisualEditor';
 
 interface PRDViewerProps {
   prd: PRD;
@@ -21,7 +21,6 @@ interface PRDViewerProps {
 // 참고: https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95
 function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number; onEdit?: () => void }) {
   const [error, setError] = useState<string | null>(null);
-  const [iframeKey, setIframeKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
 
@@ -170,7 +169,6 @@ ${escapedChart}
         )}
         <iframe
           ref={iframeRef}
-          key={iframeKey}
           srcDoc={iframeContent}
           className="w-full border-0"
           style={{ 
