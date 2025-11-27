@@ -34,7 +34,6 @@ function MermaidDiagram({ chart, index }: { chart: string; index: number }) {
     async function renderMermaid() {
       if (!containerRef.current || !isMounted || hasRenderedRef.current) return;
 
-      const container = containerRef.current;
       const id = mermaidIdRef.current;
       const cleanedChart = chart.trim();
 
