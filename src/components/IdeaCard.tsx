@@ -21,7 +21,6 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
   // 컴포넌트 마운트 시 번역된 내용 가져오기 (한 번만 시도)
   useEffect(() => {
     let isMounted = true;
-    let abortController: AbortController | null = null;
     
     async function fetchTranslation() {
       // 컴포넌트가 이미 언마운트되었으면 번역 시도하지 않음
@@ -70,9 +69,6 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
     
     return () => {
       isMounted = false;
-      if (abortController) {
-        abortController.abort();
-      }
     };
   }, [idea.id]); // idea.id만 의존성으로 사용하여 같은 아이디어에 대해 재시도 방지
 
