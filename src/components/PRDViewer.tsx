@@ -63,16 +63,15 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       padding: 20px;
     }
     svg {
-      max-width: 90% !important;
+      max-width: 95% !important;
       height: auto !important;
       width: auto !important;
     }
     ${isGanttChart ? `
-    /* Gantt 차트만 특별 처리 - 크기 축소 */
+    /* Gantt 차트는 전체 너비 사용, 글자 크기만 최적화 */
     svg {
-      max-width: 75% !important;
-      transform: scale(0.85) !important;
-      transform-origin: center top !important;
+      max-width: 100% !important;
+      width: 100% !important;
     }
     ` : ''}
   </style>
@@ -90,19 +89,19 @@ ${escapedChart}
       theme: 'default',
       securityLevel: 'loose',
       fontFamily: 'inherit',
-      fontSize: 14,
+      fontSize: 16,
       flowchart: {
         nodeSpacing: 50,
         rankSpacing: 50,
         curve: 'basis'
       },
       gantt: {
-        fontSize: 10,
-        sectionFontSize: 11,
-        leftPadding: 50,
-        gridLineStartPadding: 25,
-        bottomPadding: 15,
-        topPadding: 15
+        fontSize: 14,
+        sectionFontSize: 16,
+        leftPadding: 60,
+        gridLineStartPadding: 30,
+        bottomPadding: 20,
+        topPadding: 20
       }
     });
     
@@ -114,13 +113,6 @@ ${escapedChart}
         setTimeout(() => {
           const svg = document.querySelector('svg');
           if (svg && window.parent) {
-            ${isGanttChart ? `
-            // Gantt 차트만 크기를 85%로 축소
-            if (isGantt) {
-              svg.style.transform = 'scale(0.85)';
-              svg.style.transformOrigin = 'center top';
-            }
-            ` : ''}
             const height = svg.getBoundingClientRect().height + 40; // 패딩 포함
             window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
             window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
