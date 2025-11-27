@@ -9,11 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Download, Edit, FileText, Pencil } from 'lucide-react';
 import { MermaidVisualEditor } from '@/components/MermaidVisualEditor';
 import type { PRD } from '@/services/prdService';
+import { updatePRD } from '@/services/prdService';
 import { jsPDF } from 'jspdf';
 
 interface PRDViewerProps {
   prd: PRD;
   onEdit?: () => void;
+  onUpdate?: (updatedPrd: PRD) => void;
 }
 
 // Mermaid 다이어그램 컴포넌트 (iframe을 사용한 완전 분리 렌더링)
@@ -275,12 +277,13 @@ function processMermaidContent(content: string) {
   return parts;
 }
 
-export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
+export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showMermaidEditor, setShowMermaidEditor] = useState(false);
   const [editingMermaidIndex, setEditingMermaidIndex] = useState<number | null>(null);
   const [editingMermaidCode, setEditingMermaidCode] = useState<string>('');
   const [prdContent, setPrdContent] = useState(prd.content);
+  const [saving, setSaving] = useState(false);
 
   const handleDownloadMarkdown = () => {
     const blob = new Blob([prdContent], { type: 'text/markdown;charset=utf-8' });
@@ -353,33 +356,47 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
   };
 
   // Mermaid 에디터에서 저장
-  const handleMermaidEditorSave = (newMermaidCode: string) => {
+  const handleMermaidEditorSave = async (newMermaidCode: string) => {
     if (editingMermaidIndex === null) return;
 
-    // processedParts에서 해당 Mermaid를 찾아 교체
-    const parts = processMermaidContent(prdContent);
-    let newContent = '';
-    let mermaidCount = 0;
+    setSaving(true);
+    try {
+      // processedParts에서 해당 Mermaid를 찾아 교체
+      const parts = processMermaidContent(prdContent);
+      let newContent = '';
+      let mermaidCount = 0;
 
-    for (const part of parts) {
-      if (part.type === 'mermaid') {
-        if (mermaidCount === editingMermaidIndex) {
-          // 해당 Mermaid 교체
-          newContent += newMermaidCode + '\n\n';
+      for (const part of parts) {
+        if (part.type === 'mermaid') {
+          if (mermaidCount === editingMermaidIndex) {
+            // 해당 Mermaid 교체
+            newContent += '```mermaid\n' + newMermaidCode + '\n```\n\n';
+          } else {
+            // 다른 Mermaid는 그대로
+            newContent += '```mermaid\n' + part.content + '\n```\n\n';
+          }
+          mermaidCount++;
         } else {
-          // 다른 Mermaid는 그대로
-          newContent += '```mermaid\n' + part.content + '\n```\n\n';
+          newContent += part.content;
         }
-        mermaidCount++;
-      } else {
-        newContent += part.content;
       }
-    }
 
-    setPrdContent(newContent);
-    setShowMermaidEditor(false);
-    setEditingMermaidIndex(null);
-    setEditingMermaidCode('');
+      // PRD 업데이트
+      const updatedPrd = await updatePRD(prd.id, { content: newContent });
+      setPrdContent(newContent);
+      if (onUpdate) {
+        onUpdate(updatedPrd);
+      }
+      
+      setShowMermaidEditor(false);
+      setEditingMermaidIndex(null);
+      setEditingMermaidCode('');
+    } catch (error) {
+      console.error('Error saving Mermaid:', error);
+      alert('Mermaid 다이어그램 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -566,6 +583,7 @@ export function PRDViewer({ prd, onEdit }: PRDViewerProps) {
             setEditingMermaidIndex(null);
             setEditingMermaidCode('');
           }}
+          saving={saving}
         />
       )}
     </Card>

@@ -14,8 +14,9 @@ import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest
 import { getPRDs } from '@/services/prdService';
 import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
-import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
-import { getMyComments } from '@/services/commentService';
+import { getBookmarkedPosts, getLikedPosts, getMyPosts, deletePost } from '@/services/postService';
+import { getMyComments, deleteComment } from '@/services/commentService';
+import { deletePRD, updatePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import type { FriendRequest, Friend } from '@/services/friendService';
@@ -522,7 +523,7 @@ export function ProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.bookmarks}</p>
+                <p className="text3xl font-bold">{stats.bookmarks}</p>
                 <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
@@ -566,45 +567,80 @@ export function ProfilePage() {
                   {postsList.map((post) => (
                     <Card
                       key={post.id}
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => {
-                        navigate(`/community/${post.id}`);
-                        setPostsDialogOpen(false);
-                      }}
+                      className="hover:shadow-lg transition-shadow"
                     >
                       <CardHeader>
-                        <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{post.anonymous_id || post.user?.email || '익명'}</span>
-                          <span>{formatDate(post.created_at)}</span>
-                          <span className="px-2 py-1 bg-secondary rounded-md text-xs">
-                            {post.category}
-                          </span>
-                          {(post as any).liked_at && (
-                            <span className="text-xs">좋아요: {formatDate((post as any).liked_at)}</span>
-                          )}
-                          {(post as any).bookmarked_at && (
-                            <span className="text-xs">북마크: {formatDate((post as any).bookmarked_at)}</span>
+                        <div className="flex items-start justify-between">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => {
+                              navigate(`/community/${post.id}`);
+                              setPostsDialogOpen(false);
+                            }}
+                          >
+                            <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>{post.anonymous_id || post.user?.email || '익명'}</span>
+                              <span>{formatDate(post.created_at)}</span>
+                              <span className="px-2 py-1 bg-secondary rounded-md text-xs">
+                                {post.category}
+                              </span>
+                              {(post as any).liked_at && (
+                                <span className="text-xs">좋아요: {formatDate((post as any).liked_at)}</span>
+                              )}
+                              {(post as any).bookmarked_at && (
+                                <span className="text-xs">북마크: {formatDate((post as any).bookmarked_at)}</span>
+                              )}
+                            </div>
+                          </div>
+                          {postsDialogType === 'my' && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm('정말 이 게시글을 삭제하시겠습니까?')) {
+                                  try {
+                                    await deletePost(post.id);
+                                    await fetchPostsList(postsDialogType);
+                                    await fetchStats();
+                                    alert('게시글이 삭제되었습니다.');
+                                  } catch (error) {
+                                    alert('게시글 삭제에 실패했습니다.');
+                                  }
+                                }
+                              }}
+                            >
+                              삭제
+                            </Button>
                           )}
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-                          {post.content}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <MessageSquare className="h-4 w-4" />
-                            {post.comment_count}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Heart className="h-4 w-4" />
-                            {post.like_count}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Bookmark className="h-4 w-4" />
-                            {post.bookmark_count}
-                          </span>
+                        <div 
+                          className="cursor-pointer"
+                          onClick={() => {
+                            navigate(`/community/${post.id}`);
+                            setPostsDialogOpen(false);
+                          }}
+                        >
+                          <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+                            {post.content}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="h-4 w-4" />
+                              {post.comment_count}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Heart className="h-4 w-4" />
+                              {post.like_count}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Bookmark className="h-4 w-4" />
+                              {post.bookmark_count}
+                            </span>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -632,24 +668,59 @@ export function ProfilePage() {
                   {commentsList.map((comment: any) => (
                     <Card
                       key={comment.id}
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => {
-                        if (comment.post?.id) {
-                          navigate(`/community/${comment.post.id}`);
-                          setCommentsDialogOpen(false);
-                        }
-                      }}
+                      className="hover:shadow-lg transition-shadow"
                     >
                       <CardHeader>
-                        <CardTitle className="text-sm mb-2 line-clamp-2">
-                          {comment.post?.title || '게시글 제목 없음'}
-                        </CardTitle>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>{formatDate(comment.created_at)}</span>
+                        <div className="flex items-start justify-between">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => {
+                              if (comment.post?.id) {
+                                navigate(`/community/${comment.post.id}`);
+                                setCommentsDialogOpen(false);
+                              }
+                            }}
+                          >
+                            <CardTitle className="text-sm mb-2 line-clamp-2">
+                              {comment.post?.title || '게시글 제목 없음'}
+                            </CardTitle>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>{formatDate(comment.created_at)}</span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm('정말 이 댓글을 삭제하시겠습니까?')) {
+                                try {
+                                  await deleteComment(comment.id);
+                                  await fetchCommentsList();
+                                  await fetchStats();
+                                  alert('댓글이 삭제되었습니다.');
+                                } catch (error) {
+                                  alert('댓글 삭제에 실패했습니다.');
+                                }
+                              }
+                            }}
+                          >
+                            삭제
+                          </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm line-clamp-3">{comment.content}</p>
+                        <div 
+                          className="cursor-pointer"
+                          onClick={() => {
+                            if (comment.post?.id) {
+                              navigate(`/community/${comment.post.id}`);
+                              setCommentsDialogOpen(false);
+                            }
+                          }}
+                        >
+                          <p className="text-sm line-clamp-3">{comment.content}</p>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -870,36 +941,94 @@ export function ProfilePage() {
             </div>
           ) : selectedPrd ? (
             <div>
-              <Button
-                variant="ghost"
-                onClick={() => setSelectedPrd(null)}
-                className="mb-4"
-              >
-                ← 목록으로
-              </Button>
-              <PRDViewer prd={selectedPrd} />
+              <div className="flex items-center justify-between mb-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedPrd(null);
+                    fetchPrdsList();
+                  }}
+                >
+                  ← 목록으로
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (confirm('정말 이 PRD를 삭제하시겠습니까?')) {
+                      try {
+                        await deletePRD(selectedPrd.id);
+                        setSelectedPrd(null);
+                        await fetchPrdsList();
+                        await fetchStats();
+                        alert('PRD가 삭제되었습니다.');
+                      } catch (error) {
+                        alert('PRD 삭제에 실패했습니다.');
+                      }
+                    }
+                  }}
+                >
+                  삭제
+                </Button>
+              </div>
+              <PRDViewer 
+                prd={selectedPrd} 
+                onUpdate={async (updatedPrd) => {
+                  setSelectedPrd(updatedPrd);
+                  await fetchPrdsList();
+                }}
+              />
             </div>
           ) : (
             <div className="space-y-4">
               {prdsList.map((prd) => (
                 <Card
                   key={prd.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => setSelectedPrd(prd)}
+                  className="hover:shadow-lg transition-shadow"
                 >
                   <CardHeader>
-                    <CardTitle className="line-clamp-2 mb-2">{prd.title}</CardTitle>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{formatDate(prd.created_at)}</span>
-                      <span className="px-2 py-1 bg-secondary rounded-md text-xs">
-                        {prd.status}
-                      </span>
+                    <div className="flex items-start justify-between">
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setSelectedPrd(prd)}
+                      >
+                        <CardTitle className="line-clamp-2 mb-2">{prd.title}</CardTitle>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{formatDate(prd.created_at)}</span>
+                          <span className="px-2 py-1 bg-secondary rounded-md text-xs">
+                            {prd.status}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('정말 이 PRD를 삭제하시겠습니까?')) {
+                            try {
+                              await deletePRD(prd.id);
+                              await fetchPrdsList();
+                              await fetchStats();
+                              alert('PRD가 삭제되었습니다.');
+                            } catch (error) {
+                              alert('PRD 삭제에 실패했습니다.');
+                            }
+                          }
+                        }}
+                      >
+                        삭제
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                      {prd.content.substring(0, 200)}...
-                    </p>
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => setSelectedPrd(prd)}
+                    >
+                      <p className="text-sm text-muted-foreground line-clamp-3">
+                        {prd.content.substring(0, 200)}...
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -910,3 +1039,5 @@ export function ProfilePage() {
     </div>
   );
 }
+
+
