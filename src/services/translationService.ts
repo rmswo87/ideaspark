@@ -38,7 +38,8 @@ export async function translateText(
 
     const data = await response.json();
     
-    if (data.success && data.translatedText) {
+    // success가 false여도 translatedText가 있으면 사용 (원본 텍스트일 수 있음)
+    if (data.translatedText) {
       return data.translatedText;
     } else {
       throw new Error('Translation failed');
@@ -55,31 +56,56 @@ export async function translateText(
  */
 export async function getTranslatedContent(redditUrl: string, title: string, content: string): Promise<TranslatedContent> {
   try {
+    // 번역 URL 생성
+    let translatedUrl: string;
+    try {
+      const url = new URL(redditUrl);
+      url.searchParams.set('lang', 'ko');
+      translatedUrl = url.toString();
+    } catch (error) {
+      translatedUrl = redditUrl;
+    }
+
     // 제목과 내용을 병렬로 번역
-    const [translatedTitle, translatedContent] = await Promise.all([
+    const [translatedTitleResult, translatedContentResult] = await Promise.allSettled([
       translateText(title, 'en', 'ko'),
       translateText(content, 'en', 'ko'),
     ]);
 
-    // 번역 URL 생성
-    const translatedUrl = new URL(redditUrl);
-    translatedUrl.searchParams.set('lang', 'ko');
+    // 번역 결과 처리
+    const translatedTitle = translatedTitleResult.status === 'fulfilled' 
+      ? (translatedTitleResult.value !== title ? translatedTitleResult.value : null)
+      : null;
+    
+    const translatedContent = translatedContentResult.status === 'fulfilled'
+      ? (translatedContentResult.value !== content ? translatedContentResult.value : null)
+      : null;
+
+    // 하나라도 번역 성공하면 success로 처리
+    const success = translatedTitle !== null || translatedContent !== null;
 
     return {
-      title: translatedTitle !== title ? translatedTitle : null,
-      content: translatedContent !== content ? translatedContent : null,
-      translatedUrl: translatedUrl.toString(),
-      success: true,
+      title: translatedTitle,
+      content: translatedContent,
+      translatedUrl: translatedUrl,
+      success: success,
+      note: success ? undefined : '번역을 불러올 수 없습니다. 원문을 표시합니다.',
     };
   } catch (error) {
     console.error('Translation service error:', error);
     // 실패 시 번역 URL만 반환
-    const translatedUrl = new URL(redditUrl);
-    translatedUrl.searchParams.set('lang', 'ko');
+    let translatedUrl: string;
+    try {
+      const url = new URL(redditUrl);
+      url.searchParams.set('lang', 'ko');
+      translatedUrl = url.toString();
+    } catch {
+      translatedUrl = redditUrl;
+    }
     return {
       title: null,
       content: null,
-      translatedUrl: translatedUrl.toString(),
+      translatedUrl: translatedUrl,
       success: false,
       note: '번역을 불러올 수 없습니다.',
     };
