@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark } from 'lucide-react';
+import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -33,7 +33,8 @@ export function ProfilePage() {
     bookmarks: 0,
     prds: 0,
   });
-  const [profile, setProfile] = useState<{ is_public: boolean; nickname?: string; bio?: string } | null>(null);
+  const [profile, setProfile] = useState<{ is_public: boolean; nickname?: string; bio?: string; avatar_url?: string } | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -121,7 +122,7 @@ export function ProfilePage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_public, nickname, bio')
+        .select('is_public, nickname, bio, avatar_url')
         .eq('id', user.id)
         .single();
 
@@ -135,7 +136,7 @@ export function ProfilePage() {
     }
   }
 
-  async function updateProfile(updates: { is_public?: boolean; nickname?: string; bio?: string }) {
+  async function updateProfile(updates: { is_public?: boolean; nickname?: string; bio?: string; avatar_url?: string }) {
     if (!user) return;
 
     try {
@@ -159,6 +160,75 @@ export function ProfilePage() {
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
+    }
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // 파일 유효성 검사
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('파일 크기는 5MB를 초과할 수 없습니다.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar/${Date.now()}.${fileExt}`;
+
+      // Supabase Storage에 업로드 (avatars 버킷 사용)
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        // 버킷이 없으면 profiles 버킷 시도
+        if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
+          const { data: fallbackData, error: fallbackError } = await supabase.storage
+            .from('profiles')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (fallbackError) {
+            throw new Error('Storage 버킷을 먼저 생성해주세요. (avatars 또는 profiles)');
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('profiles')
+            .getPublicUrl(fallbackData.path);
+
+          await updateProfile({ avatar_url: publicUrl });
+          return;
+        }
+        throw error;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(data.path);
+
+      await updateProfile({ avatar_url: publicUrl });
+    } catch (error: any) {
+      console.error('프로필 사진 업로드 오류:', error);
+      alert('프로필 사진 업로드에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+    } finally {
+      setUploadingAvatar(false);
+      // 파일 입력 초기화
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   }
 
@@ -370,8 +440,33 @@ export function ProfilePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-8 w-8 text-primary" />
+                <div className="relative">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="프로필 사진"
+                      className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-8 w-8 text-primary" />
+                    </div>
+                  )}
+                  <label
+                    htmlFor="avatar-upload"
+                    className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                    title="프로필 사진 변경"
+                  >
+                    <Camera className="h-3 w-3" />
+                  </label>
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                    disabled={uploadingAvatar}
+                  />
                 </div>
                 <div>
                   <CardTitle>{profile?.nickname || user.email}</CardTitle>
@@ -384,6 +479,12 @@ export function ProfilePage() {
                 </div>
               </div>
             </div>
+            {uploadingAvatar && (
+              <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+                <Upload className="h-4 w-4 animate-pulse" />
+                프로필 사진 업로드 중...
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -567,80 +668,45 @@ export function ProfilePage() {
                   {postsList.map((post) => (
                     <Card
                       key={post.id}
-                      className="hover:shadow-lg transition-shadow"
+                      className="cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => {
+                        navigate(`/community/${post.id}`);
+                        setPostsDialogOpen(false);
+                      }}
                     >
                       <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div 
-                            className="flex-1 cursor-pointer"
-                            onClick={() => {
-                              navigate(`/community/${post.id}`);
-                              setPostsDialogOpen(false);
-                            }}
-                          >
-                            <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{post.anonymous_id || post.user?.email || '익명'}</span>
-                              <span>{formatDate(post.created_at)}</span>
-                              <span className="px-2 py-1 bg-secondary rounded-md text-xs">
-                                {post.category}
-                              </span>
-                              {(post as any).liked_at && (
-                                <span className="text-xs">좋아요: {formatDate((post as any).liked_at)}</span>
-                              )}
-                              {(post as any).bookmarked_at && (
-                                <span className="text-xs">북마크: {formatDate((post as any).bookmarked_at)}</span>
-                              )}
-                            </div>
-                          </div>
-                          {postsDialogType === 'my' && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (confirm('정말 이 게시글을 삭제하시겠습니까?')) {
-                                  try {
-                                    await deletePost(post.id);
-                                    await fetchPostsList(postsDialogType);
-                                    await fetchStats();
-                                    alert('게시글이 삭제되었습니다.');
-                                  } catch (error) {
-                                    alert('게시글 삭제에 실패했습니다.');
-                                  }
-                                }
-                              }}
-                            >
-                              삭제
-                            </Button>
+                        <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{post.anonymous_id || post.user?.email || '익명'}</span>
+                          <span>{formatDate(post.created_at)}</span>
+                          <span className="px-2 py-1 bg-secondary rounded-md text-xs">
+                            {post.category}
+                          </span>
+                          {(post as any).liked_at && (
+                            <span className="text-xs">좋아요: {formatDate((post as any).liked_at)}</span>
+                          )}
+                          {(post as any).bookmarked_at && (
+                            <span className="text-xs">북마크: {formatDate((post as any).bookmarked_at)}</span>
                           )}
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div 
-                          className="cursor-pointer"
-                          onClick={() => {
-                            navigate(`/community/${post.id}`);
-                            setPostsDialogOpen(false);
-                          }}
-                        >
-                          <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-                            {post.content}
-                          </p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="h-4 w-4" />
-                              {post.comment_count}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Heart className="h-4 w-4" />
-                              {post.like_count}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Bookmark className="h-4 w-4" />
-                              {post.bookmark_count}
-                            </span>
-                          </div>
+                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+                          {post.content}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="h-4 w-4" />
+                            {post.comment_count}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-4 w-4" />
+                            {post.like_count}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Bookmark className="h-4 w-4" />
+                            {post.bookmark_count}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
