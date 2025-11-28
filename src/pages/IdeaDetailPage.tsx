@@ -467,11 +467,13 @@ export function IdeaDetailPage() {
           <ErrorBoundary>
             <PRDViewer prd={prd} />
           </ErrorBoundary>
-          {prd.title.includes('PRD') && (
+          {!prd.title.includes('개발 계획서') && !prd.title.includes('개발 계획') && (
             <Card className="mt-4">
               <CardContent className="py-6 text-center">
                 <p className="text-muted-foreground mb-4">
-                  PRD를 기반으로 개발 계획서를 생성할 수 있습니다.
+                  {prd.title.includes('PRD') 
+                    ? 'PRD를 기반으로 개발 계획서를 생성할 수 있습니다.'
+                    : '이 문서를 기반으로 개발 계획서를 생성할 수 있습니다.'}
                 </p>
                 <Button
                   onClick={handleGenerateDevelopmentPlan}
