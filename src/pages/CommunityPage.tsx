@@ -345,7 +345,7 @@ export function CommunityPage() {
                                     <MoreVertical className="h-3 w-3" />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuContent align="start" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                                   {friendStatuses[post.user_id] === 'none' && (
                                     <DropdownMenuItem onClick={() => handleAddFriend(post.user_id)}>
                                       <UserPlus className="h-4 w-4 mr-2" />
