@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
 
-# Trigger workflow for translation API removal
+# Trigger workflow for TypeScript fixes and deployment
 
 permissions:
   contents: read
