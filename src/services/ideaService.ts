@@ -144,6 +144,7 @@ export async function getIdeas(filters?: {
   }
 
   // 정렬 옵션에 따른 쿼리 설정
+  // 댓글순은 클라이언트 사이드에서 정렬 (num_comments 컬럼 정렬 시 Supabase 에러 방지)
   if (filters?.sort === 'popular') {
     // 추천순: upvotes 기준 내림차순
     query = query.order('upvotes', { ascending: false });
@@ -152,21 +153,22 @@ export async function getIdeas(filters?: {
     query = query.order('subreddit', { ascending: true })
                  .order('collected_at', { ascending: false });
   } else if (filters?.sort === 'comments') {
-    // 댓글순: num_comments 기준 내림차순 (없으면 최신순)
-    // null 값은 자동으로 마지막에 배치됨
-    query = query.order('num_comments', { ascending: false })
-                 .order('collected_at', { ascending: false });
+    // 댓글순: 클라이언트 사이드에서 정렬하므로 최신순으로 먼저 가져옴
+    query = query.order('collected_at', { ascending: false });
   } else {
     // 최신순 (기본값)
     query = query.order('collected_at', { ascending: false });
   }
 
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
+  // limit과 offset은 댓글순 정렬 전에 적용하지 않음 (클라이언트 정렬 후 적용)
+  if (filters?.sort !== 'comments') {
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
 
-  if (filters?.offset) {
-    query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
+    if (filters?.offset) {
+      query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
+    }
   }
 
   const { data, error } = await query;
@@ -182,17 +184,44 @@ export async function getIdeas(filters?: {
     return [];
   }
 
+  let result = data;
+
   // 클라이언트 사이드 검색 (Supabase full-text search는 나중에 구현)
   if (filters?.search) {
     const searchLower = filters.search.toLowerCase();
-    return data.filter(idea =>
+    result = result.filter(idea =>
       idea.title.toLowerCase().includes(searchLower) ||
       idea.content.toLowerCase().includes(searchLower) ||
       idea.subreddit.toLowerCase().includes(searchLower)
     );
   }
 
-  return data;
+  // 댓글순 정렬 (클라이언트 사이드)
+  if (filters?.sort === 'comments') {
+    result = result.sort((a, b) => {
+      const commentsA = a.num_comments ?? 0;
+      const commentsB = b.num_comments ?? 0;
+      
+      // 댓글 수가 같으면 최신순
+      if (commentsA === commentsB) {
+        const dateA = a.collected_at ? new Date(a.collected_at).getTime() : 0;
+        const dateB = b.collected_at ? new Date(b.collected_at).getTime() : 0;
+        return dateB - dateA;
+      }
+      
+      // 댓글 수 기준 내림차순
+      return commentsB - commentsA;
+    });
+
+    // 클라이언트 정렬 후 limit과 offset 적용
+    if (filters?.offset) {
+      result = result.slice(filters.offset, filters.offset + (filters.limit || 10));
+    } else if (filters?.limit) {
+      result = result.slice(0, filters.limit);
+    }
+  }
+
+  return result;
 }
 
 /**
