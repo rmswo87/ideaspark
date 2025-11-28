@@ -23,8 +23,10 @@ interface PRDViewerProps {
 // 참고: https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95
 function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number; onEdit?: () => void }) {
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
+  const maxRetries = 2; // 최대 2회 재시도
 
   // iframe 내부에서 사용할 HTML 생성
   // Mermaid 가이드에 따라 iframe으로 완전 분리하여 React와 충돌 방지
@@ -70,6 +72,20 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       width: auto !important;
       overflow: visible !important;
     }
+    /* Gantt 차트 스타일 통일성 개선 */
+    svg .gantt {
+      font-size: 13px !important;
+    }
+    svg .section0, svg .section1, svg .section2 {
+      font-size: 13px !important;
+    }
+    svg .taskText {
+      font-size: 13px !important;
+      fill: #333 !important;
+    }
+    svg .task {
+      font-size: 13px !important;
+    }
   </style>
 </head>
 <body>
@@ -77,9 +93,26 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
 ${escapedChart}
   </div>
   <script>
-    // Mermaid 초기화 및 렌더링 (통일된 설정)
+    // Mermaid 초기화 및 렌더링 (통일된 설정 + 안정성 개선)
+    let renderAttempts = 0;
+    const maxRenderAttempts = 3;
+    
     function renderMermaid() {
       try {
+        // Mermaid 라이브러리 로드 확인
+        if (typeof mermaid === 'undefined') {
+          if (renderAttempts < maxRenderAttempts) {
+            renderAttempts++;
+            setTimeout(renderMermaid, 300);
+            return;
+          } else {
+            if (window.parent) {
+              window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'Mermaid library failed to load', index: ${index} }, '*');
+            }
+            return;
+          }
+        }
+        
         mermaid.initialize({
           startOnLoad: false,
           theme: 'default',
@@ -112,7 +145,8 @@ ${escapedChart}
             topPadding: 20,
             barHeight: 18,
             barGap: 3,
-            padding: 8
+            padding: 8,
+            useWidth: 1000
           },
           er: {
             fontSize: 13,
@@ -132,46 +166,69 @@ ${escapedChart}
           querySelector: '.mermaid',
           suppressErrors: true
         }).then(() => {
-          // 렌더링 성공 후 높이 전달 (여러 번 시도하여 안정성 향상)
+          // 렌더링 성공 후 높이 전달 (강화된 재시도 로직)
           let attempts = 0;
-          const maxAttempts = 5;
+          const maxAttempts = 10; // 재시도 횟수 증가
+          const checkInterval = 150; // 재시도 간격 증가
+          
           const checkSVG = () => {
             const svg = document.querySelector('svg');
             if (svg && window.parent) {
               const rect = svg.getBoundingClientRect();
-              if (rect.height > 0 || attempts >= maxAttempts) {
+              // SVG가 렌더링되었고 높이가 유효한지 확인
+              if (rect.height > 0 && rect.width > 0) {
                 const height = Math.min(rect.height + 32, 800); // 최대 높이 제한
                 window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
                 window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
-              } else {
-                attempts++;
-                setTimeout(checkSVG, 100);
+                return;
               }
-            } else if (window.parent && attempts >= maxAttempts) {
-              window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'SVG not found after rendering', index: ${index} }, '*');
-            } else if (window.parent) {
+            }
+            
+            // SVG를 찾지 못했거나 유효하지 않은 경우 재시도
+            if (attempts < maxAttempts) {
               attempts++;
-              setTimeout(checkSVG, 100);
+              setTimeout(checkSVG, checkInterval);
+            } else {
+              // 최대 재시도 후에도 실패하면 에러 전송
+              if (window.parent) {
+                window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'SVG not found or invalid after rendering', index: ${index} }, '*');
+              }
             }
           };
-          setTimeout(checkSVG, 200);
+          
+          // 초기 대기 시간 증가 (렌더링 완료 대기)
+          setTimeout(checkSVG, 300);
         }).catch((err) => {
-          if (window.parent) {
-            window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed', index: ${index} }, '*');
+          // 에러 발생 시 자동 재시도
+          if (renderAttempts < maxRenderAttempts) {
+            renderAttempts++;
+            setTimeout(renderMermaid, 500);
+          } else {
+            if (window.parent) {
+              window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed after retries', index: ${index} }, '*');
+            }
           }
         });
       } catch (err) {
-        if (window.parent) {
-          window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Initialization failed', index: ${index} }, '*');
+        // 초기화 에러 발생 시 재시도
+        if (renderAttempts < maxRenderAttempts) {
+          renderAttempts++;
+          setTimeout(renderMermaid, 500);
+        } else {
+          if (window.parent) {
+            window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Initialization failed after retries', index: ${index} }, '*');
+          }
         }
       }
     }
     
-    // DOM 로드 후 렌더링
+    // DOM 로드 후 렌더링 (라이브러리 로드 대기 시간 증가)
     if (document.readyState === 'loading') {
-      window.addEventListener('DOMContentLoaded', renderMermaid);
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(renderMermaid, 200);
+      });
     } else {
-      setTimeout(renderMermaid, 100);
+      setTimeout(renderMermaid, 200);
     }
   </script>
 </body>
@@ -187,9 +244,27 @@ ${escapedChart}
           iframeRef.current.style.height = `${event.data.height}px`;
         } else if (event.data?.type === 'mermaid-rendered') {
           if (!event.data.success) {
-            setError(event.data.error || '렌더링 실패');
+            // 에러 발생 시 재시도 로직
+            if (retryCount < maxRetries && iframeRef.current) {
+              setRetryCount(prev => prev + 1);
+              // iframe 재로드하여 재렌더링 시도
+              setTimeout(() => {
+                if (iframeRef.current) {
+                  const currentSrc = iframeRef.current.srcDoc;
+                  iframeRef.current.srcDoc = '';
+                  setTimeout(() => {
+                    if (iframeRef.current) {
+                      iframeRef.current.srcDoc = currentSrc;
+                    }
+                  }, 100);
+                }
+              }, 1000);
+            } else {
+              setError(event.data.error || '렌더링 실패');
+            }
           } else {
             setError(null);
+            setRetryCount(0); // 성공 시 재시도 카운트 리셋
           }
         }
       }
@@ -199,7 +274,7 @@ ${escapedChart}
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [index]);
+  }, [index, retryCount, maxRetries]);
 
   // 에러 발생 시 텍스트로 표시
   if (error) {
@@ -631,4 +706,3 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
     </Card>
   );
 }
-
