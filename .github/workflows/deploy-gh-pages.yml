@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
 
-# Simplified build process - let build script handle TypeScript checking
+# Use npm install since package-lock.json is empty in repo
 
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build
         run: npm run build:gh-pages
