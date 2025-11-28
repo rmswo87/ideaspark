@@ -16,15 +16,19 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Early return으로 user가 null이거나 id가 없으면 종료
     if (!user || !user.id) {
       setLoading(false);
       return;
     }
 
+    // 여기서는 user가 확실히 존재하고 id도 존재함
+    const userId = user.id;
+
     async function fetchRecommended() {
       setLoading(true);
       try {
-        const ideas = await getRecommendedIdeas(user.id, 6);
+        const ideas = await getRecommendedIdeas(userId, 6);
         setRecommendedIdeas(ideas);
       } catch (error) {
         console.error('Error fetching recommended ideas:', error);
@@ -34,7 +38,8 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
     }
 
     fetchRecommended();
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   if (!user) {
     return null; // 로그인하지 않은 사용자에게는 표시하지 않음
@@ -73,15 +78,17 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {recommendedIdeas.map((idea) => (
-            <div key={idea.id} className="relative">
-              <IdeaCard
-                idea={idea}
-                onCardClick={() => {
-                  if (idea.id) {
-                    onGeneratePRD?.(idea.id);
-                  }
-                }}
+          {recommendedIdeas.map((idea) => {
+            const ideaId = idea.id; // TypeScript를 위한 명시적 변수 할당
+            return (
+              <div key={ideaId || 'unknown'} className="relative">
+                <IdeaCard
+                  idea={idea}
+                  onCardClick={() => {
+                    if (ideaId) {
+                      onGeneratePRD?.(ideaId);
+                    }
+                  }}
                 formatDate={(dateString) => {
                   const date = new Date(dateString);
                   return date.toLocaleDateString('ko-KR', {
@@ -97,9 +104,11 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>
   );
 }
+
