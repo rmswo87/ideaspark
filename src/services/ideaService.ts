@@ -98,7 +98,7 @@ function categorizeIdea(idea: RedditPost): string {
 /**
  * 정렬 옵션 타입
  */
-export type SortOption = 'latest' | 'popular' | 'subreddit' | 'comments';
+export type SortOption = 'latest' | 'popular' | 'subreddit';
 
 /**
  * 특정 ID의 아이디어 가져오기
@@ -145,7 +145,6 @@ export async function getIdeas(filters?: {
   }
 
   // 정렬 옵션에 따른 쿼리 설정
-  // 댓글순은 클라이언트 사이드에서 정렬 (num_comments 컬럼 정렬 시 Supabase 에러 방지)
   if (filters?.sort === 'popular') {
     // 추천순: upvotes 기준 내림차순
     query = query.order('upvotes', { ascending: false });
@@ -153,27 +152,18 @@ export async function getIdeas(filters?: {
     // 서브레딧순: 서브레딧 이름 기준 오름차순, 그 다음 최신순
     query = query.order('subreddit', { ascending: true })
                  .order('collected_at', { ascending: false });
-  } else if (filters?.sort === 'comments') {
-    // 댓글순: 클라이언트 사이드에서 정렬하므로 최신순으로 먼저 가져옴
-    query = query.order('collected_at', { ascending: false });
   } else {
     // 최신순 (기본값)
     query = query.order('collected_at', { ascending: false });
   }
 
-  // limit과 offset은 댓글순 정렬 전에 적용하지 않음 (클라이언트 정렬 후 적용)
-  // 댓글순일 때는 더 많은 데이터를 가져와서 정렬해야 하므로 limit을 적용하지 않음
-  if (filters?.sort !== 'comments') {
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
+  // limit과 offset 적용
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
 
-    if (filters?.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
-    }
-  } else {
-    // 댓글순일 때는 최대 500개까지 가져와서 정렬 (너무 많은 데이터 방지)
-    query = query.limit(500);
+  if (filters?.offset) {
+    query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
   }
 
   const { data, error } = await query;
@@ -199,93 +189,6 @@ export async function getIdeas(filters?: {
       idea.content.toLowerCase().includes(searchLower) ||
       idea.subreddit.toLowerCase().includes(searchLower)
     );
-  }
-
-  // 댓글순 정렬 (클라이언트 사이드)
-  if (filters?.sort === 'comments') {
-    // 디버깅: 정렬 전 데이터 확인
-    console.log('[IdeaService] ===== 댓글순 정렬 시작 =====');
-    console.log('[IdeaService] Total items before sorting:', result.length);
-    
-    // num_comments 값 분포 확인 (상세)
-    const commentsDistribution = result.reduce((acc, idea) => {
-      const comments = idea.num_comments ?? 0;
-      acc[comments] = (acc[comments] || 0) + 1;
-      return acc;
-    }, {} as Record<number, number>);
-    
-    // 분포를 배열로 변환하여 정렬 (가장 많은 댓글 수부터)
-    const distributionArray = Object.entries(commentsDistribution)
-      .map(([comments, count]) => ({ comments: Number(comments), count }))
-      .sort((a, b) => b.comments - a.comments)
-      .slice(0, 20); // 상위 20개만 표시
-    
-    console.log('[IdeaService] num_comments 분포 (상위 20개):', distributionArray);
-    console.log('[IdeaService] 0개 댓글 아이디어 수:', commentsDistribution[0] || 0);
-    console.log('[IdeaService] 0이 아닌 댓글을 가진 아이디어 수:', Object.keys(commentsDistribution).filter(k => Number(k) > 0).length);
-    
-    // 정렬 전 샘플 (상위 10개)
-    const sampleBefore = result.slice(0, 10).map(i => ({ 
-      title: i.title.substring(0, 40), 
-      num_comments: i.num_comments,
-      upvotes: i.upvotes,
-      collected_at: i.collected_at
-    }));
-    console.log('[IdeaService] 정렬 전 상위 10개:', JSON.stringify(sampleBefore, null, 2));
-    
-    // 정렬 실행
-    result = result.sort((a, b) => {
-      // num_comments를 숫자로 변환 (null, undefined, 문자열 등 처리)
-      const commentsA = typeof a.num_comments === 'number' ? a.num_comments : (a.num_comments ? parseInt(String(a.num_comments), 10) : 0);
-      const commentsB = typeof b.num_comments === 'number' ? b.num_comments : (b.num_comments ? parseInt(String(b.num_comments), 10) : 0);
-      
-      // NaN 체크
-      const numA = isNaN(commentsA) ? 0 : commentsA;
-      const numB = isNaN(commentsB) ? 0 : commentsB;
-      
-      // 댓글 수가 같으면 최신순
-      if (numA === numB) {
-        const dateA = a.collected_at ? new Date(a.collected_at).getTime() : 0;
-        const dateB = b.collected_at ? new Date(b.collected_at).getTime() : 0;
-        return dateB - dateA;
-      }
-      
-      // 댓글 수 기준 내림차순
-      return numB - numA;
-    });
-
-    // 정렬 후 샘플 (상위 10개)
-    const sampleAfter = result.slice(0, 10).map(i => ({ 
-      title: i.title.substring(0, 40), 
-      num_comments: i.num_comments,
-      upvotes: i.upvotes,
-      collected_at: i.collected_at
-    }));
-    console.log('[IdeaService] 정렬 후 상위 10개:', JSON.stringify(sampleAfter, null, 2));
-    console.log('[IdeaService] 정렬 후 상위 10개 num_comments 값:', result.slice(0, 10).map(i => i.num_comments));
-    
-    // 정렬이 실제로 변경되었는지 확인
-    const beforeTitles = sampleBefore.map(i => i.title);
-    const afterTitles = sampleAfter.map(i => i.title);
-    const isDifferent = JSON.stringify(beforeTitles) !== JSON.stringify(afterTitles);
-    console.log('[IdeaService] 정렬 전후 순서 변경 여부:', isDifferent ? '변경됨 ✅' : '변경 안됨 ❌');
-    
-    if (!isDifferent && distributionArray.length > 0 && distributionArray[0].comments > 0) {
-      console.warn('[IdeaService] ⚠️ 경고: num_comments 값이 있지만 정렬이 작동하지 않았습니다!');
-    }
-
-    // 클라이언트 정렬 후 limit과 offset 적용
-    if (filters?.offset) {
-      result = result.slice(filters.offset, filters.offset + (filters.limit || 50));
-    } else if (filters?.limit) {
-      result = result.slice(0, filters.limit);
-    } else {
-      // limit이 없으면 기본값 50개만 반환
-      result = result.slice(0, 50);
-    }
-    
-    console.log('[IdeaService] 최종 반환할 아이디어 수:', result.length);
-    console.log('[IdeaService] ===== 댓글순 정렬 완료 =====');
   }
 
   return result;
@@ -342,136 +245,4 @@ export async function getSubreddits(): Promise<string[]> {
   ).sort();
 
   return uniqueSubreddits;
-}
-
-/**
- * Reddit API에서 최신 댓글 수를 가져와서 기존 아이디어 업데이트
- * 주의: Reddit API rate limit에 주의하여 사용하세요
- */
-export async function updateCommentsFromReddit(redditId: string, subreddit?: string): Promise<number | null> {
-  try {
-    // 방법 1: /api/info.json 엔드포인트 사용
-    let response = await fetch(`https://www.reddit.com/api/info.json?id=t3_${redditId}`, {
-      headers: {
-        'User-Agent': 'IdeaSpark/1.0'
-      }
-    });
-
-    // 방법 1이 실패하면 방법 2 시도: subreddit과 postId를 사용한 JSON 엔드포인트
-    if (!response.ok && subreddit) {
-      console.log(`[IdeaService] Trying alternative endpoint for ${redditId} in r/${subreddit}`);
-      response = await fetch(`https://www.reddit.com/r/${subreddit}/comments/${redditId}/.json`, {
-        headers: {
-          'User-Agent': 'IdeaSpark/1.0'
-        }
-      });
-    }
-
-    if (!response.ok) {
-      console.warn(`[IdeaService] Failed to fetch Reddit data for ${redditId}:`, response.status, response.statusText);
-      return null;
-    }
-
-    const data = await response.json();
-    
-    // 방법 1 응답 형식: { data: { children: [{ data: {...} }] } }
-    if (data?.data?.children && data.data.children.length > 0) {
-      const post = data.data.children[0].data;
-      const numComments = post.num_comments || 0;
-      console.log(`[IdeaService] Fetched comments for ${redditId}: ${numComments}`);
-      return numComments;
-    }
-    
-    // 방법 2 응답 형식: [{ data: { children: [{ data: {...} }] } }] (배열)
-    if (Array.isArray(data) && data.length > 0 && data[0]?.data?.children && data[0].data.children.length > 0) {
-      const post = data[0].data.children[0].data;
-      const numComments = post.num_comments || 0;
-      console.log(`[IdeaService] Fetched comments for ${redditId} (alt method): ${numComments}`);
-      return numComments;
-    }
-
-    console.warn(`[IdeaService] No post data found for ${redditId}`);
-    return null;
-  } catch (error) {
-    console.error(`[IdeaService] Error fetching comments for ${redditId}:`, error);
-    return null;
-  }
-}
-
-/**
- * num_comments가 0인 아이디어들을 Reddit API에서 최신 댓글 수로 업데이트
- * 배치 처리로 여러 아이디어를 한 번에 업데이트
- */
-export async function updateMissingComments(batchSize: number = 10): Promise<{
-  updated: number;
-  failed: number;
-  total: number;
-}> {
-  console.log('[IdeaService] ===== 댓글 수 업데이트 시작 =====');
-  
-  // num_comments가 0이거나 null인 아이디어 가져오기 (subreddit도 함께 가져오기)
-  const { data: ideas, error } = await supabase
-    .from('ideas')
-    .select('id, reddit_id, num_comments, subreddit')
-    .or('num_comments.is.null,num_comments.eq.0')
-    .limit(batchSize);
-
-  if (error) {
-    console.error('[IdeaService] Error fetching ideas:', error);
-    return { updated: 0, failed: 0, total: 0 };
-  }
-
-  if (!ideas || ideas.length === 0) {
-    console.log('[IdeaService] 업데이트할 아이디어가 없습니다.');
-    return { updated: 0, failed: 0, total: 0 };
-  }
-
-  console.log(`[IdeaService] ${ideas.length}개의 아이디어 업데이트 시작...`);
-
-  let updated = 0;
-  let failed = 0;
-
-  // 각 아이디어에 대해 Reddit API 호출 (rate limit 방지를 위해 지연 시간 추가)
-  for (let i = 0; i < ideas.length; i++) {
-    const idea = ideas[i];
-    
-    // Reddit API rate limit 방지 (초당 1개 요청)
-    if (i > 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    try {
-      const numComments = await updateCommentsFromReddit(idea.reddit_id, idea.subreddit);
-      
-      if (numComments !== null && numComments !== idea.num_comments) {
-        // 데이터베이스 업데이트
-        const { error: updateError } = await supabase
-          .from('ideas')
-          .update({ num_comments: numComments })
-          .eq('id', idea.id);
-
-        if (updateError) {
-          console.error(`[IdeaService] Failed to update idea ${idea.id}:`, updateError);
-          failed++;
-        } else {
-          updated++;
-          console.log(`[IdeaService] Updated idea ${idea.id}: ${idea.num_comments || 0} -> ${numComments}`);
-        }
-      } else if (numComments === null) {
-        failed++;
-      }
-    } catch (error) {
-      console.error(`[IdeaService] Error processing idea ${idea.id}:`, error);
-      failed++;
-    }
-  }
-
-  console.log(`[IdeaService] 업데이트 완료: ${updated}개 성공, ${failed}개 실패`);
-  console.log('[IdeaService] ===== 댓글 수 업데이트 완료 =====');
-
-  return {
-    updated,
-    failed,
-    total: ideas.length
-  };
 }
