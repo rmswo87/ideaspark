@@ -349,7 +349,6 @@ ${escapedChart}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
           loading="lazy"
-          scrolling="no"
         />
       </div>
     </div>
