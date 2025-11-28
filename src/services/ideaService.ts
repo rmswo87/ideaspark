@@ -204,23 +204,36 @@ export async function getIdeas(filters?: {
   // 댓글순 정렬 (클라이언트 사이드)
   if (filters?.sort === 'comments') {
     // 디버깅: 정렬 전 데이터 확인
-    console.log('[IdeaService] Sorting by comments. Total items:', result.length);
-    const sampleBefore = result.slice(0, 10).map(i => ({ 
-      title: i.title.substring(0, 30), 
-      num_comments: i.num_comments,
-      upvotes: i.upvotes,
-      collected_at: i.collected_at
-    }));
-    console.log('[IdeaService] Sample num_comments values (first 10):', sampleBefore);
+    console.log('[IdeaService] ===== 댓글순 정렬 시작 =====');
+    console.log('[IdeaService] Total items before sorting:', result.length);
     
-    // num_comments 값 분포 확인
+    // num_comments 값 분포 확인 (상세)
     const commentsDistribution = result.reduce((acc, idea) => {
       const comments = idea.num_comments ?? 0;
       acc[comments] = (acc[comments] || 0) + 1;
       return acc;
     }, {} as Record<number, number>);
-    console.log('[IdeaService] num_comments distribution:', commentsDistribution);
     
+    // 분포를 배열로 변환하여 정렬 (가장 많은 댓글 수부터)
+    const distributionArray = Object.entries(commentsDistribution)
+      .map(([comments, count]) => ({ comments: Number(comments), count }))
+      .sort((a, b) => b.comments - a.comments)
+      .slice(0, 20); // 상위 20개만 표시
+    
+    console.log('[IdeaService] num_comments 분포 (상위 20개):', distributionArray);
+    console.log('[IdeaService] 0개 댓글 아이디어 수:', commentsDistribution[0] || 0);
+    console.log('[IdeaService] 0이 아닌 댓글을 가진 아이디어 수:', Object.keys(commentsDistribution).filter(k => Number(k) > 0).length);
+    
+    // 정렬 전 샘플 (상위 10개)
+    const sampleBefore = result.slice(0, 10).map(i => ({ 
+      title: i.title.substring(0, 40), 
+      num_comments: i.num_comments,
+      upvotes: i.upvotes,
+      collected_at: i.collected_at
+    }));
+    console.log('[IdeaService] 정렬 전 상위 10개:', JSON.stringify(sampleBefore, null, 2));
+    
+    // 정렬 실행
     result = result.sort((a, b) => {
       // num_comments를 숫자로 변환 (null, undefined, 문자열 등 처리)
       const commentsA = typeof a.num_comments === 'number' ? a.num_comments : (a.num_comments ? parseInt(String(a.num_comments), 10) : 0);
@@ -241,22 +254,38 @@ export async function getIdeas(filters?: {
       return numB - numA;
     });
 
-    // 디버깅: 정렬 후 데이터 확인
+    // 정렬 후 샘플 (상위 10개)
     const sampleAfter = result.slice(0, 10).map(i => ({ 
-      title: i.title.substring(0, 30), 
+      title: i.title.substring(0, 40), 
       num_comments: i.num_comments,
       upvotes: i.upvotes,
       collected_at: i.collected_at
     }));
-    console.log('[IdeaService] After sorting. Top 10 items:', sampleAfter);
-    console.log('[IdeaService] Top 10 num_comments values:', result.slice(0, 10).map(i => i.num_comments));
+    console.log('[IdeaService] 정렬 후 상위 10개:', JSON.stringify(sampleAfter, null, 2));
+    console.log('[IdeaService] 정렬 후 상위 10개 num_comments 값:', result.slice(0, 10).map(i => i.num_comments));
+    
+    // 정렬이 실제로 변경되었는지 확인
+    const beforeTitles = sampleBefore.map(i => i.title);
+    const afterTitles = sampleAfter.map(i => i.title);
+    const isDifferent = JSON.stringify(beforeTitles) !== JSON.stringify(afterTitles);
+    console.log('[IdeaService] 정렬 전후 순서 변경 여부:', isDifferent ? '변경됨 ✅' : '변경 안됨 ❌');
+    
+    if (!isDifferent && distributionArray.length > 0 && distributionArray[0].comments > 0) {
+      console.warn('[IdeaService] ⚠️ 경고: num_comments 값이 있지만 정렬이 작동하지 않았습니다!');
+    }
 
     // 클라이언트 정렬 후 limit과 offset 적용
     if (filters?.offset) {
-      result = result.slice(filters.offset, filters.offset + (filters.limit || 10));
+      result = result.slice(filters.offset, filters.offset + (filters.limit || 50));
     } else if (filters?.limit) {
       result = result.slice(0, filters.limit);
+    } else {
+      // limit이 없으면 기본값 50개만 반환
+      result = result.slice(0, 50);
     }
+    
+    console.log('[IdeaService] 최종 반환할 아이디어 수:', result.length);
+    console.log('[IdeaService] ===== 댓글순 정렬 완료 =====');
   }
 
   return result;
