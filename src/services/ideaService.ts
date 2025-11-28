@@ -129,9 +129,10 @@ export async function getIdeas(filters?: {
   sort?: SortOption;
   subreddit?: string;
 }): Promise<Idea[]> {
+  // num_comments를 명시적으로 선택 (정렬을 위해 필수)
   let query = supabase
     .from('ideas')
-    .select('*');
+    .select('*, num_comments');
 
   // 카테고리 필터
   if (filters?.category && filters.category !== 'all') {
@@ -204,7 +205,21 @@ export async function getIdeas(filters?: {
   if (filters?.sort === 'comments') {
     // 디버깅: 정렬 전 데이터 확인
     console.log('[IdeaService] Sorting by comments. Total items:', result.length);
-    console.log('[IdeaService] Sample num_comments values:', result.slice(0, 5).map(i => ({ title: i.title.substring(0, 30), num_comments: i.num_comments })));
+    const sampleBefore = result.slice(0, 10).map(i => ({ 
+      title: i.title.substring(0, 30), 
+      num_comments: i.num_comments,
+      upvotes: i.upvotes,
+      collected_at: i.collected_at
+    }));
+    console.log('[IdeaService] Sample num_comments values (first 10):', sampleBefore);
+    
+    // num_comments 값 분포 확인
+    const commentsDistribution = result.reduce((acc, idea) => {
+      const comments = idea.num_comments ?? 0;
+      acc[comments] = (acc[comments] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+    console.log('[IdeaService] num_comments distribution:', commentsDistribution);
     
     result = result.sort((a, b) => {
       // num_comments를 숫자로 변환 (null, undefined, 문자열 등 처리)
@@ -227,7 +242,14 @@ export async function getIdeas(filters?: {
     });
 
     // 디버깅: 정렬 후 데이터 확인
-    console.log('[IdeaService] After sorting. Top 5 items:', result.slice(0, 5).map(i => ({ title: i.title.substring(0, 30), num_comments: i.num_comments })));
+    const sampleAfter = result.slice(0, 10).map(i => ({ 
+      title: i.title.substring(0, 30), 
+      num_comments: i.num_comments,
+      upvotes: i.upvotes,
+      collected_at: i.collected_at
+    }));
+    console.log('[IdeaService] After sorting. Top 10 items:', sampleAfter);
+    console.log('[IdeaService] Top 10 num_comments values:', result.slice(0, 10).map(i => i.num_comments));
 
     // 클라이언트 정렬 후 limit과 offset 적용
     if (filters?.offset) {
@@ -292,4 +314,3 @@ export async function getSubreddits(): Promise<string[]> {
 
   return uniqueSubreddits;
 }
-
