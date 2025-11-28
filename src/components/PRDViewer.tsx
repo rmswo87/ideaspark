@@ -72,9 +72,10 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       width: auto !important;
       overflow: visible !important;
     }
-    /* Gantt 차트 스타일 통일성 개선 */
+    /* Gantt 차트 크기 제한 및 스타일 통일성 개선 */
     svg .gantt {
       font-size: 13px !important;
+      max-width: 100% !important;
     }
     svg .section0, svg .section1, svg .section2 {
       font-size: 13px !important;
@@ -85,6 +86,11 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     }
     svg .task {
       font-size: 13px !important;
+    }
+    /* Gantt 차트 전체 컨테이너 크기 제한 */
+    .mermaid svg[data-gantt] {
+      max-width: 800px !important;
+      width: 100% !important;
     }
   </style>
 </head>
@@ -146,7 +152,7 @@ ${escapedChart}
             barHeight: 18,
             barGap: 3,
             padding: 8,
-            useWidth: 1000
+            useWidth: 800
           },
           er: {
             fontSize: 13,
@@ -307,9 +313,12 @@ ${escapedChart}
     );
   }
 
+  // Gantt 차트인지 확인
+  const isGanttChart = cleanedChart.toLowerCase().includes('gantt');
+
   return (
     <div className="my-6 w-full">
-      <div className="mermaid-container w-full relative">
+      <div className={`mermaid-container ${isGanttChart ? 'max-w-4xl mx-auto' : 'w-full'} relative`}>
         {onEdit && (
           <div className="absolute top-2 right-2 z-10">
             <Button
@@ -325,15 +334,17 @@ ${escapedChart}
         )}
         <iframe
           ref={iframeRef}
-          srcDoc={iframeContent}
+          srcdoc={iframeContent}
           className="w-full border-0"
           style={{ 
             width: '100%', 
             minHeight: '300px',
             maxHeight: '800px',
+            maxWidth: isGanttChart ? '800px' : '100%',
             border: 'none',
             display: 'block',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            margin: '0 auto'
           }}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
