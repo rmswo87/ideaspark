@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Sparkles, RefreshCw } from "lucide-react"
 import { IdeaCard } from '@/components/IdeaCard'
+import { RecommendedIdeas } from '@/components/RecommendedIdeas'
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
 import { supabase } from '@/lib/supabase'
@@ -108,46 +109,40 @@ function HomePage() {
   async function handleCollectIdeas() {
     setCollecting(true)
     try {
-      const result = await collectIdeas()
-      if (result.success) {
-        alert(`${result.count}개의 아이디어를 수집했습니다!`)
-        fetchIdeas()
-        fetchStats()
-      } else {
-        const errorMsg = result.error || '알 수 없는 오류'
-        console.error('[HomePage] Collection failed:', errorMsg)
-        alert(`수집 실패: ${errorMsg}`)
-      }
+      await collectIdeas()
+      await fetchIdeas()
+      await fetchStats()
+      await fetchSubreddits()
     } catch (error) {
-      console.error('[HomePage] Collection exception:', error)
-      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
-      alert(`수집 실패: ${errorMsg}`)
+      console.error('Error collecting ideas:', error)
+      alert('아이디어 수집에 실패했습니다.')
     } finally {
       setCollecting(false)
     }
   }
 
-  const formatDate = (dateString: string) => {
+  function formatDate(dateString: string): string {
     const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
+              <h1 className="text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>IdeaSpark</h1>
               <div className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold">IdeaSpark</h1>
-              </div>
-              <nav className="flex gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
+                  className={location.pathname === '/' || location.pathname === '/ideaspark' || location.pathname === '/ideaspark/' ? 'bg-secondary' : ''}
                 >
                   아이디어
                 </Button>
@@ -155,15 +150,23 @@ function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/community')}
+                  className={location.pathname.includes('/community') ? 'bg-secondary' : ''}
                 >
-                  <MessageSquare className="h-4 w-4 mr-2" />
                   커뮤니티
                 </Button>
-              </nav>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               {user ? (
                 <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <UserIcon className="h-4 w-4 mr-2" />
+                    프로필
+                  </Button>
                   {isAdmin && (
                     <Button
                       variant="ghost"
@@ -175,19 +178,11 @@ function HomePage() {
                     </Button>
                   )}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/profile')}
-                  >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    프로필
-                  </Button>
-                  <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={async () => {
                       await supabase.auth.signOut()
-                      window.location.reload()
+                      navigate('/')
                     }}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
@@ -309,13 +304,20 @@ function HomePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="latest">최신순</SelectItem>
-                  <SelectItem value="popular">추천순</SelectItem>
+                  <SelectItem value="popular">인기순</SelectItem>
                   <SelectItem value="subreddit">서브레딧순</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </div>
+
+        {/* 추천 아이디어 섹션 (로그인한 사용자에게만 표시) */}
+        {user && (
+          <div className="mb-8">
+            <RecommendedIdeas onGeneratePRD={(ideaId) => navigate(`/idea/${ideaId}`)} />
+          </div>
+        )}
 
         {/* Ideas Grid */}
         {loading ? (
