@@ -49,4 +49,3 @@ CREATE TRIGGER proposals_updated_at
   BEFORE UPDATE ON proposals
   FOR EACH ROW
   EXECUTE FUNCTION update_proposals_updated_at();
-
