@@ -16,10 +16,12 @@ export interface PRD {
 
 /**
  * 아이디어를 기반으로 PRD 생성
+ * @param proposalContent 제안서 내용이 있으면 이를 기반으로 PRD 생성
  */
 export async function generatePRD(
   ideaId: string, 
-  userId: string
+  userId: string,
+  proposalContent?: string
 ): Promise<PRD> {
   // 아이디어 조회
   const { data: idea, error: ideaError } = await supabase
@@ -32,10 +34,16 @@ export async function generatePRD(
     throw new Error('Idea not found');
   }
 
-  // AI로 PRD 생성
+  // AI로 PRD 생성 (제안서 내용이 있으면 포함)
   let prdContent: string;
   try {
-    prdContent = await aiClient.generatePRD(idea as Idea);
+    if (proposalContent) {
+      // 제안서 기반 PRD 생성
+      prdContent = await aiClient.generatePRDFromProposal(idea as Idea, proposalContent);
+    } else {
+      // 일반 PRD 생성
+      prdContent = await aiClient.generatePRD(idea as Idea);
+    }
   } catch (error) {
     console.error('PRD generation error:', error);
     throw new Error(`PRD 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -220,4 +228,3 @@ export async function generateDevelopmentPlan(
 
   return plan;
 }
-
