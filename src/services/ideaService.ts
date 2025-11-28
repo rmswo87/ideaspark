@@ -343,3 +343,113 @@ export async function getSubreddits(): Promise<string[]> {
 
   return uniqueSubreddits;
 }
+
+/**
+ * Reddit API에서 최신 댓글 수를 가져와서 기존 아이디어 업데이트
+ * 주의: Reddit API rate limit에 주의하여 사용하세요
+ */
+export async function updateCommentsFromReddit(redditId: string): Promise<number | null> {
+  try {
+    // Reddit API에서 게시물 정보 가져오기
+    const response = await fetch(`https://www.reddit.com/api/info.json?id=t3_${redditId}`, {
+      headers: {
+        'User-Agent': 'IdeaSpark/1.0'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn(`[IdeaService] Failed to fetch Reddit data for ${redditId}:`, response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (data?.data?.children && data.data.children.length > 0) {
+      const post = data.data.children[0].data;
+      return post.num_comments || 0;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`[IdeaService] Error fetching comments for ${redditId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * num_comments가 0인 아이디어들을 Reddit API에서 최신 댓글 수로 업데이트
+ * 배치 처리로 여러 아이디어를 한 번에 업데이트
+ */
+export async function updateMissingComments(batchSize: number = 10): Promise<{
+  updated: number;
+  failed: number;
+  total: number;
+}> {
+  console.log('[IdeaService] ===== 댓글 수 업데이트 시작 =====');
+  
+  // num_comments가 0이거나 null인 아이디어 가져오기
+  const { data: ideas, error } = await supabase
+    .from('ideas')
+    .select('id, reddit_id, num_comments')
+    .or('num_comments.is.null,num_comments.eq.0')
+    .limit(batchSize);
+
+  if (error) {
+    console.error('[IdeaService] Error fetching ideas:', error);
+    return { updated: 0, failed: 0, total: 0 };
+  }
+
+  if (!ideas || ideas.length === 0) {
+    console.log('[IdeaService] 업데이트할 아이디어가 없습니다.');
+    return { updated: 0, failed: 0, total: 0 };
+  }
+
+  console.log(`[IdeaService] ${ideas.length}개의 아이디어 업데이트 시작...`);
+
+  let updated = 0;
+  let failed = 0;
+
+  // 각 아이디어에 대해 Reddit API 호출 (rate limit 방지를 위해 지연 시간 추가)
+  for (let i = 0; i < ideas.length; i++) {
+    const idea = ideas[i];
+    
+    // Reddit API rate limit 방지 (초당 1개 요청)
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    try {
+      const numComments = await updateCommentsFromReddit(idea.reddit_id);
+      
+      if (numComments !== null && numComments !== idea.num_comments) {
+        // 데이터베이스 업데이트
+        const { error: updateError } = await supabase
+          .from('ideas')
+          .update({ num_comments: numComments })
+          .eq('id', idea.id);
+
+        if (updateError) {
+          console.error(`[IdeaService] Failed to update idea ${idea.id}:`, updateError);
+          failed++;
+        } else {
+          updated++;
+          console.log(`[IdeaService] Updated idea ${idea.id}: ${idea.num_comments || 0} -> ${numComments}`);
+        }
+      } else if (numComments === null) {
+        failed++;
+      }
+    } catch (error) {
+      console.error(`[IdeaService] Error processing idea ${idea.id}:`, error);
+      failed++;
+    }
+  }
+
+  console.log(`[IdeaService] 업데이트 완료: ${updated}개 성공, ${failed}개 실패`);
+  console.log('[IdeaService] ===== 댓글 수 업데이트 완료 =====');
+
+  return {
+    updated,
+    failed,
+    total: ideas.length
+  };
+}
