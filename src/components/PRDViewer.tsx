@@ -250,11 +250,11 @@ ${escapedChart}
               // iframe 재로드하여 재렌더링 시도
               setTimeout(() => {
                 if (iframeRef.current) {
-                  const currentSrc = iframeRef.current.srcDoc;
-                  iframeRef.current.srcDoc = '';
+                  const currentSrc = iframeRef.current.srcdoc;
+                  iframeRef.current.srcdoc = '';
                   setTimeout(() => {
                     if (iframeRef.current) {
-                      iframeRef.current.srcDoc = currentSrc;
+                      iframeRef.current.srcdoc = currentSrc;
                     }
                   }, 100);
                 }
@@ -706,4 +706,3 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
     </Card>
   );
 }
-
