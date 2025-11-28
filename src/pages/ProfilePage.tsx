@@ -124,15 +124,22 @@ export function ProfilePage() {
         .from('profiles')
         .select('is_public, nickname, bio, avatar_url')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
+        // 400 에러는 RLS 정책 문제일 수 있으므로 로그만 남기고 계속 진행
         console.error('Error fetching profile:', error);
-      } else {
-        setProfile(data || { is_public: false });
+        // 프로필이 없으면 기본값 설정
+        setProfile({ is_public: false });
+        return;
       }
+
+      // 프로필이 없으면 기본값 설정
+      setProfile(data || { is_public: false });
     } catch (error) {
       console.error('Error fetching profile:', error);
+      // 에러 발생 시에도 기본값 설정
+      setProfile({ is_public: false });
     }
   }
 
