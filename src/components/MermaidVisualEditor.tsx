@@ -434,49 +434,49 @@ export function MermaidVisualEditor({
                     <SelectItem value="box">
                       <div className="flex items-center gap-2">
                         <Square className="h-4 w-4" />
-                        박스 {'[라벨]'}
+                        박스 [라벨]
                       </div>
                     </SelectItem>
                     <SelectItem value="diamond">
                       <div className="flex items-center gap-2">
                         <Diamond className="h-4 w-4" />
-                        다이아몬드 {'{라벨}'} (조건)
+                        다이아몬드 {'{'}라벨{'}'} (조건)
                       </div>
                     </SelectItem>
                     <SelectItem value="circle">
                       <div className="flex items-center gap-2">
                         <Circle className="h-4 w-4" />
-                        이중원 {'((라벨))'
+                        이중원 ((라벨))
                       </div>
                     </SelectItem>
                     <SelectItem value="round">
                       <div className="flex items-center gap-2">
                         <Circle className="h-4 w-4" />
-                        둥근 모서리 {'(라벨)'
+                        둥근 모서리 (라벨)
                       </div>
                     </SelectItem>
                     <SelectItem value="stadium">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        경기장형 {'([라벨])'
+                        경기장형 ([라벨])
                       </div>
                     </SelectItem>
                     <SelectItem value="subroutine">
                       <div className="flex items-center gap-2">
                         <Layers className="h-4 w-4" />
-                        서브루틴 {'[[:라벨]]'
+                        서브루틴 [[:라벨]]
                       </div>
                     </SelectItem>
                     <SelectItem value="cylindrical">
                       <div className="flex items-center gap-2">
                         <Cylinder className="h-4 w-4" />
-                        실린더 {'[(라벨)]'
+                        실린더 [(라벨)]
                       </div>
                     </SelectItem>
                     <SelectItem value="hexagon">
                       <div className="flex items-center gap-2">
                         <Hexagon className="h-4 w-4" />
-                        육각형 {'{{라벨}}'
+                        육각형 {'{'}{'{'}라벨{'}'}{'}'}
                       </div>
                     </SelectItem>
                   </SelectContent>
