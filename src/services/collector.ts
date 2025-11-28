@@ -75,6 +75,7 @@ export async function collectIdeas(): Promise<{
         subreddit: idea.subreddit,
         author: idea.author,
         upvotes: idea.upvotes,
+        numComments: idea.numComments || 0, // Reddit API에서 가져온 댓글 수 포함
         url: idea.url,
         createdAt: new Date(idea.createdAt),
       }));
@@ -126,4 +127,3 @@ export async function collectFromSubreddit(
   // 현재는 전체 수집만 지원
   return collectIdeas();
 }
-
