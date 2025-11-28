@@ -455,7 +455,7 @@ export function IdeaDetailPage() {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : prd ? (
         <>
           {error && (
             <Card className="mb-4 border-destructive">
@@ -496,7 +496,7 @@ export function IdeaDetailPage() {
             </Card>
           )}
         </>
-      )}
+      ) : null}
     </div>
   );
 }
