@@ -324,7 +324,19 @@ function HomePage() {
               </Select>
 
               {/* 정렬 옵션 */}
-              <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'subreddit' | 'comments') => setSortOption(value)}>
+              <Select value={sortOption} onValueChange={async (value: 'latest' | 'popular' | 'subreddit' | 'comments') => {
+                setSortOption(value);
+                // 댓글순으로 변경 시, 모든 아이디어의 num_comments가 0이면 업데이트 안내
+                if (value === 'comments' && ideas.length > 0) {
+                  const allZero = ideas.every(idea => !idea.num_comments || idea.num_comments === 0);
+                  if (allZero) {
+                    const shouldUpdate = confirm('댓글 수 정보가 없습니다.\n\nReddit에서 최신 댓글 수를 가져와서 업데이트하시겠습니까?\n\n주의: Reddit API rate limit으로 인해 시간이 걸릴 수 있습니다.');
+                    if (shouldUpdate) {
+                      await handleUpdateComments();
+                    }
+                  }
+                }
+              }}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="정렬" />
                 </SelectTrigger>
@@ -355,17 +367,28 @@ function HomePage() {
         ) : (
           <>
             {/* 댓글 수 업데이트 버튼 */}
-            <div className="mb-4 flex justify-end">
-              <Button 
-                onClick={handleUpdateComments} 
-                disabled={updatingComments} 
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${updatingComments ? 'animate-spin' : ''}`} />
-                {updatingComments ? '댓글 수 업데이트 중...' : '댓글 수 업데이트'}
-              </Button>
-            </div>
+            {ideas.every(idea => !idea.num_comments || idea.num_comments === 0) && (
+              <div className="mb-4 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    💡 댓글순 정렬을 사용하려면 Reddit에서 최신 댓글 수를 가져와야 합니다.
+                  </p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
+                    현재 모든 아이디어의 댓글 수가 0으로 표시되어 있습니다.
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleUpdateComments} 
+                  disabled={updatingComments} 
+                  variant="default"
+                  size="sm"
+                  className="ml-4 bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${updatingComments ? 'animate-spin' : ''}`} />
+                  {updatingComments ? '업데이트 중...' : '댓글 수 업데이트'}
+                </Button>
+              </div>
+            )}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {ideas.map((idea) => (
               <IdeaCard
