@@ -193,7 +193,7 @@ export function ProfilePage() {
 
       if (error) {
         // 버킷이 없으면 profiles 버킷 시도
-        if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
+        if (error.message.includes('Bucket not found') || error.message.includes('not found') || error.statusCode === 400) {
           const { data: fallbackData, error: fallbackError } = await supabase.storage
             .from('profiles')
             .upload(fileName, file, {
@@ -202,7 +202,16 @@ export function ProfilePage() {
             });
 
           if (fallbackError) {
-            throw new Error('Storage 버킷을 먼저 생성해주세요. (avatars 또는 profiles)');
+            const errorMessage = 
+              '프로필 사진 업로드를 위해 Supabase Storage 버킷이 필요합니다.\n\n' +
+              'Supabase Dashboard에서 다음을 수행하세요:\n' +
+              '1. Storage 메뉴로 이동\n' +
+              '2. "New bucket" 클릭\n' +
+              '3. 이름: avatars (또는 profiles)\n' +
+              '4. "Public bucket" 체크\n' +
+              '5. 생성 후 다시 시도하세요.\n\n' +
+              '또는 관리자에게 버킷 생성을 요청하세요.';
+            throw new Error(errorMessage);
           }
 
           const { data: { publicUrl } } = supabase.storage
@@ -608,8 +617,7 @@ export function ProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.likes}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <p className="text-3xl font-bold">{stats.likes}</n                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
 

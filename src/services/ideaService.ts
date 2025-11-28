@@ -202,20 +202,32 @@ export async function getIdeas(filters?: {
 
   // 댓글순 정렬 (클라이언트 사이드)
   if (filters?.sort === 'comments') {
+    // 디버깅: 정렬 전 데이터 확인
+    console.log('[IdeaService] Sorting by comments. Total items:', result.length);
+    console.log('[IdeaService] Sample num_comments values:', result.slice(0, 5).map(i => ({ title: i.title.substring(0, 30), num_comments: i.num_comments })));
+    
     result = result.sort((a, b) => {
-      const commentsA = a.num_comments ?? 0;
-      const commentsB = b.num_comments ?? 0;
+      // num_comments를 숫자로 변환 (null, undefined, 문자열 등 처리)
+      const commentsA = typeof a.num_comments === 'number' ? a.num_comments : (a.num_comments ? parseInt(String(a.num_comments), 10) : 0);
+      const commentsB = typeof b.num_comments === 'number' ? b.num_comments : (b.num_comments ? parseInt(String(b.num_comments), 10) : 0);
+      
+      // NaN 체크
+      const numA = isNaN(commentsA) ? 0 : commentsA;
+      const numB = isNaN(commentsB) ? 0 : commentsB;
       
       // 댓글 수가 같으면 최신순
-      if (commentsA === commentsB) {
+      if (numA === numB) {
         const dateA = a.collected_at ? new Date(a.collected_at).getTime() : 0;
         const dateB = b.collected_at ? new Date(b.collected_at).getTime() : 0;
         return dateB - dateA;
       }
       
       // 댓글 수 기준 내림차순
-      return commentsB - commentsA;
+      return numB - numA;
     });
+
+    // 디버깅: 정렬 후 데이터 확인
+    console.log('[IdeaService] After sorting. Top 5 items:', result.slice(0, 5).map(i => ({ title: i.title.substring(0, 30), num_comments: i.num_comments })));
 
     // 클라이언트 정렬 후 limit과 offset 적용
     if (filters?.offset) {
@@ -280,3 +292,4 @@ export async function getSubreddits(): Promise<string[]> {
 
   return uniqueSubreddits;
 }
+
