@@ -193,7 +193,7 @@ export function ProfilePage() {
 
       if (error) {
         // 버킷이 없으면 profiles 버킷 시도
-        if (error.message.includes('Bucket not found') || error.message.includes('not found') || error.statusCode === 400) {
+        if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
           const { data: fallbackData, error: fallbackError } = await supabase.storage
             .from('profiles')
             .upload(fileName, file, {
