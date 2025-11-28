@@ -348,27 +348,49 @@ export async function getSubreddits(): Promise<string[]> {
  * Reddit API에서 최신 댓글 수를 가져와서 기존 아이디어 업데이트
  * 주의: Reddit API rate limit에 주의하여 사용하세요
  */
-export async function updateCommentsFromReddit(redditId: string): Promise<number | null> {
+export async function updateCommentsFromReddit(redditId: string, subreddit?: string): Promise<number | null> {
   try {
-    // Reddit API에서 게시물 정보 가져오기
-    const response = await fetch(`https://www.reddit.com/api/info.json?id=t3_${redditId}`, {
+    // 방법 1: /api/info.json 엔드포인트 사용
+    let response = await fetch(`https://www.reddit.com/api/info.json?id=t3_${redditId}`, {
       headers: {
         'User-Agent': 'IdeaSpark/1.0'
       }
     });
 
+    // 방법 1이 실패하면 방법 2 시도: subreddit과 postId를 사용한 JSON 엔드포인트
+    if (!response.ok && subreddit) {
+      console.log(`[IdeaService] Trying alternative endpoint for ${redditId} in r/${subreddit}`);
+      response = await fetch(`https://www.reddit.com/r/${subreddit}/comments/${redditId}/.json`, {
+        headers: {
+          'User-Agent': 'IdeaSpark/1.0'
+        }
+      });
+    }
+
     if (!response.ok) {
-      console.warn(`[IdeaService] Failed to fetch Reddit data for ${redditId}:`, response.status);
+      console.warn(`[IdeaService] Failed to fetch Reddit data for ${redditId}:`, response.status, response.statusText);
       return null;
     }
 
     const data = await response.json();
     
+    // 방법 1 응답 형식: { data: { children: [{ data: {...} }] } }
     if (data?.data?.children && data.data.children.length > 0) {
       const post = data.data.children[0].data;
-      return post.num_comments || 0;
+      const numComments = post.num_comments || 0;
+      console.log(`[IdeaService] Fetched comments for ${redditId}: ${numComments}`);
+      return numComments;
+    }
+    
+    // 방법 2 응답 형식: [{ data: { children: [{ data: {...} }] } }] (배열)
+    if (Array.isArray(data) && data.length > 0 && data[0]?.data?.children && data[0].data.children.length > 0) {
+      const post = data[0].data.children[0].data;
+      const numComments = post.num_comments || 0;
+      console.log(`[IdeaService] Fetched comments for ${redditId} (alt method): ${numComments}`);
+      return numComments;
     }
 
+    console.warn(`[IdeaService] No post data found for ${redditId}`);
     return null;
   } catch (error) {
     console.error(`[IdeaService] Error fetching comments for ${redditId}:`, error);
@@ -387,10 +409,10 @@ export async function updateMissingComments(batchSize: number = 10): Promise<{
 }> {
   console.log('[IdeaService] ===== 댓글 수 업데이트 시작 =====');
   
-  // num_comments가 0이거나 null인 아이디어 가져오기
+  // num_comments가 0이거나 null인 아이디어 가져오기 (subreddit도 함께 가져오기)
   const { data: ideas, error } = await supabase
     .from('ideas')
-    .select('id, reddit_id, num_comments')
+    .select('id, reddit_id, num_comments, subreddit')
     .or('num_comments.is.null,num_comments.eq.0')
     .limit(batchSize);
 
@@ -419,7 +441,7 @@ export async function updateMissingComments(batchSize: number = 10): Promise<{
     }
 
     try {
-      const numComments = await updateCommentsFromReddit(idea.reddit_id);
+      const numComments = await updateCommentsFromReddit(idea.reddit_id, idea.subreddit);
       
       if (numComments !== null && numComments !== idea.num_comments) {
         // 데이터베이스 업데이트
