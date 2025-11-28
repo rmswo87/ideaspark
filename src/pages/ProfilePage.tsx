@@ -617,7 +617,8 @@ export function ProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.likes}</n                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <p className="text-3xl font-bold">{stats.likes}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
 
