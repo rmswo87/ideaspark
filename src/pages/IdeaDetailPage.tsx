@@ -9,7 +9,9 @@ import { supabase } from '@/lib/supabase';
 import { trackIdeaView, trackUserBehavior } from '@/services/recommendationService';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Loader2, Sparkles, ArrowLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Sparkles, ArrowLeft, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Idea } from '@/services/ideaService';
 import type { PRD } from '@/services/prdService';
@@ -20,7 +22,10 @@ export function IdeaDetailPage() {
   const navigate = useNavigate();
   const [idea, setIdea] = useState<Idea | null>(null);
   const [prd, setPrd] = useState<PRD | null>(null);
+  const [prds, setPrds] = useState<PRD[]>([]);
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatingProposal, setGeneratingProposal] = useState(false);
@@ -56,7 +61,7 @@ export function IdeaDetailPage() {
   useEffect(() => {
     if (user?.id && id) {
       checkExistingPRD();
-      checkExistingProposal();
+      checkExistingProposals();
     }
   }, [user?.id, id]);
 
@@ -84,11 +89,14 @@ export function IdeaDetailPage() {
     if (!id || !user) return;
 
     try {
-      const prds = await getPRDs({ ideaId: id, userId: user.id, limit: 1 });
-      if (prds.length > 0) {
-        const fullPRD = await getPRD(prds[0].id);
-        if (isMountedRef.current) {
-          setPrd(fullPRD);
+      const allPRDs = await getPRDs({ ideaId: id, userId: user.id, limit: 100 });
+      if (isMountedRef.current) {
+        setPrds(allPRDs);
+        if (allPRDs.length > 0) {
+          const fullPRD = await getPRD(allPRDs[0].id);
+          if (isMountedRef.current) {
+            setPrd(fullPRD);
+          }
         }
       }
     } catch (error) {
@@ -96,16 +104,20 @@ export function IdeaDetailPage() {
     }
   }
 
-  async function checkExistingProposal() {
+  async function checkExistingProposals() {
     if (!id || !user) return;
 
     try {
-      const proposals = await getProposals({ ideaId: id, userId: user.id, limit: 1 });
-      if (proposals.length > 0 && isMountedRef.current) {
-        setProposal(proposals[0]);
+      const allProposals = await getProposals({ ideaId: id, userId: user.id });
+      if (isMountedRef.current) {
+        setProposals(allProposals);
+        if (allProposals.length > 0) {
+          setProposal(allProposals[0]);
+          setSelectedProposalId(allProposals[0].id);
+        }
       }
     } catch (error) {
-      console.error('Error checking existing proposal:', error);
+      console.error('Error checking existing proposals:', error);
     }
   }
 
@@ -134,8 +146,9 @@ export function IdeaDetailPage() {
     setError(null);
     
     try {
-      // 제안서가 있으면 제안서 내용을 기반으로 PRD 생성
-      const proposalContent = proposal?.content;
+      // 선택된 제안서가 있으면 제안서 내용을 기반으로 PRD 생성
+      const selectedProposal = proposals.find(p => p.id === selectedProposalId);
+      const proposalContent = selectedProposal?.content;
       const newPRD = await generatePRD(id, user.id, proposalContent);
       
       // PRD 생성 행동 추적
@@ -145,11 +158,13 @@ export function IdeaDetailPage() {
       
       if (!isMountedRef.current) return;
       
-      // 상태 업데이트를 즉시 수행 (지연 제거)
-      setPrd(newPRD);
+      // PRD 목록 업데이트
+      const updatedPRDs = await getPRDs({ ideaId: id, userId: user.id, limit: 100 });
+      if (isMountedRef.current) {
+        setPrds(updatedPRDs);
+        setPrd(newPRD);
+      }
       setGenerating(false);
-      
-      // PRD 생성 후 기존 PRD 확인 함수를 다시 호출하지 않음 (충돌 방지)
     } catch (error) {
       console.error('PRD generation error:', error);
       if (!isMountedRef.current) return;
@@ -187,14 +202,19 @@ export function IdeaDetailPage() {
     setError(null);
     
     try {
-      // 제안서가 있으면 제안서 내용을 우선 사용, 없으면 PRD 내용 사용
-      const contentToUse = proposal?.content || prd?.content;
+      // 선택된 제안서가 있으면 제안서 내용을 우선 사용, 없으면 PRD 내용 사용
+      const selectedProposal = proposals.find(p => p.id === selectedProposalId);
+      const contentToUse = selectedProposal?.content || prd?.content;
       const newPlan = await generateDevelopmentPlan(id, user.id, contentToUse);
       
       if (!isMountedRef.current) return;
       
-      // 상태 업데이트를 즉시 수행 (지연 제거)
-      setPrd(newPlan);
+      // PRD 목록 업데이트
+      const updatedPRDs = await getPRDs({ ideaId: id, userId: user.id, limit: 100 });
+      if (isMountedRef.current) {
+        setPrds(updatedPRDs);
+        setPrd(newPlan);
+      }
       setGeneratingPlan(false);
     } catch (error) {
       console.error('Development plan generation error:', error);
@@ -215,19 +235,6 @@ export function IdeaDetailPage() {
 
     if (!isMountedRef.current) return;
 
-    // 기존 제안서 확인
-    try {
-      const existingProposals = await getProposals({ ideaId: id, userId: user.id, limit: 1 });
-      if (existingProposals.length > 0) {
-        const confirmMessage = '이미 이 아이디어에 대한 제안서가 있습니다. 새로 생성하시겠습니까? (기존 제안서는 유지됩니다)';
-        if (!confirm(confirmMessage)) {
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking existing proposal:', error);
-    }
-
     setGeneratingProposal(true);
     setError(null);
     
@@ -236,7 +243,13 @@ export function IdeaDetailPage() {
       
       if (!isMountedRef.current) return;
       
-      setProposal(newProposal);
+      // 제안서 목록 업데이트
+      const updatedProposals = await getProposals({ ideaId: id, userId: user.id });
+      if (isMountedRef.current) {
+        setProposals(updatedProposals);
+        setProposal(newProposal);
+        setSelectedProposalId(newProposal.id);
+      }
       setGeneratingProposal(false);
       alert('제안서가 생성되었습니다! 제안서를 기반으로 PRD나 개발 계획서를 작성할 수 있습니다.');
     } catch (error) {
@@ -250,6 +263,41 @@ export function IdeaDetailPage() {
     }
   }
 
+  async function handleDeleteProposal(proposalId: string) {
+    if (!confirm('이 제안서를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const { deleteProposal } = await import('@/services/proposalService');
+      await deleteProposal(proposalId);
+      
+      const updatedProposals = proposals.filter(p => p.id !== proposalId);
+      setProposals(updatedProposals);
+      
+      if (updatedProposals.length > 0) {
+        setProposal(updatedProposals[0]);
+        setSelectedProposalId(updatedProposals[0].id);
+      } else {
+        setProposal(null);
+        setSelectedProposalId(null);
+      }
+    } catch (error) {
+      console.error('Error deleting proposal:', error);
+      alert('제안서 삭제에 실패했습니다.');
+    }
+  }
+
+  async function handleSelectPRD(prdId: string) {
+    try {
+      const fullPRD = await getPRD(prdId);
+      if (isMountedRef.current) {
+        setPrd(fullPRD);
+      }
+    } catch (error) {
+      console.error('Error loading PRD:', error);
+    }
+  }
 
   if (loading) {
     return (
@@ -328,7 +376,7 @@ export function IdeaDetailPage() {
         </Card>
       </div>
 
-      {!prd && !proposal ? (
+      {!prd && proposals.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-6">
@@ -406,53 +454,99 @@ export function IdeaDetailPage() {
             )}
           </CardContent>
         </Card>
-      ) : proposal && !prd ? (
+      ) : proposals.length > 0 && !prd ? (
         <Card>
           <CardHeader>
-            <CardTitle>제안서</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>제안서</CardTitle>
+              {proposals.length > 1 && (
+                <Select
+                  value={selectedProposalId || proposals[0].id}
+                  onValueChange={(value) => {
+                    const selected = proposals.find(p => p.id === value);
+                    if (selected) {
+                      setProposal(selected);
+                      setSelectedProposalId(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {proposals.map((p, index) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        제안서 {index + 1}안 ({new Date(p.created_at).toLocaleDateString('ko-KR')})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            {proposals.length === 1 && (
+              <p className="text-sm text-muted-foreground mt-2">제안서 1안</p>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="prose dark:prose-invert max-w-none mb-6">
-              <div className="whitespace-pre-wrap text-sm">{proposal.content}</div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                onClick={handleGeneratePRD}
-                disabled={generating || generatingPlan || !user}
-                size="lg"
-                variant="default"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    PRD 생성 중...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    제안서 기반 PRD 생성
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleGenerateDevelopmentPlan}
-                disabled={generating || generatingPlan || !user}
-                size="lg"
-                variant="outline"
-              >
-                {generatingPlan ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    개발 계획서 생성 중...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    제안서 기반 개발 계획서 작성
-                  </>
-                )}
-              </Button>
-            </div>
+            {proposal && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    {proposals.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteProposal(proposal.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="prose dark:prose-invert max-w-none mb-6">
+                  <div className="whitespace-pre-wrap text-sm">{proposal.content}</div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button
+                    onClick={handleGeneratePRD}
+                    disabled={generating || generatingPlan || !user}
+                    size="lg"
+                    variant="default"
+                  >
+                    {generating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        PRD 생성 중...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        제안서 기반 PRD 생성
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleGenerateDevelopmentPlan}
+                    disabled={generating || generatingPlan || !user}
+                    size="lg"
+                    variant="outline"
+                  >
+                    {generatingPlan ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        개발 계획서 생성 중...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        제안서 기반 개발 계획서 작성
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : prd ? (
@@ -461,6 +555,73 @@ export function IdeaDetailPage() {
             <Card className="mb-4 border-destructive">
               <CardContent className="py-4">
                 <p className="text-destructive text-sm">{error}</p>
+              </CardContent>
+            </Card>
+          )}
+          {prds.length > 1 && (
+            <Card className="mb-4">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium">문서 선택:</span>
+                  <Select
+                    value={prd.id}
+                    onValueChange={handleSelectPRD}
+                  >
+                    <SelectTrigger className="w-[300px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prds.map((p, index) => {
+                        const isPRD = p.title.includes('PRD');
+                        const isPlan = p.title.includes('개발 계획서') || p.title.includes('개발 계획');
+                        const isProposalBased = p.title.includes('제안서');
+                        let label = '';
+                        if (isPlan) {
+                          label = isProposalBased ? `개발 계획서 (제안서 기반) ${index + 1}` : `개발 계획서 ${index + 1}`;
+                        } else if (isPRD) {
+                          label = isProposalBased ? `PRD (제안서 기반) ${index + 1}` : `PRD ${index + 1}`;
+                        } else {
+                          label = `${p.title} ${index + 1}`;
+                        }
+                        return (
+                          <SelectItem key={p.id} value={p.id}>
+                            {label} ({new Date(p.created_at).toLocaleDateString('ko-KR')})
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {proposals.length > 0 && (
+            <Card className="mb-4">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">제안서 선택:</span>
+                  <Select
+                    value={selectedProposalId || proposals[0].id}
+                    onValueChange={(value) => {
+                      const selected = proposals.find(p => p.id === value);
+                      if (selected) {
+                        setProposal(selected);
+                        setSelectedProposalId(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {proposals.map((p, index) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          제안서 {index + 1}안 ({new Date(p.created_at).toLocaleDateString('ko-KR')})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
           )}
