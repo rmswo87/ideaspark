@@ -153,7 +153,8 @@ export async function getIdeas(filters?: {
                  .order('collected_at', { ascending: false });
   } else if (filters?.sort === 'comments') {
     // 댓글순: num_comments 기준 내림차순 (없으면 최신순)
-    query = query.order('num_comments', { ascending: false, nullsFirst: false })
+    // null 값은 자동으로 마지막에 배치됨
+    query = query.order('num_comments', { ascending: false })
                  .order('collected_at', { ascending: false });
   } else {
     // 최신순 (기본값)
