@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Sparkles, RefreshCw } from "lucide-react"
 import { IdeaCard } from '@/components/IdeaCard'
-import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
+import { getIdeas, getIdeaStats, getSubreddits, updateMissingComments } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
 import { supabase } from '@/lib/supabase'
 import type { Idea } from '@/services/ideaService'
@@ -32,6 +32,7 @@ function HomePage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(true)
   const [collecting, setCollecting] = useState(false)
+  const [updatingComments, setUpdatingComments] = useState(false)
   const [stats, setStats] = useState({ 
     total: 0, 
     byCategory: {} as Record<string, number>,
@@ -126,6 +127,24 @@ function HomePage() {
       alert(`수집 실패: ${errorMsg}`)
     } finally {
       setCollecting(false)
+    }
+  }
+
+  async function handleUpdateComments() {
+    if (!confirm('댓글 수를 Reddit에서 업데이트하시겠습니까?\n\n주의: Reddit API rate limit으로 인해 시간이 걸릴 수 있습니다.')) {
+      return
+    }
+
+    setUpdatingComments(true)
+    try {
+      const result = await updateMissingComments(20) // 한 번에 20개씩 업데이트
+      alert(`댓글 수 업데이트 완료!\n성공: ${result.updated}개\n실패: ${result.failed}개\n총: ${result.total}개`)
+      fetchIdeas() // 목록 새로고침
+    } catch (error: any) {
+      console.error('Update comments error:', error)
+      alert(`댓글 수 업데이트 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`)
+    } finally {
+      setUpdatingComments(false)
     }
   }
 
@@ -334,7 +353,20 @@ function HomePage() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <>
+            {/* 댓글 수 업데이트 버튼 */}
+            <div className="mb-4 flex justify-end">
+              <Button 
+                onClick={handleUpdateComments} 
+                disabled={updatingComments} 
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${updatingComments ? 'animate-spin' : ''}`} />
+                {updatingComments ? '댓글 수 업데이트 중...' : '댓글 수 업데이트'}
+              </Button>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {ideas.map((idea) => (
               <IdeaCard
                 key={idea.id}
@@ -343,7 +375,8 @@ function HomePage() {
                 formatDate={formatDate}
               />
             ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
     </div>
