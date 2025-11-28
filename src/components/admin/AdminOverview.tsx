@@ -20,7 +20,7 @@ export function AdminOverview() {
   async function fetchStats() {
     setLoading(true);
     try {
-      // 사용자 수
+      // 실제로는 auth.users를 직접 조회할 수 없으므로 다른 방법 사용
       const { data: { users } } = await supabase.auth.admin.listUsers();
       const totalUsers = users?.length || 0;
 
