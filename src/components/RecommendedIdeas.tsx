@@ -16,7 +16,7 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !user.id) {
       setLoading(false);
       return;
     }
@@ -77,7 +77,11 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
             <div key={idea.id} className="relative">
               <IdeaCard
                 idea={idea}
-                onCardClick={() => onGeneratePRD?.(idea.id)}
+                onCardClick={() => {
+                  if (idea.id) {
+                    onGeneratePRD?.(idea.id);
+                  }
+                }}
                 formatDate={(dateString) => {
                   const date = new Date(dateString);
                   return date.toLocaleDateString('ko-KR', {
@@ -99,4 +103,3 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
     </Card>
   );
 }
-
