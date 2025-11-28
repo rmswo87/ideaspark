@@ -161,6 +161,7 @@ export async function getIdeas(filters?: {
   }
 
   // limit과 offset은 댓글순 정렬 전에 적용하지 않음 (클라이언트 정렬 후 적용)
+  // 댓글순일 때는 더 많은 데이터를 가져와서 정렬해야 하므로 limit을 적용하지 않음
   if (filters?.sort !== 'comments') {
     if (filters?.limit) {
       query = query.limit(filters.limit);
@@ -169,6 +170,9 @@ export async function getIdeas(filters?: {
     if (filters?.offset) {
       query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
     }
+  } else {
+    // 댓글순일 때는 최대 500개까지 가져와서 정렬 (너무 많은 데이터 방지)
+    query = query.limit(500);
   }
 
   const { data, error } = await query;

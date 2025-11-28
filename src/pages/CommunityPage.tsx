@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, Calendar, User, Sparkles, UserPlus, Ban, MoreVertical } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, Calendar, User as UserIcon, Sparkles, UserPlus, Ban, MoreVertical, LogOut } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -177,31 +177,61 @@ export function CommunityPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/')}
-                className="flex items-center gap-2"
-              >
-                <Sparkles className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">IdeaSpark</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-primary" />
+                <h1 className="text-2xl font-bold">IdeaSpark</h1>
+              </div>
+              <nav className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/')}
+                >
+                  아이디어
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="font-semibold"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  커뮤니티
+                </Button>
+              </nav>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/')}
-              >
-                아이디어
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="font-semibold"
-              >
-                커뮤니티
-              </Button>
+              {user ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <UserIcon className="h-4 w-4 mr-2" />
+                    프로필
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      await supabase.auth.signOut()
+                      window.location.reload()
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    로그아웃
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/auth')}
+                >
+                  <UserIcon className="h-4 w-4 mr-2" />
+                  로그인
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -301,7 +331,7 @@ export function CommunityPage() {
                         <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
-                            <User className="h-4 w-4" />
+                            <UserIcon className="h-4 w-4" />
                             {post.anonymous_id ? (
                               <span>{post.anonymous_id}</span>
                             ) : user && post.user_id !== user.id && authorProfiles[post.user_id]?.is_public ? (

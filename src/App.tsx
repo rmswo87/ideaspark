@@ -25,6 +25,7 @@ function HomePage() {
   const { user } = useAuth()
   const { isAdmin } = useAdmin()
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [subredditFilter, setSubredditFilter] = useState('all')
   const [sortOption, setSortOption] = useState<'latest' | 'popular' | 'subreddit' | 'comments'>('latest')
@@ -39,15 +40,26 @@ function HomePage() {
   const [subreddits, setSubreddits] = useState<string[]>([])
   const navigate = useNavigate()
 
+  // 검색어 디바운싱 (500ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   const fetchIdeas = useCallback(async () => {
     setLoading(true)
     try {
+      // 댓글순일 때는 더 많은 데이터를 가져와서 정렬 (limit 없이)
+      const limit = sortOption === 'comments' ? undefined : 50
       const data = await getIdeas({
         category: categoryFilter === 'all' ? undefined : categoryFilter,
         subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
         sort: sortOption,
-        limit: 50,
-        search: searchQuery || undefined,
+        limit: limit,
+        search: debouncedSearchQuery || undefined,
       })
       setIdeas(data)
     } catch (error) {
@@ -57,7 +69,7 @@ function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [categoryFilter, subredditFilter, sortOption, searchQuery])
+  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery])
 
   // 아이디어 목록 가져오기
   useEffect(() => {
@@ -116,15 +128,6 @@ function HomePage() {
       setCollecting(false)
     }
   }
-
-  // 검색어 변경 시 필터링 (디바운싱)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchIdeas()
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
