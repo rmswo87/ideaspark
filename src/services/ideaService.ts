@@ -129,10 +129,10 @@ export async function getIdeas(filters?: {
   sort?: SortOption;
   subreddit?: string;
 }): Promise<Idea[]> {
-  // num_comments를 명시적으로 선택 (정렬을 위해 필수)
+  // 모든 컬럼 선택 (*는 num_comments도 포함)
   let query = supabase
     .from('ideas')
-    .select('*, num_comments');
+    .select('*');
 
   // 카테고리 필터
   if (filters?.category && filters.category !== 'all') {
