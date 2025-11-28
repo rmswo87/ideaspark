@@ -81,14 +81,15 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
           {recommendedIdeas.map((idea) => {
             const ideaId = idea.id; // TypeScript를 위한 명시적 변수 할당
             return (
-              <div key={ideaId || 'unknown'} className="relative">
-                <IdeaCard
-                  idea={idea}
-                  onCardClick={() => {
-                    if (ideaId) {
-                      onGeneratePRD?.(ideaId);
-                    }
-                  }}
+              <IdeaCard
+                key={ideaId || 'unknown'}
+                idea={idea}
+                recommendationReason={idea.recommendation_reason}
+                onCardClick={() => {
+                  if (ideaId) {
+                    onGeneratePRD?.(ideaId);
+                  }
+                }}
                 formatDate={(dateString) => {
                   const date = new Date(dateString);
                   return date.toLocaleDateString('ko-KR', {
@@ -98,12 +99,6 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
                   });
                 }}
               />
-              {idea.recommendation_reason && (
-                <div className="absolute bottom-2 right-2 bg-primary/10 text-primary text-xs px-2 py-1 rounded-md backdrop-blur-sm z-10 max-w-[calc(100%-1rem)]">
-                  {idea.recommendation_reason}
-                </div>
-              )}
-            </div>
             );
           })}
         </div>
@@ -111,4 +106,3 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
     </Card>
   );
 }
-

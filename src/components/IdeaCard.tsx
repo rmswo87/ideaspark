@@ -8,9 +8,10 @@ interface IdeaCardProps {
   idea: Idea;
   onCardClick: () => void;
   formatDate: (dateString: string) => string;
+  recommendationReason?: string;
 }
 
-export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
+export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }: IdeaCardProps) {
 
   return (
     <Card 
@@ -24,8 +25,13 @@ export function IdeaCard({ idea, onCardClick, formatDate }: IdeaCardProps) {
         onCardClick();
       }}
     >
-      <CardHeader>
-        <CardTitle className="line-clamp-2">
+      <CardHeader className="relative">
+        {recommendationReason && (
+          <div className="absolute top-2 left-2 bg-primary/10 text-primary text-xs px-2 py-1 rounded-md backdrop-blur-sm z-10 max-w-[calc(100%-1rem)]">
+            {recommendationReason}
+          </div>
+        )}
+        <CardTitle className="line-clamp-2 mt-6">
           {idea.title}
         </CardTitle>
         <CardDescription className="flex items-center gap-2">
