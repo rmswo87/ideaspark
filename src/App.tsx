@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Sparkles, RefreshCw } from "lucide-react"
+import { Search, RefreshCw } from "lucide-react"
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
@@ -19,7 +19,7 @@ import { AdminDashboard } from '@/pages/AdminDashboard'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
-import { LogOut, User as UserIcon, MessageSquare, Shield } from 'lucide-react'
+import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 function HomePage() {
