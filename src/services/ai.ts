@@ -39,6 +39,36 @@ class AIClient {
     }
   }
 
+  /**
+   * 아이디어를 기반으로 개선된 제안서 생성
+   */
+  async generateProposal(idea: Idea): Promise<string> {
+    const prompt = this.buildProposalPrompt(idea);
+
+    if (this.config.provider === 'openrouter') {
+      return this.callOpenRouter(prompt);
+    } else if (this.config.provider === 'openai') {
+      return this.callOpenAI(prompt);
+    } else {
+      return this.callClaude(prompt);
+    }
+  }
+
+  /**
+   * 제안서 기반 PRD 생성
+   */
+  async generatePRDFromProposal(idea: Idea, proposalContent: string): Promise<string> {
+    const prompt = this.buildPRDFromProposalPrompt(idea, proposalContent);
+
+    if (this.config.provider === 'openrouter') {
+      return this.callOpenRouter(prompt);
+    } else if (this.config.provider === 'openai') {
+      return this.callOpenAI(prompt);
+    } else {
+      return this.callClaude(prompt);
+    }
+  }
+
 
   /**
    * PRD 프롬프트 생성 (prd_ref.md 기반 상세 양식)
@@ -281,13 +311,132 @@ gantt
 **⚠️ 최종 확인 사항 (반드시 체크하세요)**: 
 - ✅ 모든 플레이스홀더([...])를 실제 내용으로 대체했는지 확인
 - ✅ 아이디어 제목과 내용을 분석하여 구체적인 내용을 작성했는지 확인
-- ✅ 예시 템플릿이 아닌 실제 프로젝트 기획서를 작성했는지 확인
+- ✅ 예시가 아닌 **실제 프로젝트 기획서**를 작성했는지 확인
 - ✅ 각 섹션을 매우 상세하고 구체적으로 작성했는지 확인
 - ✅ 실제 개발자가 바로 착수할 수 있을 정도로 구체적인 내용을 포함했는지 확인
 - ✅ Mermaid 다이어그램에 실제 기능명을 사용했는지 확인 (예시 텍스트 사용 금지)
 - ✅ 마크다운 형식을 정확히 지켰는지 확인
 - ✅ 모든 아이디어에 대해 동일한 구조와 형식을 사용했는지 확인
 - ✅ 각 섹션이 박스 단위로 명확히 구분되어 있는지 확인`;
+  }
+
+  /**
+   * 제안서 기반 PRD 프롬프트 생성
+   */
+  private buildPRDFromProposalPrompt(idea: Idea, proposalContent: string): string {
+    return `다음 원본 아이디어와 개선된 제안서를 기반으로 상세하고 구체적인 PRD(Product Requirements Document) 문서를 한국어로 작성해주세요.
+
+## 원본 아이디어 정보
+- **제목**: ${idea.title}
+- **내용**: ${idea.content}
+- **서브레딧**: r/${idea.subreddit}
+- **작성자**: ${idea.author}
+- **업보트**: ${idea.upvotes}
+
+## 개선된 제안서
+${proposalContent}
+
+## PRD 작성 요구사항
+
+제안서에서 제시된 개선 사항과 구체화된 내용을 반영하여 PRD를 작성해주세요.
+
+**⚠️ 절대적으로 준수해야 할 규칙:**
+1. **제안서의 개선 내용을 반드시 반영**하세요. 원본 아이디어보다 제안서의 내용을 우선시하세요.
+2. **제안서에서 제시된 핵심 기능, 타겟 사용자, 차별화 포인트를 기반**으로 PRD를 작성하세요.
+3. **제안서의 실행 계획을 참고**하여 개발 단계를 구체화하세요.
+4. **모든 섹션을 박스 단위로 작성**하세요.
+5. **플레이스홀더([...])를 절대 사용하지 마세요.** 모든 내용은 제안서에서 추출한 실제 내용이어야 합니다.
+
+${this.buildPRDPrompt(idea).split('## PRD 작성 요구사항')[1]}`;
+  }
+
+  /**
+   * 제안서 생성 프롬프트 작성
+   * 기존 아이디어를 분석하여 개선된 제안서 작성
+   */
+  private buildProposalPrompt(idea: Idea): string {
+    return `당신은 전문적인 제품 기획자입니다. 다음 Reddit 아이디어를 분석하여 개선된 제안서를 작성해주세요.
+
+## 원본 아이디어 정보
+- **제목**: ${idea.title}
+- **내용**: ${idea.content}
+- **서브레딧**: r/${idea.subreddit}
+- **작성자**: ${idea.author}
+- **업보트**: ${idea.upvotes}
+
+## 제안서 작성 목표
+
+기존 아이디어가 단순하거나 추상적이거나, 기존에 비슷한 프로그램이 있을 수 있습니다. 
+이를 분석하고 개선하여 더 구체적이고 실행 가능한 제안서로 발전시켜주세요.
+
+### 1. 아이디어 분석 및 개선
+- **문제 정의 명확화**: 원본 아이디어의 핵심 문제를 더 구체적으로 정의
+- **타겟 사용자 구체화**: 누가 이 문제를 겪는지, 얼마나 많은 사람들이 영향을 받는지
+- **경쟁 분석**: 유사한 솔루션이 있는지, 기존 솔루션의 한계점은 무엇인지
+- **차별화 포인트**: 기존 솔루션 대비 이 아이디어의 고유한 가치와 차별점
+
+### 2. 아이디어 구체화
+- **핵심 기능 명확화**: MVP에서 반드시 필요한 기능만 선별
+- **사용자 시나리오**: 실제 사용자가 어떻게 사용할지 구체적인 시나리오 제시
+- **기술적 실현 가능성**: 현재 기술로 구현 가능한지, 필요한 기술 스택은 무엇인지
+- **비즈니스 모델**: 수익화 방안 (선택사항)
+
+### 3. 실행 계획
+- **개발 단계**: MVP → Phase 2 → Phase 3 순서로 단계적 확장 계획
+- **예상 기간**: 각 단계별 예상 개발 기간
+- **필요 리소스**: 개발자 수, 예산, 인프라 등
+
+## 제안서 작성 형식
+
+다음 구조를 따라 마크다운 형식으로 작성해주세요:
+
+\`\`\`markdown
+# [개선된 프로젝트명] - 제안서
+
+## 1. 개요
+- **원본 아이디어**: [원본 제목]
+- **개선 목표**: [이 제안서가 해결하려는 문제]
+- **핵심 가치**: [이 제안서의 핵심 가치 제안]
+
+## 2. 문제 정의
+- **문제 상황**: [구체적인 문제 상황 설명]
+- **영향받는 사용자**: [타겟 사용자 그룹과 규모]
+- **현재 솔루션의 한계**: [기존 솔루션이 있다면 그 한계점]
+
+## 3. 제안 솔루션
+- **핵심 기능**: [MVP에서 반드시 필요한 핵심 기능 3-5개]
+- **차별화 포인트**: [기존 솔루션 대비 차별점]
+- **기술 스택**: [권장 기술 스택과 이유]
+
+## 4. 사용자 시나리오
+- **시나리오 1**: [구체적인 사용자 시나리오]
+- **시나리오 2**: [추가 시나리오]
+
+## 5. 실행 계획
+- **Phase 1 (MVP)**: [4주 이내, 핵심 기능만]
+- **Phase 2**: [추가 기능 확장]
+- **Phase 3**: [장기 비전]
+
+## 6. 예상 성과
+- **사용자 가치**: [사용자가 얻을 수 있는 가치]
+- **비즈니스 가치**: [비즈니스 관점에서의 가치, 선택사항]
+\`\`\`
+
+## ⚠️ 중요 지시사항
+
+**절대 금지 사항:**
+- ❌ 플레이스홀더나 예시 템플릿을 그대로 사용하지 마세요
+- ❌ 일반적인 설명이나 추상적인 내용만 작성하지 마세요
+- ❌ 원본 아이디어를 단순히 복사하지 마세요
+
+**필수 사항:**
+- ✅ 원본 아이디어를 **반드시 분석**하여 실제 개선 내용을 작성하세요
+- ✅ 구체적이고 실행 가능한 제안을 작성하세요
+- ✅ 경쟁 분석과 차별화 포인트를 명확히 제시하세요
+- ✅ 실제 구현 가능한 기술 스택을 제안하세요
+- ✅ 모든 내용은 원본 아이디어에서 발전시킨 구체적인 내용이어야 합니다
+
+제안서를 작성해주세요.`;
   }
 
   /**
@@ -301,10 +450,7 @@ gantt
 - **내용**: ${idea.content}
 - **서브레딧**: r/${idea.subreddit}
 
-${prdContent ? `## PRD 내용
-${prdContent}
-
-` : ''}## Planning Expert v6.1 작성 가이드라인
+${prdContent ? `## PRD 내용\n${prdContent}\n\n` : ''}## Planning Expert v6.1 작성 가이드라인
 
 당신은 Planning Expert로서 다음 원칙을 엄격히 준수해야 합니다:
 
@@ -722,4 +868,3 @@ export const aiClient = new AIClient({
   apiKey,
   model: import.meta.env.VITE_OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct', // OpenRouter 무료 모델
 });
-
