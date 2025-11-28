@@ -1,5 +1,5 @@
 // PRD 뷰어 컴포넌트 (개선된 마크다운 렌더링 및 Mermaid 지원)
-import { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -342,10 +342,8 @@ ${escapedChart}
             maxHeight: '800px',
             maxWidth: isGanttChart ? '800px' : '100%',
             border: 'none',
-            display: 'block',
-            overflow: 'hidden',
-            margin: '0 auto'
-          }}
+            display: 'block'
+          } as React.CSSProperties}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
           loading="lazy"
