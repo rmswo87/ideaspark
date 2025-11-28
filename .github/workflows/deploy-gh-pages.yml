@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
 
-# Trigger workflow for TypeScript fixes and deployment
+# Trigger deployment after TypeScript fixes
 
 permissions:
   contents: read
@@ -31,7 +31,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npx tsc -b --noEmit
 
       - name: Build
         run: npm run build:gh-pages
