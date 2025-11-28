@@ -99,7 +99,7 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
                 }}
               />
               {idea.recommendation_reason && (
-                <div className="absolute top-2 left-2 bg-primary/10 text-primary text-xs px-2 py-1 rounded-md backdrop-blur-sm z-10">
+                <div className="absolute bottom-2 right-2 bg-primary/10 text-primary text-xs px-2 py-1 rounded-md backdrop-blur-sm z-10 max-w-[calc(100%-1rem)]">
                   {idea.recommendation_reason}
                 </div>
               )}
