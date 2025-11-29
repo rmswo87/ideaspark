@@ -8,6 +8,7 @@ export interface Post {
   content: string;
   category: string;
   anonymous_id?: string;
+  tags?: string[];
   like_count: number;
   comment_count: number;
   bookmark_count: number;
@@ -25,6 +26,7 @@ export interface CreatePostData {
   category: string;
   isAnonymous?: boolean;
   anonymousId?: string;
+  tags?: string[];
 }
 
 /**
@@ -52,6 +54,7 @@ export async function createPost(
       content: data.content,
       category: data.category,
       anonymous_id: anonymousId,
+      tags: data.tags || null,
     })
     .select()
     .single();
@@ -72,14 +75,16 @@ export async function getPosts(filters?: {
   limit?: number;
   offset?: number;
   userId?: string;
+  search?: string;
+  tags?: string[];
+  sort?: 'latest' | 'popular' | 'comments';
 }): Promise<Post[]> {
   let query = supabase
     .from('posts')
     .select(`
       *,
       user:profiles(id, email)
-    `)
-    .order('created_at', { ascending: false });
+    `);
 
   if (filters?.category && filters.category !== 'all') {
     query = query.eq('category', filters.category);
@@ -87,6 +92,20 @@ export async function getPosts(filters?: {
 
   if (filters?.userId) {
     query = query.eq('user_id', filters.userId);
+  }
+
+  // 태그 필터링
+  if (filters?.tags && filters.tags.length > 0) {
+    query = query.contains('tags', filters.tags);
+  }
+
+  // 정렬 옵션
+  if (filters?.sort === 'popular') {
+    query = query.order('like_count', { ascending: false });
+  } else if (filters?.sort === 'comments') {
+    query = query.order('comment_count', { ascending: false });
+  } else {
+    query = query.order('created_at', { ascending: false });
   }
 
   if (filters?.limit) {
@@ -104,7 +123,18 @@ export async function getPosts(filters?: {
     throw error;
   }
 
-  return (data || []) as unknown as Post[];
+  let result = (data || []) as unknown as Post[];
+
+  // 클라이언트 사이드 검색 (제목, 내용에서 검색)
+  if (filters?.search) {
+    const searchLower = filters.search.toLowerCase();
+    result = result.filter(post =>
+      post.title.toLowerCase().includes(searchLower) ||
+      post.content.toLowerCase().includes(searchLower)
+    );
+  }
+
+  return result;
 }
 
 /**
@@ -198,8 +228,7 @@ export async function toggleLike(postId: string, userId: string): Promise<boolea
     }
 
     // 카운트 감소
-    await supabase.rpc('decrement_like_count', { post_id_param: postId });
-    return false; // 좋아요 취소됨
+    await supabase.rpc('decrement_like_count', { post_id_param: postId });\n    return false; // 좋아요 취소됨
   } else {
     // 좋아요 추가
     const { error: insertError } = await supabase
