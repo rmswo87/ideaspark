@@ -19,6 +19,7 @@ import { getMyComments, deleteComment } from '@/services/commentService';
 import { deletePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { DonationFooter } from '@/components/DonationFooter';
 import type { FriendRequest, Friend } from '@/services/friendService';
 import type { Conversation, Message } from '@/services/messageService';
 import type { Post } from '@/services/postService';
@@ -418,7 +419,7 @@ export function ProfilePage() {
 
   function handleOpenPrdsDialog() {
     setPrdsDialogOpen(true);
-    fetchPrdsList();
+      fetchPrdsList();
   }
 
   const formatDate = (dateString: string) => {
@@ -641,7 +642,7 @@ export function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">{stats.bookmarks}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <p className="text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
 
@@ -1118,6 +1119,11 @@ export function ProfilePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 도네이션 섹션 */}
+      <div className="mt-12">
+        <DonationFooter />
+      </div>
     </div>
   );
 }
