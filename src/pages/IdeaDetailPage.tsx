@@ -758,7 +758,7 @@ export function IdeaDetailPage() {
                     </>
                   )}
                 </Button>
-                {prd && !prd.title.includes('개발 계획서') && !prd.title.includes('개발 계획') && (
+                {prd && prd.title && !prd.title.includes('개발 계획서') && !prd.title.includes('개발 계획') && (
                   <Button
                     onClick={handleGenerateDevelopmentPlan}
                     disabled={generatingPlan || !user}
