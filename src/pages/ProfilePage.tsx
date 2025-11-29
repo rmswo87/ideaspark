@@ -19,11 +19,12 @@ import { getMyComments, deleteComment } from '@/services/commentService';
 import { deletePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { DonationFooter } from '@/components/DonationFooter';
 import { uploadAvatar } from '@/services/imageService';
 import type { FriendRequest, Friend } from '@/services/friendService';
 import type { Conversation, Message } from '@/services/messageService';
 import type { Post } from '@/services/postService';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export function ProfilePage() {
   const { userId: urlUserId } = useParams<{ userId?: string }>();
@@ -60,6 +61,34 @@ export function ProfilePage() {
   const [prdsList, setPrdsList] = useState<any[]>([]);
   const [loadingPrds, setLoadingPrds] = useState(false);
   const [selectedPrd, setSelectedPrd] = useState<any | null>(null);
+  const [donationCopied, setDonationCopied] = useState(false);
+  const [donationShowQR, setDonationShowQR] = useState(false);
+  const [donationQrError, setDonationQrError] = useState(false);
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+
+  const donationAccountNumber = '3333258583773';
+  const donationBankName = '카카오뱅크';
+  const donationAccountHolder = '자취만렙';
+  const donationQrUrl = '/qr-code-donation.png';
+
+  function getImageProxyBase() {
+    return (
+      import.meta.env.VITE_IMAGE_PROXY_BASE_URL ||
+      (typeof window !== 'undefined' ? `${window.location.origin}/api/image-proxy` : '/api/image-proxy')
+    );
+  }
+
+  function rewriteStorageUrl(src?: string) {
+    if (!src || !SUPABASE_URL || !src.startsWith(SUPABASE_URL)) return src;
+    const marker = '/storage/v1/object/public/';
+    const idx = src.indexOf(marker);
+    if (idx === -1) return src;
+    const rest = src.substring(idx + marker.length);
+    const [bucket, ...pathParts] = rest.split('/');
+    const path = pathParts.join('/');
+    const base = getImageProxyBase();
+    return `${base}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
+  }
 
   useEffect(() => {
     // URL에 userId가 있고 로그인하지 않은 경우는 허용 (공개 프로필 조회)
@@ -471,7 +500,8 @@ export function ProfilePage() {
       <div className="mb-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="grid gap-4 md:grid-cols-2 items-start">
+              {/* 왼쪽: 프로필 기본 정보 */}
               <div className="flex items-center gap-3">
                 <div className="relative">
                   {profile?.avatar_url ? (
@@ -513,10 +543,61 @@ export function ProfilePage() {
                     </p>
                   )}
                   {profile?.bio && (
-                    <p className="text-sm text-muted-foreground mt-1">{profile.bio}</p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-[260px] break-words">
+                      {profile.bio}
+                    </p>
                   )}
                 </div>
               </div>
+
+              {/* 오른쪽: 도네이션 안내 (요약 + 복사/QR) */}
+              {isOwnProfile && (
+                <div className="border rounded-lg p-3 bg-muted/40 text-xs space-y-2">
+                  <p className="font-semibold text-sm">개발자를 위한 커피 한 잔 ☕</p>
+                  <p className="text-muted-foreground">
+                    IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
+                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-[11px] truncate">
+                        {donationBankName} {donationAccountNumber}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        예금주: {donationAccountHolder}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[11px] h-7 px-2 py-1"
+                      onClick={() => {
+                        navigator.clipboard
+                          .writeText(donationAccountNumber)
+                          .then(() => {
+                            setDonationCopied(true);
+                            setTimeout(() => setDonationCopied(false), 2000);
+                          })
+                          .catch(() => {
+                            alert('계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.');
+                          });
+                      }}
+                    >
+                      {donationCopied ? '복사됨' : '복사'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[11px] h-7 px-2 py-1"
+                      onClick={() => setDonationShowQR(true)}
+                    >
+                      QR
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    피드백과 문의도 언제나 환영입니다.
+                  </p>
+                </div>
+              )}
             </div>
             {uploadingAvatar && (
               <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
@@ -750,9 +831,30 @@ export function ProfilePage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-                          {post.content}
-                        </p>
+                        <div className="text-sm text-muted-foreground line-clamp-3 mb-4 prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              img: ({ node, ...props }) => {
+                                const src = (props as any).src as string | undefined;
+                                const rewritten = rewriteStorageUrl(src);
+                                return (
+                                  <img
+                                    {...props}
+                                    src={rewritten}
+                                    className="max-w-full h-auto rounded-md my-1"
+                                    alt={props.alt || ''}
+                                  />
+                                );
+                              },
+                              p: ({ node, ...props }) => (
+                                <p {...props} className="mb-1 last:mb-0" />
+                              ),
+                            }}
+                          >
+                            {post.content}
+                          </ReactMarkdown>
+                        </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <MessageSquare className="h-4 w-4" />
@@ -796,42 +898,21 @@ export function ProfilePage() {
                       className="hover:shadow-lg transition-shadow"
                     >
                       <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div 
-                            className="flex-1 cursor-pointer"
-                            onClick={() => {
-                              if (comment.post?.id) {
-                                navigate(`/community/${comment.post.id}`);
-                                setCommentsDialogOpen(false);
-                              }
-                            }}
-                          >
-                            <CardTitle className="text-sm mb-2 line-clamp-2">
-                              {comment.post?.title || '게시글 제목 없음'}
-                            </CardTitle>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span>{formatDate(comment.created_at)}</span>
-                            </div>
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => {
+                            if (comment.post?.id) {
+                              navigate(`/community/${comment.post.id}`);
+                              setCommentsDialogOpen(false);
+                            }
+                          }}
+                        >
+                          <CardTitle className="text-sm mb-2 line-clamp-2">
+                            {comment.post?.title || '게시글 제목 없음'}
+                          </CardTitle>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>{formatDate(comment.created_at)}</span>
                           </div>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm('정말 이 댓글을 삭제하시겠습니까?')) {
-                                try {
-                                  await deleteComment(comment.id);
-                                  await fetchCommentsList();
-                                  await fetchStats();
-                                  alert('댓글이 삭제되었습니다.');
-                                } catch (error) {
-                                  alert('댓글 삭제에 실패했습니다.');
-                                }
-                              }
-                            }}
-                          >
-                            삭제
-                          </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -1166,11 +1247,38 @@ export function ProfilePage() {
         </DialogContent>
       </Dialog>
 
-      {/* 도네이션 섹션 (자신의 프로필에만 표시) */}
+      {/* 도네이션 QR 다이얼로그 (프로필 내 인라인) */}
       {isOwnProfile && (
-        <div className="mt-12">
-          <DonationFooter />
-        </div>
+        <Dialog open={donationShowQR} onOpenChange={setDonationShowQR}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR 코드로 송금</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="w-56 h-56 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
+                {donationQrError ? (
+                  <div className="text-center p-6 text-xs text-muted-foreground">
+                    QR 코드 이미지를 불러올 수 없습니다.
+                    <br />
+                    <code className="text-[10px]">public/qr-code-donation.png</code> 위치를 확인해주세요.
+                  </div>
+                ) : (
+                  <img
+                    src={donationQrUrl}
+                    alt="도네이션 QR 코드"
+                    className="w-full h-full object-contain rounded-lg"
+                    onError={() => setDonationQrError(true)}
+                  />
+                )}
+              </div>
+              <div className="text-center text-xs text-muted-foreground">
+                <p className="font-semibold text-sm text-foreground">{donationBankName}</p>
+                <p className="font-mono text-[11px]">{donationAccountNumber}</p>
+                <p className="mt-1">예금주: {donationAccountHolder}</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
