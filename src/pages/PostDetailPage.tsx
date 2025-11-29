@@ -33,6 +33,26 @@ export function PostDetailPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+
+  function getImageProxyBase() {
+    return (
+      import.meta.env.VITE_IMAGE_PROXY_BASE_URL ||
+      (typeof window !== 'undefined' ? `${window.location.origin}/api/image-proxy` : '/api/image-proxy')
+    );
+  }
+
+  function rewriteStorageUrl(src?: string) {
+    if (!src || !SUPABASE_URL || !src.startsWith(SUPABASE_URL)) return src;
+    const marker = '/storage/v1/object/public/';
+    const idx = src.indexOf(marker);
+    if (idx === -1) return src;
+    const rest = src.substring(idx + marker.length);
+    const [bucket, ...pathParts] = rest.split('/');
+    const path = pathParts.join('/');
+    const base = getImageProxyBase();
+    return `${base}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
+  }
 
   useEffect(() => {
     if (id) {
@@ -345,7 +365,7 @@ export function PostDetailPage() {
                       수정
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={handleDelete}
                     >
@@ -356,7 +376,7 @@ export function PostDetailPage() {
                 ) : (
                   <>
                     <Button
-                      variant="default"
+                      variant="outline"
                       size="sm"
                       onClick={handleSaveEdit}
                       disabled={savingEdit}
@@ -365,7 +385,7 @@ export function PostDetailPage() {
                       {savingEdit ? '저장 중...' : '저장'}
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={handleCancelEdit}
                       disabled={savingEdit}
@@ -393,9 +413,18 @@ export function PostDetailPage() {
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    img: ({ node, ...props }) => (
-                      <img {...props} className="max-w-full h-auto rounded-md my-2" alt={props.alt || ''} />
-                    ),
+                    img: ({ node, ...props }) => {
+                      const src = (props as any).src as string | undefined;
+                      const rewritten = rewriteStorageUrl(src);
+                      return (
+                        <img
+                          {...props}
+                          src={rewritten}
+                          className="max-w-full h-auto rounded-md my-2"
+                          alt={props.alt || ''}
+                        />
+                      );
+                    },
                     p: ({ node, ...props }) => (
                       <p {...props} className="mb-2 last:mb-0" />
                     ),
