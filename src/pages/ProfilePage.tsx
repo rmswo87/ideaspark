@@ -498,31 +498,31 @@ export function ProfilePage() {
       </Button>
 
       <div className="mb-6">
-        <Card>
-          <CardHeader>
-            <div className="grid gap-4 md:grid-cols-2 items-start">
-              {/* 왼쪽: 프로필 기본 정보 */}
-              <div className="flex items-center gap-3">
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* 왼쪽: 프로필 기본 정보 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-4">
                 <div className="relative">
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
                       alt="프로필 사진"
-                      className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
                     />
                   ) : (
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-8 w-8 text-primary" />
+                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-10 w-10 text-primary" />
                     </div>
                   )}
                   {isOwnProfile && (
                     <>
                       <label
                         htmlFor="avatar-upload"
-                        className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                        className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
                         title="프로필 사진 변경"
                       >
-                        <Camera className="h-3 w-3" />
+                        <Camera className="h-4 w-4" />
                       </label>
                       <input
                         id="avatar-upload"
@@ -535,157 +535,166 @@ export function ProfilePage() {
                     </>
                   )}
                 </div>
-                <div>
-                  <CardTitle>{profile?.nickname || (isOwnProfile ? user?.email : '사용자')}</CardTitle>
+                <div className="flex-1">
+                  <CardTitle className="text-xl mb-2">
+                    {profile?.nickname || (isOwnProfile ? user?.email : '사용자')}
+                  </CardTitle>
                   {isOwnProfile && user && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mb-2">
                       {user.email} · 가입일: {new Date(user.created_at).toLocaleDateString('ko-KR')}
                     </p>
                   )}
                   {profile?.bio && (
-                    <p className="text-sm text-muted-foreground mt-1 max-w-[260px] break-words">
+                    <p className="text-sm text-muted-foreground break-words">
                       {profile.bio}
                     </p>
                   )}
                 </div>
               </div>
+              {uploadingAvatar && (
+                <div className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
+                  <Upload className="h-4 w-4 animate-pulse" />
+                  프로필 사진 업로드 중...
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {isOwnProfile ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_public"
+                      checked={profile?.is_public || false}
+                      disabled={!user || !profile}
+                      onCheckedChange={async (checked: boolean) => {
+                        if (!user || !profile) return;
+                        try {
+                          await updateProfile({ is_public: checked === true });
+                          setProfile({ ...profile, is_public: checked === true });
+                        } catch (error: any) {
+                          console.error('프로필 업데이트 오류:', error);
+                          alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+                        }
+                      }}
+                    />
+                    <Label htmlFor="is_public" className="cursor-pointer">
+                      아이디 공개 (친구추가 및 쪽지 받기 허용)
+                    </Label>
+                  </div>
+                  <div>
+                    <Label htmlFor="nickname" className="mb-2 block">닉네임</Label>
+                    <Input
+                      id="nickname"
+                      placeholder="닉네임을 입력하세요"
+                      value={profile?.nickname || ''}
+                      onChange={(e) => {
+                        const newProfile = { ...profile, nickname: e.target.value };
+                        setProfile(newProfile as any);
+                      }}
+                      onBlur={async () => {
+                        if (profile?.nickname !== undefined) {
+                          try {
+                            await updateProfile({ nickname: profile.nickname });
+                          } catch (error) {
+                            alert('닉네임 저장에 실패했습니다.');
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bio" className="mb-2 block">소개</Label>
+                    <Textarea
+                      id="bio"
+                      placeholder="자기소개를 입력하세요"
+                      value={profile?.bio || ''}
+                      onChange={(e) => {
+                        const newProfile = { ...profile, bio: e.target.value };
+                        setProfile(newProfile as any);
+                      }}
+                      onBlur={async () => {
+                        if (profile?.bio !== undefined) {
+                          try {
+                            await updateProfile({ bio: profile.bio });
+                          } catch (error) {
+                            alert('소개 저장에 실패했습니다.');
+                          }
+                        }
+                      }}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {profile?.bio && (
+                    <p className="text-sm text-muted-foreground">{profile.bio}</p>
+                  )}
+                  {!profile?.bio && (
+                    <p className="text-sm text-muted-foreground">소개가 없습니다.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-              {/* 오른쪽: 도네이션 안내 (요약 + 복사/QR) */}
-              {isOwnProfile && (
-                <div className="border rounded-lg p-3 bg-muted/40 text-xs space-y-2">
-                  <p className="font-semibold text-sm">개발자를 위한 커피 한 잔 ☕</p>
-                  <p className="text-muted-foreground">
-                    IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
-                  </p>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-mono text-[11px] truncate">
+          {/* 오른쪽: 도네이션 박스 (같은 사이즈) */}
+          {isOwnProfile && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl mb-2">개발자를 위한 커피 한 잔 ☕</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-sm font-medium">은행 및 계좌번호</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="font-mono text-base flex-1">
                         {donationBankName} {donationAccountNumber}
                       </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        예금주: {donationAccountHolder}
-                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(donationAccountNumber)
+                            .then(() => {
+                              setDonationCopied(true);
+                              setTimeout(() => setDonationCopied(false), 2000);
+                            })
+                            .catch(() => {
+                              alert('계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.');
+                            });
+                        }}
+                      >
+                        {donationCopied ? '복사됨' : '복사'}
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[11px] h-7 px-2 py-1"
-                      onClick={() => {
-                        navigator.clipboard
-                          .writeText(donationAccountNumber)
-                          .then(() => {
-                            setDonationCopied(true);
-                            setTimeout(() => setDonationCopied(false), 2000);
-                          })
-                          .catch(() => {
-                            alert('계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.');
-                          });
-                      }}
-                    >
-                      {donationCopied ? '복사됨' : '복사'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[11px] h-7 px-2 py-1"
-                      onClick={() => setDonationShowQR(true)}
-                    >
-                      QR
-                    </Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <div>
+                    <Label className="text-sm font-medium">예금주</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{donationAccountHolder}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDonationShowQR(true)}
+                  >
+                    QR 코드 보기
+                  </Button>
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-muted-foreground">
                     피드백과 문의도 언제나 환영입니다.
                   </p>
                 </div>
-              )}
-            </div>
-            {uploadingAvatar && (
-              <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
-                <Upload className="h-4 w-4 animate-pulse" />
-                프로필 사진 업로드 중...
-              </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            {isOwnProfile ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_public"
-                    checked={profile?.is_public || false}
-                    disabled={!user || !profile}
-                    onCheckedChange={async (checked: boolean) => {
-                      if (!user || !profile) return;
-                      try {
-                        await updateProfile({ is_public: checked === true });
-                        // 성공 시 프로필 상태 업데이트
-                        setProfile({ ...profile, is_public: checked === true });
-                      } catch (error: any) {
-                        console.error('프로필 업데이트 오류:', error);
-                        alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-                      }
-                    }}
-                  />
-                  <Label htmlFor="is_public" className="cursor-pointer">
-                    아이디 공개 (친구추가 및 쪽지 받기 허용)
-                  </Label>
-                </div>
-                <div>
-                  <Label htmlFor="nickname" className="mb-2 block">닉네임</Label>
-                  <Input
-                    id="nickname"
-                    placeholder="닉네임을 입력하세요"
-                    value={profile?.nickname || ''}
-                    onChange={(e) => {
-                      const newProfile = { ...profile, nickname: e.target.value };
-                      setProfile(newProfile as any);
-                    }}
-                    onBlur={async () => {
-                      if (profile?.nickname !== undefined) {
-                        try {
-                          await updateProfile({ nickname: profile.nickname });
-                        } catch (error) {
-                          alert('닉네임 저장에 실패했습니다.');
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="bio" className="mb-2 block">소개</Label>
-                  <Textarea
-                    id="bio"
-                    placeholder="자기소개를 입력하세요"
-                    value={profile?.bio || ''}
-                    onChange={(e) => {
-                      const newProfile = { ...profile, bio: e.target.value };
-                      setProfile(newProfile as any);
-                    }}
-                    onBlur={async () => {
-                      if (profile?.bio !== undefined) {
-                        try {
-                          await updateProfile({ bio: profile.bio });
-                        } catch (error) {
-                          alert('소개 저장에 실패했습니다.');
-                        }
-                      }
-                    }}
-                    rows={3}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {profile?.bio && (
-                  <p className="text-sm text-muted-foreground">{profile.bio}</p>
-                )}
-                {!profile?.bio && (
-                  <p className="text-sm text-muted-foreground">소개가 없습니다.</p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="stats" className="mb-6">
