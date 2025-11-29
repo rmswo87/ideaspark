@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { DonationFooter } from '@/components/DonationFooter'
+import { BusinessFooter } from '@/components/BusinessFooter'
 
 function HomePage() {
   const { user } = useAuth()
@@ -286,7 +286,7 @@ function HomePage() {
           </div>
         )}
       </main>
-      <DonationFooter />
+      <BusinessFooter />
     </div>
   )
 }
