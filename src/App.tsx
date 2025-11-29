@@ -161,6 +161,18 @@ function HomePage() {
                 >
                   커뮤니티
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const el = document.getElementById('contact-section');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  문의 / 피드백
+                </Button>
               </nav>
             </div>
             <div className="flex items-center gap-2">
@@ -376,6 +388,35 @@ function App() {
           <Route path="/community/:id" element={<PostDetailPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        
+        {/* 전역 스크롤 버튼 - 모든 페이지에서 보임 */}
+        <div className="fixed right-4 bottom-4 flex flex-col gap-2 z-50">
+          <Button
+            size="icon"
+            variant="outline"
+            className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="맨 위로"
+            title="맨 위로"
+          >
+            ↑
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background"
+            onClick={() =>
+              window.scrollTo({
+                top: document.documentElement.scrollHeight,
+                behavior: 'smooth',
+              })
+            }
+            aria-label="맨 아래로"
+            title="맨 아래로"
+          >
+            ↓
+          </Button>
+        </div>
       </BrowserRouter>
     </ErrorBoundary>
   )
