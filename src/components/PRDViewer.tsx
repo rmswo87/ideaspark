@@ -72,7 +72,16 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       width: auto !important;
       overflow: visible !important;
     }
-    /* Gantt 차트 스타일 통일성 개선 - 프로젝트 구조 다이어그램과 동일한 글자 크기 */
+    /* 모든 Mermaid 다이어그램에 통일된 폰트 크기 적용 */
+    svg text {
+      font-size: 13px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+    }
+    /* Flowchart/Graph 다이어그램 */
+    svg .nodeLabel, svg .edgeLabel {
+      font-size: 13px !important;
+    }
+    /* Gantt 차트 스타일 통일성 개선 */
     svg .gantt {
       font-size: 13px !important;
       max-width: 100% !important;
@@ -87,18 +96,30 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     svg .task {
       font-size: 13px !important;
     }
-    /* Gantt 차트 제목 및 날짜 글자 크기 통일 */
     svg .gantt-title {
       font-size: 13px !important;
     }
     svg .gantt-axis {
       font-size: 13px !important;
     }
-    svg text {
+    /* Sequence 다이어그램 */
+    svg .actor, svg .messageText, svg .noteText {
       font-size: 13px !important;
     }
-    /* Gantt 차트 전체 컨테이너 - 전체 너비 사용 */
-    .mermaid svg[data-gantt] {
+    /* ER 다이어그램 */
+    svg .entityBox, svg .attributeBox {
+      font-size: 13px !important;
+    }
+    /* Pie 차트 */
+    svg .pieTitleText {
+      font-size: 13px !important;
+    }
+    /* Gitgraph */
+    svg .commit-label {
+      font-size: 13px !important;
+    }
+    /* 모든 다이어그램 컨테이너 - 일관된 크기 */
+    .mermaid svg {
       width: 100% !important;
       max-width: 100% !important;
     }
@@ -113,7 +134,7 @@ ${escapedChart}
     let renderAttempts = 0;
     const maxRenderAttempts = 3;
     
-    function renderMermaid() {
+    async function renderMermaid() {
       try {
         // Mermaid 라이브러리 로드 확인
         if (typeof mermaid === 'undefined') {
@@ -177,14 +198,16 @@ ${escapedChart}
         });
         
         // Mermaid 렌더링 실행 (에러 발생 시에도 계속 시도)
-        mermaid.run({
-          querySelector: '.mermaid',
-          suppressErrors: true
-        }).then(() => {
+        try {
+          await mermaid.run({
+            querySelector: '.mermaid',
+            suppressErrors: true
+          });
+          
           // 렌더링 성공 후 높이 전달 (강화된 재시도 로직)
           let attempts = 0;
-          const maxAttempts = 10; // 재시도 횟수 증가
-          const checkInterval = 150; // 재시도 간격 증가
+          const maxAttempts = 20; // 재시도 횟수 증가
+          const checkInterval = 250; // 재시도 간격 증가
           
           const checkSVG = () => {
             const svg = document.querySelector('svg');
@@ -212,8 +235,8 @@ ${escapedChart}
           };
           
           // 초기 대기 시간 증가 (렌더링 완료 대기)
-          setTimeout(checkSVG, 300);
-        }).catch((err) => {
+          setTimeout(checkSVG, 800);
+        } catch (err) {
           // 에러 발생 시 자동 재시도
           if (renderAttempts < maxRenderAttempts) {
             renderAttempts++;
@@ -223,7 +246,7 @@ ${escapedChart}
               window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed after retries', index: ${index} }, '*');
             }
           }
-        });
+        }
       } catch (err) {
         // 초기화 에러 발생 시 재시도
         if (renderAttempts < maxRenderAttempts) {
@@ -240,11 +263,18 @@ ${escapedChart}
     // DOM 로드 후 렌더링 (라이브러리 로드 대기 시간 증가)
     if (document.readyState === 'loading') {
       window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(renderMermaid, 200);
+        setTimeout(() => renderMermaid(), 500);
       });
     } else {
-      setTimeout(renderMermaid, 200);
+      setTimeout(() => renderMermaid(), 500);
     }
+    
+    // window.load 이벤트도 대기 (모든 리소스 로드 완료)
+    window.addEventListener('load', () => {
+      if (renderAttempts === 0) {
+        setTimeout(() => renderMermaid(), 300);
+      }
+    });
   </script>
 </body>
 </html>`;
@@ -719,3 +749,4 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
     </Card>
   );
 }
+
