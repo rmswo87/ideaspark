@@ -336,14 +336,14 @@ ${escapedChart}
           ref={iframeRef}
           srcdoc={iframeContent}
           className="w-full border-0"
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             minHeight: '300px',
             maxHeight: '800px',
             maxWidth: isGanttChart ? '800px' : '100%',
             border: 'none',
             display: 'block'
-          } as React.CSSProperties}
+          }}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
           loading="lazy"
