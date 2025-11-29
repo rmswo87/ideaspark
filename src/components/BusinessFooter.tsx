@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Mail, Send, Building2, MessageSquare, Check } from 'lucide-react';
 import { createContactInquiry } from '@/services/contactService';
-import { supabase } from '@/lib/supabase';
 
 // 이메일 알림 전송 함수 (Supabase Edge Function 호출)
 async function sendEmailNotification(data: {
@@ -20,7 +19,6 @@ async function sendEmailNotification(data: {
   message: string;
 }) {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
