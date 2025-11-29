@@ -10,14 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, MoreVertical, LogOut, Search, X, Tag, Shield, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, Search, X, Tag, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { sendFriendRequest, getFriendStatus, blockUser } from '@/services/friendService';
 import { sendMessage } from '@/services/messageService';
 import { supabase } from '@/lib/supabase';
-import { useAdmin } from '@/hooks/useAdmin';
 import { uploadPostImage } from '@/services/imageService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -25,7 +24,6 @@ import type { Post } from '@/services/postService';
 
 export function CommunityPage() {
   const { user } = useAuth();
-  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [category, setCategory] = useState('all');

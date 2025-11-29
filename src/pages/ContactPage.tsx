@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Mail, Send, Building2, MessageSquare, Check } from 'lucide-react';
+import { ArrowLeft, Send, Building2, MessageSquare, Check } from 'lucide-react';
 import { createContactInquiry } from '@/services/contactService';
 
 // 이메일 알림 전송 함수 (Supabase Edge Function 호출)
