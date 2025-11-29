@@ -7,7 +7,45 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Mail, Send, Building2, MessageSquare, Check } from 'lucide-react';
+import { createContactInquiry } from '@/services/contactService';
 import { supabase } from '@/lib/supabase';
+
+// 이메일 알림 전송 함수 (Supabase Edge Function 호출)
+async function sendEmailNotification(data: {
+  name: string;
+  email: string;
+  company?: string;
+  phone?: string;
+  subject: string;
+  message: string;
+}) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    // Supabase Edge Function 호출
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-contact-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Failed to send email notification:', error);
+      // 이메일 전송 실패해도 문의는 저장되므로 에러를 throw하지 않음
+    } else {
+      console.log('Email notification sent successfully');
+    }
+  } catch (error) {
+    console.error('Error sending email notification:', error);
+    // 이메일 전송 실패해도 문의는 저장되므로 에러를 throw하지 않음
+  }
+}
 
 export function BusinessFooter() {
   const [showContactDialog, setShowContactDialog] = useState(false);
@@ -27,29 +65,27 @@ export function BusinessFooter() {
     setSubmitting(true);
 
     try {
-      // Supabase에 문의 저장
-      const { error } = await supabase
-        .from('contact_inquiries')
-        .insert({
-          name: formData.name,
-          email: formData.email,
-          company: formData.company || null,
-          phone: formData.phone || null,
-          subject: formData.subject,
-          message: formData.message,
-          status: 'pending',
-        });
+      // contactService를 사용하여 문의 저장
+      await createContactInquiry({
+        name: formData.name,
+        email: formData.email,
+        company: formData.company || undefined,
+        phone: formData.phone || undefined,
+        subject: formData.subject,
+        message: formData.message,
+      });
 
-      if (error) {
-        // 테이블이 없으면 에러 메시지 표시
-        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
-          alert('문의 기능을 사용하려면 데이터베이스 마이그레이션이 필요합니다. 관리자에게 문의하세요.');
-          console.error('Contact inquiries table not found. Migration needed.');
-        } else {
-          throw error;
-        }
-        return;
-      }
+      // 이메일 알림 전송 (비동기, 실패해도 문의는 저장됨)
+      sendEmailNotification({
+        name: formData.name,
+        email: formData.email,
+        company: formData.company,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+      }).catch(err => {
+        console.error('Failed to send email notification:', err);
+      });
 
       setSubmitted(true);
       setFormData({
@@ -67,7 +103,11 @@ export function BusinessFooter() {
       }, 2000);
     } catch (error: any) {
       console.error('Error submitting contact form:', error);
-      alert('문의 제출에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+      if (error.code === 'PGRST205' || error.message?.includes('does not exist') || error.message?.includes('schema cache')) {
+        alert('문의 기능을 사용하려면 데이터베이스 마이그레이션이 필요합니다. 관리자에게 문의하세요.\n\n마이그레이션 파일: supabase/migrations/20250129_create_contact_inquiries_table.sql');
+      } else {
+        alert('문의 제출에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+      }
     } finally {
       setSubmitting(false);
     }
