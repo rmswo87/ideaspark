@@ -1,27 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, RefreshCw } from "lucide-react"
-import { IdeaCard } from '@/components/IdeaCard'
-import { RecommendedIdeas } from '@/components/RecommendedIdeas'
-import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
-import { collectIdeas } from '@/services/collector'
-import { supabase } from '@/lib/supabase'
-import type { Idea } from '@/services/ideaService'
-import { IdeaDetailPage } from '@/pages/IdeaDetailPage'
-import { AuthPage } from '@/pages/AuthPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { CommunityPage } from '@/pages/CommunityPage'
-import { PostDetailPage } from '@/pages/PostDetailPage'
-import { AdminDashboard } from '@/pages/AdminDashboard'
-import { NotFoundPage } from '@/pages/NotFoundPage'
-import { ContactPage } from '@/pages/ContactPage'
-import { useAuth } from '@/hooks/useAuth'
-import { useAdmin } from '@/hooks/useAdmin'
-import { LogOut, User as UserIcon, Shield } from 'lucide-react'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { IdeaDetailPage } from '@/pages/IdeaDetailPage';
+import { CommunityPage } from '@/pages/CommunityPage';
+import { PostDetailPage } from '@/pages/PostDetailPage';
+import { ProfilePage } from '@/pages/ProfilePage';
+import { AdminDashboard } from '@/pages/AdminDashboard';
+import { AuthPage } from '@/pages/AuthPage';
+import { ContactPage } from '@/pages/ContactPage';
+import { NotFoundPage } from '@/pages/NotFoundPage';
+import { IdeaCard } from '@/components/IdeaCard';
+import { RecommendedIdeas } from '@/components/RecommendedIdeas';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search, RefreshCw, UserIcon, LogOut, Shield, ArrowUp, ArrowDown } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useAdmin } from '@/hooks/useAdmin';
+import { getIdeas, getIdeaStats, getSubreddits, type Idea } from '@/services/ideaService';
+import { collectIdeas } from '@/services/collector';
+import { supabase } from '@/lib/supabase';
 import { BusinessFooter } from '@/components/BusinessFooter'
 
 function HomePage() {
@@ -53,64 +50,50 @@ function HomePage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  // 필터 디버깅을 위한 로그
+  useEffect(() => {
+    console.log('[필터 디버깅] 필터 상태 변경:', {
+      categoryFilter,
+      subredditFilter,
+      sortOption,
+      debouncedSearchQuery,
+      timestamp: new Date().toISOString()
+    });
+  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery]);
+
   const fetchIdeas = useCallback(async () => {
-    setLoading(true)
+    const filters = {
+      category: categoryFilter === 'all' ? undefined : categoryFilter,
+      subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
+      sort: sortOption,
+      limit: 50,
+      search: debouncedSearchQuery || undefined,
+    };
+    
+    console.log('[필터 디버깅] getIdeas 호출:', filters);
+    setLoading(true);
+    
     try {
-      const data = await getIdeas({
-        category: categoryFilter === 'all' ? undefined : categoryFilter,
-        subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
-        sort: sortOption,
-        limit: 50,
-        search: debouncedSearchQuery || undefined,
-      })
-      setIdeas(data)
+      const data = await getIdeas(filters);
+      console.log('[필터 디버깅] getIdeas 결과:', {
+        count: data.length,
+        firstFew: data.slice(0, 3).map(i => ({ id: i.id, title: i.title, category: i.category, subreddit: i.subreddit }))
+      });
+      setIdeas(data);
     } catch (error) {
-      console.error('Error fetching ideas:', error)
-      // 에러 발생 시 빈 배열로 설정
-      setIdeas([])
+      console.error('[필터 디버깅] Error fetching ideas:', error);
+      setIdeas([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery])
+  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery]);
 
   // 아이디어 목록 가져오기
   useEffect(() => {
-    let isMounted = true;
-    
-    async function fetchIdeasSafe() {
-      if (!isMounted) return;
-      setLoading(true);
-      try {
-        const data = await getIdeas({
-          category: categoryFilter === 'all' ? undefined : categoryFilter,
-          subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
-          sort: sortOption,
-          limit: 50,
-          search: debouncedSearchQuery || undefined,
-        });
-        if (isMounted) {
-          setIdeas(data);
-        }
-      } catch (error) {
-        console.error('Error fetching ideas:', error);
-        if (isMounted) {
-          setIdeas([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-    
-    fetchIdeasSafe();
+    fetchIdeas();
     fetchStats();
     fetchSubreddits();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery])
+  }, [fetchIdeas])
 
   async function fetchSubreddits() {
     try {
@@ -227,7 +210,7 @@ function HomePage() {
                 </>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => navigate('/auth')}
                 >
@@ -381,62 +364,49 @@ function HomePage() {
           </div>
         )}
       </main>
-      <BusinessFooter />
+
+      {/* Scroll Buttons */}
+      <div className="fixed bottom-8 right-8 flex flex-col gap-2 z-50">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="rounded-full shadow-lg"
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+          className="rounded-full shadow-lg"
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   )
 }
 
 function App() {
-  // GitHub Pages 배포 시 basename 설정
-  // vite.config.ts의 base 설정과 일치시켜야 함
   const basename = import.meta.env.VITE_GITHUB_PAGES === 'true' ? '/ideaspark' : undefined;
-  
+
   return (
-    <ErrorBoundary>
-      <BrowserRouter basename={basename}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/profile/:userId" element={<ProfilePage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/idea/:id" element={<IdeaDetailPage />} />
-          <Route path="/community" element={<CommunityPage />} />
-          <Route path="/community/:id" element={<PostDetailPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-        
-        {/* 전역 스크롤 버튼 - 모든 페이지에서 보임 */}
-        <div className="fixed right-4 bottom-4 flex flex-col gap-2 z-50">
-          <Button
-            size="icon"
-            variant="outline"
-            className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            aria-label="맨 위로"
-            title="맨 위로"
-          >
-            ↑
-          </Button>
-          <Button
-            size="icon"
-            variant="outline"
-            className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background"
-            onClick={() =>
-              window.scrollTo({
-                top: document.documentElement.scrollHeight,
-                behavior: 'smooth',
-              })
-            }
-            aria-label="맨 아래로"
-            title="맨 아래로"
-          >
-            ↓
-          </Button>
-        </div>
-      </BrowserRouter>
-    </ErrorBoundary>
+    <BrowserRouter basename={basename}>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/ideaspark" element={<HomePage />} />
+        <Route path="/idea/:id" element={<IdeaDetailPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/post/:id" element={<PostDetailPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/:userId" element={<ProfilePage />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
