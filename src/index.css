@@ -119,6 +119,23 @@
   }
 }
 
+/* 모바일 터치 최적화 */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* 모바일에서 텍스트 크기 자동 조정 방지 */
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
+
 /* PRD 뷰어 가독성 개선 */
 .prd-content {
   color: var(--foreground);
