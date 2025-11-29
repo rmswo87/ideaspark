@@ -66,12 +66,17 @@ export async function uploadPostImage(file: File, userId: string): Promise<strin
     throw new Error('이미지 업로드에 실패했습니다.');
   }
 
-  // Public URL 가져오기
-  const { data: { publicUrl } } = supabase.storage
-    .from(bucketName)
-    .getPublicUrl(data.path);
+  // 실제 Supabase 퍼블릭 URL은 서버(프록시)에서만 사용하고,
+  // 클라이언트에는 앱 도메인 기준 프록시 URL만 노출하여 Supabase 주소를 숨긴다.
+  const path = data.path;
+  const proxyBase =
+    import.meta.env.VITE_IMAGE_PROXY_BASE_URL ||
+    (typeof window !== 'undefined' ? `${window.location.origin}/api/image-proxy` : '/api/image-proxy');
 
-  return publicUrl;
+  // 예: /api/image-proxy?bucket=post-images&path=userId/posts/....png
+  const proxyUrl = `${proxyBase}?bucket=${encodeURIComponent(bucketName)}&path=${encodeURIComponent(path)}`;
+
+  return proxyUrl;
 }
 
 /**
