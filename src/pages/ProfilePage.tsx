@@ -402,6 +402,75 @@ export function ProfilePage() {
     }
   }
 
+  async function handleOpenPostsDialog(type: 'my' | 'liked' | 'bookmarked') {
+    if (!user) return;
+
+    setPostsDialogType(type);
+    setPostsDialogOpen(true);
+    setLoadingPosts(true);
+    try {
+      let posts: Post[] = [];
+      if (type === 'my') {
+        posts = await getMyPosts();
+      } else if (type === 'liked') {
+        posts = await getLikedPosts();
+      } else if (type === 'bookmarked') {
+        posts = await getBookmarkedPosts();
+      }
+      setPostsList(posts);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      setPostsList([]);
+    } finally {
+      setLoadingPosts(false);
+    }
+  }
+
+  async function handleOpenCommentsDialog() {
+    if (!user) return;
+
+    setCommentsDialogOpen(true);
+    setLoadingComments(true);
+    try {
+      const comments = await getMyComments();
+      setCommentsList(comments);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      setCommentsList([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  }
+
+  async function handleOpenPrdsDialog() {
+    if (!user) return;
+
+    setPrdsDialogOpen(true);
+    setLoadingPrds(true);
+    try {
+      const prds = await getPRDs();
+      const myPrds = prds.filter(prd => prd.user_id === user.id);
+      setPrdsList(myPrds);
+    } catch (error) {
+      console.error('Error fetching PRDs:', error);
+      setPrdsList([]);
+    } finally {
+      setLoadingPrds(false);
+    }
+  }
+
+  async function handleDeletePRD(prdId: string) {
+    if (!user || !confirm('정말 이 PRD를 삭제하시겠습니까?')) return;
+
+    try {
+      await deletePRD(prdId);
+      await handleOpenPrdsDialog();
+      alert('PRD가 삭제되었습니다.');
+    } catch (error: any) {
+      alert(error.message || 'PRD 삭제에 실패했습니다.');
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -675,26 +744,33 @@ export function ProfilePage() {
                     <p className="text-muted-foreground">친구가 없습니다.</p>
                   ) : (
                     <div className="space-y-2">
-                      {friends.map((friend) => (
-                        <div key={friend.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
+                      {friends.map((friend) => {
+                        const friendUser = (friend.requester_id === user?.id ? friend.addressee : friend.requester) || null;
+                        return (
+                          <div key={friend.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <div className="font-medium">{friendUser?.nickname || friendUser?.email || '익명'}</div>
+                                <div className="text-sm text-muted-foreground">{friendUser?.email || ''}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="font-medium">{friend.nickname || friend.email}</div>
-                              <div className="text-sm text-muted-foreground">{friend.email}</div>
-                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (friendUser) {
+                                  navigate(`/profile/${friendUser.id}`);
+                                }
+                              }}
+                            >
+                              프로필 보기
+                            </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/profile/${friend.id}`)}
-                          >
-                            프로필 보기
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -743,39 +819,36 @@ export function ProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>차단한 사용자</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {blockedUsers.length === 0 ? (
-                    <p className="text-muted-foreground">차단한 사용자가 없습니다.</p>
-                  ) : (
+              {blockedUsers.length > 0 && (
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle>차단한 사용자 ({blockedUsers.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <div className="space-y-2">
-                      {blockedUsers.map((blocked) => (
-                        <div key={blocked.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{blocked.nickname || blocked.email}</div>
-                              <div className="text-sm text-muted-foreground">{blocked.email}</div>
-                            </div>
+                      {blockedUsers.map((blocked) => {
+                        const blockedUser = (blocked.requester_id === user?.id ? blocked.addressee : blocked.requester) || null;
+                        return (
+                          <div key={blocked.id} className="flex items-center justify-between p-2 border rounded">
+                            <span>{blockedUser?.nickname || blockedUser?.email || '익명'}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (blockedUser) {
+                                  handleUnblockUser(blockedUser.id);
+                                }
+                              }}
+                            >
+                              차단 해제
+                            </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUnblockUser(blocked.id)}
-                          >
-                            차단 해제
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="messages">
