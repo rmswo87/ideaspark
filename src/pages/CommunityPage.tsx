@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, Search, X, Tag, Loader2 } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, Search, X, Tag, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -418,6 +418,35 @@ export function CommunityPage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       💡 팁: Ctrl+V (또는 Cmd+V)로 클립보드의 이미지를 바로 붙여넣을 수 있습니다.
                     </p>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingImage || !user}
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          업로드 중...
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="h-4 w-4 mr-2" />
+                          이미지 추가
+                        </>
+                      )}
+                    </Button>
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">태그 (쉼표로 구분)</label>
