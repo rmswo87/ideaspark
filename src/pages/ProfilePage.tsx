@@ -266,14 +266,22 @@ export function ProfilePage() {
     }
   }
 
-  async function fetchBlockedUsers() {
-    if (!user) return;
-
+  async function handleAcceptRequest(requestId: string) {
     try {
-      const data = await getBlockedUsers();
-      setBlockedUsers(data);
-    } catch (error) {
-      console.error('Error fetching blocked users:', error);
+      await acceptFriendRequest(requestId);
+      await fetchFriendRequests();
+      await fetchFriends();
+    } catch (error: any) {
+      alert(error.message || '친구 요청 수락에 실패했습니다.');
+    }
+  }
+
+  async function handleRejectRequest(requestId: string) {
+    try {
+      await deleteFriendRequest(requestId);
+      await fetchFriendRequests();
+    } catch (error: any) {
+      alert(error.message || '친구 요청 거절에 실패했습니다.');
     }
   }
 
@@ -364,34 +372,70 @@ export function ProfilePage() {
     }
   }
 
-  async function handleAcceptFriendRequest(requestId: string) {
+  async function fetchPostsList(type: 'my' | 'liked' | 'bookmarked') {
     if (!user) return;
 
+    setLoadingPosts(true);
     try {
-      await acceptFriendRequest(requestId);
-      await fetchFriendRequests();
-      await fetchFriends();
-      alert('친구 요청을 수락했습니다.');
-    } catch (error: any) {
-      alert(error.message || '친구 요청 수락에 실패했습니다.');
+      let posts: Post[] = [];
+      switch (type) {
+        case 'my':
+          posts = await getMyPosts(user.id);
+          break;
+        case 'liked':
+          posts = await getLikedPosts(user.id);
+          break;
+        case 'bookmarked':
+          posts = await getBookmarkedPosts(user.id);
+          break;
+      }
+      setPostsList(posts);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      alert('글 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingPosts(false);
     }
   }
 
-  async function handleDeleteFriendRequest(requestId: string) {
+  function handleOpenPostsDialog(type: 'my' | 'liked' | 'bookmarked') {
+    setPostsDialogType(type);
+    setPostsDialogOpen(true);
+    fetchPostsList(type);
+  }
+
+  async function fetchCommentsList() {
+    if (!user) return;
+
+    setLoadingComments(true);
+    try {
+      const comments = await getMyComments(user.id);
+      setCommentsList(comments);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      alert('댓글 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingComments(false);
+    }
+  }
+
+  function handleOpenCommentsDialog() {
+    setCommentsDialogOpen(true);
+    fetchCommentsList();
+  }
+
+  async function fetchBlockedUsers() {
     if (!user) return;
 
     try {
-      await deleteFriendRequest(requestId);
-      await fetchFriendRequests();
-      alert('친구 요청을 거절했습니다.');
-    } catch (error: any) {
-      alert(error.message || '친구 요청 거절에 실패했습니다.');
+      const data = await getBlockedUsers();
+      setBlockedUsers(data);
+    } catch (error) {
+      console.error('Error fetching blocked users:', error);
     }
   }
 
   async function handleUnblockUser(userId: string) {
-    if (!user) return;
-
     try {
       await unblockUser(userId);
       await fetchBlockedUsers();
@@ -1076,7 +1120,7 @@ export function ProfilePage() {
                   <CardHeader>
                     <CardTitle className="text-lg">{post.title}</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                      {formatDate(post.created_at)}
                     </p>
                   </CardHeader>
                   <CardContent>
@@ -1104,6 +1148,16 @@ export function ProfilePage() {
                         {post.content}
                       </ReactMarkdown>
                     </div>
+                    {postsDialogType === 'liked' && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="text-xs">좋아요: {formatDate((post as any).liked_at)}</span>
+                      </div>
+                    )}
+                    {postsDialogType === 'bookmarked' && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="text-xs">북마크: {formatDate((post as any).bookmarked_at)}</span>
+                      </div>
+                    )}
                     <div className="mt-4 flex gap-2">
                       <Button
                         variant="outline"
@@ -1140,7 +1194,7 @@ export function ProfilePage() {
                 <Card key={comment.id}>
                   <CardHeader>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(comment.created_at).toLocaleDateString('ko-KR')}
+                      {formatDate(comment.created_at)}
                     </p>
                   </CardHeader>
                   <CardContent>
