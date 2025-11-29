@@ -9,6 +9,7 @@ import { AdminOverview } from '@/components/admin/AdminOverview';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { IdeaManagement } from '@/components/admin/IdeaManagement';
 import { PostManagement } from '@/components/admin/PostManagement';
+import { ContactManagement } from '@/components/admin/ContactManagement';
 
 export function AdminDashboard() {
   const { isAdmin, loading } = useAdmin();
@@ -64,6 +65,7 @@ export function AdminDashboard() {
           <TabsTrigger value="users">사용자 관리</TabsTrigger>
           <TabsTrigger value="ideas">아이디어 관리</TabsTrigger>
           <TabsTrigger value="posts">게시글 관리</TabsTrigger>
+          <TabsTrigger value="contacts">문의 관리</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -102,8 +104,18 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="contacts">
+          <Card>
+            <CardHeader>
+              <CardTitle>문의 관리</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContactManagement />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-
