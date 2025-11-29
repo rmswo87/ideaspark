@@ -79,7 +79,28 @@ function HomePage() {
     
     async function fetchIdeasSafe() {
       if (!isMounted) return;
-      await fetchIdeas();
+      setLoading(true);
+      try {
+        const data = await getIdeas({
+          category: categoryFilter === 'all' ? undefined : categoryFilter,
+          subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
+          sort: sortOption,
+          limit: 50,
+          search: debouncedSearchQuery || undefined,
+        });
+        if (isMounted) {
+          setIdeas(data);
+        }
+      } catch (error) {
+        console.error('Error fetching ideas:', error);
+        if (isMounted) {
+          setIdeas([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     }
     
     fetchIdeasSafe();
@@ -89,7 +110,7 @@ function HomePage() {
     return () => {
       isMounted = false;
     };
-  }, [fetchIdeas])
+  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery])
 
   async function fetchSubreddits() {
     try {
