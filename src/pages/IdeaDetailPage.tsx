@@ -234,6 +234,19 @@ export function IdeaDetailPage() {
 
     if (!isMountedRef.current) return;
 
+    // 기존 제안서 확인
+    try {
+      const existingProposals = await getProposals({ ideaId: id, userId: user.id, limit: 1 });
+      if (existingProposals.length > 0) {
+        const confirmMessage = '이미 이 아이디어에 대한 제안서가 있습니다. 새로 생성하시겠습니까? (기존 제안서는 유지됩니다)';
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing proposal:', error);
+    }
+
     setGeneratingProposal(true);
     setError(null);
     
@@ -323,7 +336,31 @@ export function IdeaDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 relative">
+      {/* 로딩 오버레이 - 전체 화면 */}
+      {(generating || generatingPlan || generatingProposal) && (
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[9999] flex items-center justify-center">
+          <div className="bg-card border-2 rounded-lg p-8 shadow-2xl text-center max-w-md mx-4">
+            <Loader2 className="h-16 w-16 animate-spin mx-auto mb-6 text-primary" />
+            <h3 className="text-xl font-bold mb-3">
+              {generating && 'PRD 생성 중...'}
+              {generatingPlan && '개발 계획서 생성 중...'}
+              {generatingProposal && '제안서 생성 중...'}
+            </h3>
+            <p className="text-base text-muted-foreground mb-2">
+              AI가 문서를 생성하고 있습니다.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              잠시만 기다려주세요. 보통 30초~2분 정도 소요됩니다.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
+              <span>처리 중...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Button
         variant="ghost"
         onClick={() => navigate('/')}
@@ -375,7 +412,7 @@ export function IdeaDetailPage() {
         </Card>
       </div>
 
-      {!prd && proposals.length === 0 ? (
+      {!prd && !proposal ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-6">
@@ -660,3 +697,4 @@ export function IdeaDetailPage() {
     </div>
   );
 }
+
