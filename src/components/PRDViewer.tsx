@@ -334,7 +334,7 @@ ${escapedChart}
         )}
         <iframe
           ref={iframeRef}
-          srcdoc={iframeContent}
+          srcDoc={iframeContent}
           className="w-full border-0"
           style={{
             width: '100%',
