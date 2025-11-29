@@ -343,7 +343,7 @@ ${escapedChart}
             maxWidth: isGanttChart ? '800px' : '100%',
             border: 'none',
             display: 'block'
-          }}
+          } as React.CSSProperties}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
           loading="lazy"
