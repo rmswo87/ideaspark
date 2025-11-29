@@ -156,7 +156,7 @@ function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
-                  className={location.pathname === '/' || location.pathname === '/ideaspark' || location.pathname === '/ideaspark/' ? 'font-semibold bg-secondary' : ''}
+                  className={location.pathname === '/' ? 'font-semibold bg-secondary' : ''}
                 >
                   아이디어
                 </Button>
@@ -371,9 +371,9 @@ function HomePage() {
 }
 
 function App() {
-  // GitHub Pages 배포 시 basename 설정
-  // vite.config.ts의 base 설정과 일치시켜야 함
-  const basename = import.meta.env.VITE_GITHUB_PAGES === 'true' ? '/ideaspark' : undefined;
+  // Vercel과 GitHub Pages 모두 동일한 루트 경로 사용
+  // Vercel 배포 환경은 건드리지 않고, GitHub Pages도 동일하게 설정
+  const basename = undefined;
   
   return (
     <ErrorBoundary>
