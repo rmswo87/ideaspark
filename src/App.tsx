@@ -17,6 +17,7 @@ import { CommunityPage } from '@/pages/CommunityPage'
 import { PostDetailPage } from '@/pages/PostDetailPage'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { ContactPage } from '@/pages/ContactPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, Shield } from 'lucide-react'
@@ -162,14 +163,9 @@ function HomePage() {
                   커뮤니티
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    const el = document.getElementById('contact-section');
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
+                  onClick={() => navigate('/contact')}
                 >
                   문의 / 피드백
                 </Button>
@@ -386,6 +382,7 @@ function App() {
           <Route path="/idea/:id" element={<IdeaDetailPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/community/:id" element={<PostDetailPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         
