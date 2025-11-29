@@ -53,7 +53,7 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     html, body {
       width: 100%;
       height: 100%;
-      overflow: visible;
+      overflow: hidden !important;
       background: transparent;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     }
@@ -64,13 +64,16 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       width: 100%;
       min-height: 100%;
       padding: 16px;
+      overflow: hidden !important;
     }
     svg {
       max-width: 100% !important;
-      max-height: 800px !important;
+      max-height: 600px !important;
       height: auto !important;
-      width: auto !important;
-      overflow: visible !important;
+      width: 100% !important;
+      overflow: hidden !important;
+      display: block !important;
+      box-sizing: border-box !important;
     }
     /* 모든 Mermaid 다이어그램에 통일된 폰트 크기 적용 */
     svg text {
@@ -118,10 +121,30 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     svg .commit-label {
       font-size: 13px !important;
     }
-    /* 모든 다이어그램 컨테이너 - 일관된 크기 */
+    /* 모든 다이어그램 컨테이너 - 일관된 크기 및 스크롤 제거 */
     .mermaid svg {
       width: 100% !important;
       max-width: 100% !important;
+      max-height: 600px !important;
+      height: auto !important;
+      overflow: hidden !important;
+      display: block !important;
+    }
+    /* SVG viewBox 및 preserveAspectRatio 강제 설정 */
+    .mermaid svg[viewBox] {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      max-height: 600px !important;
+    }
+    /* ER 다이어그램 크기 제한 */
+    .mermaid svg .er-entityBox, .mermaid svg .er-attributeBox {
+      max-width: 200px !important;
+      font-size: 13px !important;
+    }
+    /* Flowchart 노드 크기 제한 */
+    .mermaid svg .node rect, .mermaid svg .node circle, .mermaid svg .node ellipse {
+      max-width: 250px !important;
     }
   </style>
 </head>
@@ -157,11 +180,13 @@ ${escapedChart}
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
           fontSize: 13,
           flowchart: {
-            nodeSpacing: 45,
-            rankSpacing: 45,
+            nodeSpacing: 40,
+            rankSpacing: 40,
             curve: 'basis',
             fontSize: 13,
-            padding: 8
+            padding: 8,
+            useMaxWidth: true,
+            htmlLabels: true
           },
           sequence: {
             fontSize: 13,
@@ -171,7 +196,8 @@ ${escapedChart}
             boxMargin: 8,
             boxTextMargin: 4,
             noteMargin: 8,
-            messageMargin: 30
+            messageMargin: 30,
+            useMaxWidth: true
           },
           gantt: {
             fontSize: 13,
@@ -182,12 +208,15 @@ ${escapedChart}
             topPadding: 20,
             barHeight: 18,
             barGap: 3,
-            padding: 8
+            padding: 8,
+            useMaxWidth: true
           },
           er: {
             fontSize: 13,
             entityPadding: 12,
-            padding: 16
+            padding: 16,
+            entityBoxMaxWidth: 200,
+            useMaxWidth: true
           },
           pie: {
             fontSize: 13
@@ -212,11 +241,50 @@ ${escapedChart}
           const checkSVG = () => {
             const svg = document.querySelector('svg');
             if (svg && window.parent) {
+              // SVG 크기 조정: viewBox와 preserveAspectRatio 설정
+              const svgWidth = svg.getAttribute('width');
+              const svgHeight = svg.getAttribute('height');
+              const viewBox = svg.getAttribute('viewBox');
+              
+              // SVG가 너무 크면 크기 조정
+              if (svgWidth && parseFloat(svgWidth) > 1200) {
+                svg.setAttribute('width', '100%');
+                svg.style.maxWidth = '100%';
+              }
+              if (svgHeight && parseFloat(svgHeight) > 800) {
+                svg.setAttribute('height', 'auto');
+                svg.style.maxHeight = '600px';
+              }
+              
+              // viewBox가 없으면 추가
+              if (!viewBox && svgWidth && svgHeight) {
+                svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
+                svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+              }
+              
+              // 모든 텍스트 요소의 폰트 크기 강제 설정
+              const allTexts = svg.querySelectorAll('text');
+              allTexts.forEach(text => {
+                text.setAttribute('font-size', '13');
+                text.style.fontSize = '13px';
+              });
+              
               const rect = svg.getBoundingClientRect();
               // SVG가 렌더링되었고 높이가 유효한지 확인
               if (rect.height > 0 && rect.width > 0) {
-                const height = Math.min(rect.height + 32, 800); // 최대 높이 제한
-                window.parent.postMessage({ type: 'mermaid-height', height: height, index: ${index} }, '*');
+                // 실제 렌더링된 크기와 컨테이너 크기 비교하여 조정
+                const containerWidth = document.querySelector('.mermaid').clientWidth;
+                const actualWidth = Math.min(rect.width, containerWidth - 32);
+                const actualHeight = Math.min(rect.height + 32, 600);
+                
+                // SVG 크기 재조정
+                svg.style.width = '100%';
+                svg.style.maxWidth = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxHeight = '600px';
+                svg.style.overflow = 'hidden';
+                
+                window.parent.postMessage({ type: 'mermaid-height', height: actualHeight, index: ${index} }, '*');
                 window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
                 return;
               }
@@ -353,8 +421,8 @@ ${escapedChart}
   }
 
   return (
-    <div className="my-6 w-full">
-      <div className="mermaid-container w-full relative">
+    <div className="my-6 w-full overflow-hidden">
+      <div className="mermaid-container w-full relative overflow-hidden" style={{ maxHeight: '600px' }}>
         {onEdit && (
           <div className="absolute top-2 right-2 z-10">
             <Button
@@ -375,9 +443,10 @@ ${escapedChart}
           style={{
             width: '100%',
             minHeight: '300px',
-            maxHeight: '800px',
+            maxHeight: '600px',
             border: 'none',
-            display: 'block'
+            display: 'block',
+            overflow: 'hidden'
           } as React.CSSProperties}
           title={`Mermaid Diagram ${index}`}
           sandbox="allow-scripts allow-same-origin"
