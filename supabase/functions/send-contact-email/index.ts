@@ -63,7 +63,7 @@ IdeaSpark 문의 시스템
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'IdeaSpark <norely@ideaspark.com>', // Resend에서 설정한 도메인 사용
+        from: 'IdeaSpark <noreply@ideaspark.com>', // Resend에서 설정한 도메인 사용
         to: [ADMIN_EMAIL],
         subject: `[IdeaSpark 문의] ${subject}`,
         text: emailBody,
