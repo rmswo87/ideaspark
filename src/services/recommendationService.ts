@@ -249,4 +249,3 @@ export function trackIdeaView(ideaId: string, userId: string | null) {
     }
   };
 }
-
