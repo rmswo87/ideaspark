@@ -758,26 +758,31 @@ export function IdeaDetailPage() {
                     </>
                   )}
                 </Button>
-                {prd.title && !prd.title.includes('개발 계획서') && !prd.title.includes('개발 계획') && (
-                  <Button
-                    onClick={handleGenerateDevelopmentPlan}
-                    disabled={generatingPlan || !user}
-                    variant="outline"
-                    size="lg"
-                  >
-                    {generatingPlan ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        개발 계획서 생성 중...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        개발 계획서 작성
-                      </>
-                    )}
-                  </Button>
-                )}
+                {(() => {
+                  if (!prd || !prd.title) return null;
+                  const isDevelopmentPlan = prd.title.includes('개발 계획서') || prd.title.includes('개발 계획');
+                  if (isDevelopmentPlan) return null;
+                  return (
+                    <Button
+                      onClick={handleGenerateDevelopmentPlan}
+                      disabled={generatingPlan || !user}
+                      variant="outline"
+                      size="lg"
+                    >
+                      {generatingPlan ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          개발 계획서 생성 중...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          개발 계획서 작성
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
