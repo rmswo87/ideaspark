@@ -1,16 +1,16 @@
 // 커뮤니티 게시판 페이지 (SNS 스타일)
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, Calendar, User as UserIcon, UserPlus, Ban, MoreVertical, LogOut, Search, X, Tag, Shield } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, MoreVertical, LogOut, Search, X, Tag, Shield, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -18,6 +18,9 @@ import { sendFriendRequest, getFriendStatus, blockUser } from '@/services/friend
 import { sendMessage } from '@/services/messageService';
 import { supabase } from '@/lib/supabase';
 import { useAdmin } from '@/hooks/useAdmin';
+import { uploadPostImage } from '@/services/imageService';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Post } from '@/services/postService';
 
 export function CommunityPage() {
@@ -43,6 +46,9 @@ export function CommunityPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [authorProfiles, setAuthorProfiles] = useState<Record<string, { is_public: boolean; nickname?: string; avatar_url?: string }>>({});
   const [friendStatuses, setFriendStatuses] = useState<Record<string, 'none' | 'pending' | 'accepted' | 'blocked'>>({});
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
   const POSTS_PER_PAGE = 20;
 
@@ -289,6 +295,74 @@ export function CommunityPage() {
     }
   }
 
+  async function handleImageUpload(file: File) {
+    if (!user) return;
+
+    setUploadingImage(true);
+    try {
+      const imageUrl = await uploadPostImage(file, user.id);
+      
+      // 현재 커서 위치에 이미지 마크다운 삽입
+      const textarea = contentTextareaRef.current;
+      if (textarea) {
+        const cursorPos = textarea.selectionStart || 0;
+        const imageMarkdown = `\n![${file.name}](${imageUrl})\n`;
+        const newContent = 
+          newPost.content.slice(0, cursorPos) + 
+          imageMarkdown + 
+          newPost.content.slice(cursorPos);
+        
+        setNewPost({ ...newPost, content: newContent });
+        
+        // 커서 위치 조정
+        setTimeout(() => {
+          textarea.focus();
+          const newCursorPos = cursorPos + imageMarkdown.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+      } else {
+        // textarea가 없으면 끝에 추가
+        setNewPost({ 
+          ...newPost, 
+          content: newPost.content + `\n![${file.name}](${imageUrl})\n` 
+        });
+      }
+    } catch (error: any) {
+      console.error('이미지 업로드 오류:', error);
+      alert(error.message || '이미지 업로드에 실패했습니다.');
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  }
+
+  async function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = e.clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // 이미지 파일인 경우
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file && user) {
+          await handleImageUpload(file);
+        }
+        return;
+      }
+    }
+  }
+
+  function handleImageInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file && user) {
+      handleImageUpload(file);
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -476,13 +550,50 @@ export function CommunityPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">내용</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium block">내용</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageInputChange}
+                          className="hidden"
+                          id="post-image-upload"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={uploadingImage || !user}
+                        >
+                          {uploadingImage ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              업로드 중...
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="h-4 w-4 mr-2" />
+                              이미지 추가
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                     <Textarea
-                      placeholder="게시글 내용을 입력하세요"
+                      ref={contentTextareaRef}
+                      placeholder="게시글 내용을 입력하세요 (Ctrl+V로 이미지 붙여넣기 가능)"
                       value={newPost.content}
                       onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+                      onPaste={handlePaste}
                       rows={10}
+                      className="font-mono text-sm"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      💡 팁: Ctrl+V (또는 Cmd+V)로 클립보드의 이미지를 바로 붙여넣을 수 있습니다.
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">태그 (쉼표로 구분)</label>
@@ -684,15 +795,27 @@ export function CommunityPage() {
                       <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-primary transition-colors">
                         {post.title}
                       </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                        {post.content}
-                      </p>
+                      <div className="text-sm text-muted-foreground mb-3 prose prose-sm dark:prose-invert max-w-none line-clamp-3">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            img: ({ node, ...props }) => (
+                              <img {...props} className="max-w-full h-auto rounded-md my-2" alt={props.alt || ''} />
+                            ),
+                            p: ({ node, ...props }) => (
+                              <p {...props} className="mb-2 last:mb-0" />
+                            ),
+                          }}
+                        >
+                          {post.content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
 
                     {/* 태그 */}
                     {post.tags && post.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
-                        {post.tags.map((tag) => (
+                        {post.tags.map((tag: string) => (
                           <button
                             key={tag}
                             onClick={(e) => {
