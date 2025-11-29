@@ -11,10 +11,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // GitHub Pages 배포를 위한 base path 설정
-  // 환경 변수로 제어: GitHub Pages일 때만 /ideaspark/ 사용
-  // Vercel 배포 시에는 '/' 사용
-  base: process.env.VITE_GITHUB_PAGES === 'true' ? '/ideaspark/' : '/',
+  // Vercel과 GitHub Pages 모두 동일한 루트 경로 사용
+  // Vercel 배포 환경은 건드리지 않고, GitHub Pages도 동일하게 설정
+  base: '/',
   // Vercel 배포 후 vercel dev 사용 시 프록시 불필요
   // server: {
   //   proxy: {
