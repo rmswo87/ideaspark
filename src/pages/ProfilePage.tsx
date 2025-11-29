@@ -15,7 +15,7 @@ import { getPRDs } from '@/services/prdService';
 import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
-import { getMyComments, deleteComment } from '@/services/commentService';
+import { getMyComments } from '@/services/commentService';
 import { deletePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -266,7 +266,7 @@ export function ProfilePage() {
     if (!file || !user || !isOwnProfile) return;
 
     // 파일 유효성 검사
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startswith('image/')) {
       alert('이미지 파일만 업로드 가능합니다.');
       return;
     }
@@ -614,16 +614,16 @@ export function ProfilePage() {
                     id="is_public"
                     checked={profile?.is_public || false}
                     disabled={!user || !profile}
-                    onCheckedChange={async (checked: boolean) => {
+                    onCheckedChange={(checked: boolean) => {
                       if (!user || !profile) return;
-                      try {
-                        await updateProfile({ is_public: checked === true });
-                        // 성공 시 프로필 상태 업데이트
-                        setProfile({ ...profile, is_public: checked === true });
-                      } catch (error: any) {
-                        console.error('프로필 업데이트 오류:', error);
-                        alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-                      }
+                      updateProfile({ is_public: checked === true })
+                        .then(() => {
+                          setProfile({ ...profile, is_public: checked === true });
+                        })
+                        .catch((error: any) => {
+                          console.error('프로필 업데이트 오류:', error);
+                          alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+                        });
                     }}
                   />
                   <Label htmlFor="is_public" className="cursor-pointer">
@@ -640,13 +640,11 @@ export function ProfilePage() {
                       const newProfile = { ...profile, nickname: e.target.value };
                       setProfile(newProfile as any);
                     }}
-                    onBlur={async () => {
+                    onBlur={() => {
                       if (profile?.nickname !== undefined) {
-                        try {
-                          await updateProfile({ nickname: profile.nickname });
-                        } catch (error) {
+                        updateProfile({ nickname: profile.nickname }).catch(() => {
                           alert('닉네임 저장에 실패했습니다.');
-                        }
+                        });
                       }
                     }}
                   />
@@ -661,13 +659,11 @@ export function ProfilePage() {
                       const newProfile = { ...profile, bio: e.target.value };
                       setProfile(newProfile as any);
                     }}
-                    onBlur={async () => {
+                    onBlur={() => {
                       if (profile?.bio !== undefined) {
-                        try {
-                          await updateProfile({ bio: profile.bio });
-                        } catch (error) {
+                        updateProfile({ bio: profile.bio }).catch(() => {
                           alert('소개 저장에 실패했습니다.');
-                        }
+                        });
                       }
                     }}
                     rows={3}
@@ -723,7 +719,7 @@ export function ProfilePage() {
 
             <Card 
               className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => handleOpenCommentsDialog()}
+              onClick={handleOpenCommentsDialog}
             >
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -898,21 +894,24 @@ export function ProfilePage() {
                       className="hover:shadow-lg transition-shadow"
                     >
                       <CardHeader>
-                        <div 
-                          className="flex-1 cursor-pointer"
-                          onClick={() => {
-                            if (comment.post?.id) {
-                              navigate(`/community/${comment.post.id}`);
-                              setCommentsDialogOpen(false);
-                            }
-                          }}
-                        >
-                          <CardTitle className="text-sm mb-2 line-clamp-2">
-                            {comment.post?.title || '게시글 제목 없음'}
-                          </CardTitle>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>{formatDate(comment.created_at)}</span>
+                        <div className="flex items-start justify-between">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => {
+                              if (comment.post?.id) {
+                                navigate(`/community/${comment.post.id}`);
+                                setCommentsDialogOpen(false);
+                              }
+                            }}
+                          >
+                            <CardTitle className="text-sm mb-2 line-clamp-2">
+                              {comment.post?.title || '게시글 제목 없음'}
+                            </CardTitle>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>{formatDate(comment.created_at)}</span>
+                            </div>
                           </div>
+                          {/* 댓글 삭제는 추후 전용 관리 UI에서 제공 예정 */}
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -1069,7 +1068,7 @@ export function ProfilePage() {
                         </p>
                       )}
                     </div>
-                  ))
+                  ))}
                 )}
               </CardContent>
             </Card>
