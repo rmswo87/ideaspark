@@ -49,6 +49,7 @@ export function BusinessFooter() {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [mode, setMode] = useState<'business' | 'feedback'>('business');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -63,13 +64,15 @@ export function BusinessFooter() {
     setSubmitting(true);
 
     try {
-      // contactService를 사용하여 문의 저장
+      const subject = mode === 'feedback' && !formData.subject ? '피드백' : formData.subject;
+
+      // contactService를 사용하여 문의/피드백 저장
       await createContactInquiry({
         name: formData.name,
         email: formData.email,
         company: formData.company || undefined,
         phone: formData.phone || undefined,
-        subject: formData.subject,
+        subject,
         message: formData.message,
       });
 
@@ -79,7 +82,7 @@ export function BusinessFooter() {
         email: formData.email,
         company: formData.company,
         phone: formData.phone,
-        subject: formData.subject,
+        subject,
         message: formData.message,
       }).catch(err => {
         console.error('Failed to send email notification:', err);
@@ -98,21 +101,18 @@ export function BusinessFooter() {
       setTimeout(() => {
         setShowContactDialog(false);
         setSubmitted(false);
+        setMode('business');
       }, 2000);
     } catch (error: any) {
       console.error('Error submitting contact form:', error);
-      if (error.code === 'PGRST205' || error.message?.includes('does not exist') || error.message?.includes('schema cache')) {
-        alert('문의 기능을 사용하려면 데이터베이스 마이그레이션이 필요합니다. 관리자에게 문의하세요.\n\n마이그레이션 파일: supabase/migrations/20250129_create_contact_inquiries_table.sql');
-      } else {
-        alert('문의 제출에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-      }
+      alert('문의 제출에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <footer className="border-t bg-muted/30 mt-12">
+    <footer id="contact-section" className="border-t bg-muted/30 mt-12">
       <div className="container mx-auto px-4 py-8">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
           {/* 비즈니스 문의 */}
@@ -129,16 +129,18 @@ export function BusinessFooter() {
             <CardContent>
               <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
                 <DialogTrigger asChild>
-                  <Button className="w-full" size="lg">
+                  <Button className="w-full" size="lg" onClick={() => setMode('business')}>
                     <Mail className="h-4 w-4 mr-2" />
                     문의하기
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-lg">
                   <DialogHeader>
-                    <DialogTitle>비즈니스 문의</DialogTitle>
+                    <DialogTitle>{mode === 'business' ? '비즈니스 문의' : '피드백 보내기'}</DialogTitle>
                     <DialogDescription>
-                      문의사항을 남겨주시면 빠르게 답변드리겠습니다.
+                      {mode === 'business'
+                        ? '문의사항을 남겨주시면 빠르게 답변드리겠습니다.'
+                        : 'IdeaSpark 사용 경험과 개선 아이디어를 자유롭게 남겨주세요.'}
                     </DialogDescription>
                   </DialogHeader>
                   {submitted ? (
@@ -146,7 +148,9 @@ export function BusinessFooter() {
                       <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                         <Check className="h-8 w-8 text-primary" />
                       </div>
-                      <p className="text-lg font-semibold mb-2">문의가 접수되었습니다!</p>
+                      <p className="text-lg font-semibold mb-2">
+                        {mode === 'business' ? '문의가 접수되었습니다!' : '피드백이 접수되었습니다!'}
+                      </p>
                       <p className="text-sm text-muted-foreground text-center">
                         빠른 시일 내에 답변드리겠습니다.
                       </p>
@@ -194,24 +198,24 @@ export function BusinessFooter() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="contact-subject">문의 제목 *</Label>
+                        <Label htmlFor="contact-subject">{mode === 'business' ? '문의 제목 *' : '피드백 제목 (선택)'}</Label>
                         <Input
                           id="contact-subject"
-                          required
+                          required={mode === 'business'}
                           value={formData.subject}
                           onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                          placeholder="문의 제목을 입력하세요"
+                          placeholder={mode === 'business' ? '문의 제목을 입력하세요' : '예: UX 개선 제안'}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="contact-message">문의 내용 *</Label>
+                        <Label htmlFor="contact-message">{mode === 'business' ? '문의 내용 *' : '피드백 내용 *'}</Label>
                         <Textarea
                           id="contact-message"
                           required
                           rows={5}
                           value={formData.message}
                           onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                          placeholder="문의 내용을 상세히 입력해주세요"
+                          placeholder={mode === 'business' ? '문의 내용을 상세히 입력해주세요' : '아이디어, 개선 요청, 칭찬/불편 사항 등을 자유롭게 적어주세요'}
                         />
                       </div>
                       <Button type="submit" className="w-full" disabled={submitting}>
@@ -223,7 +227,7 @@ export function BusinessFooter() {
                         ) : (
                           <>
                             <Send className="h-4 w-4 mr-2" />
-                            문의 제출
+                            {mode === 'business' ? '문의 제출' : '피드백 제출'}
                           </>
                         )}
                       </Button>
@@ -253,7 +257,8 @@ export function BusinessFooter() {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
-                  // 피드백도 비즈니스 문의와 동일한 폼 사용
+                  // 피드백 모드로 전환하여 동일한 폼 재사용
+                  setMode('feedback');
                   setFormData({
                     ...formData,
                     subject: '피드백',
