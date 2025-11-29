@@ -1,6 +1,6 @@
 // 프로필 페이지
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -26,8 +26,12 @@ import type { Conversation, Message } from '@/services/messageService';
 import type { Post } from '@/services/postService';
 
 export function ProfilePage() {
+  const { userId: urlUserId } = useParams<{ userId?: string }>();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  // URL에 userId가 있으면 해당 사용자의 프로필, 없으면 로그인한 사용자의 프로필
+  const targetUserId = urlUserId || user?.id;
+  const isOwnProfile = user?.id === targetUserId;
   const [stats, setStats] = useState({
     posts: 0,
     comments: 0,
@@ -58,17 +62,29 @@ export function ProfilePage() {
   const [selectedPrd, setSelectedPrd] = useState<any | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
+    // URL에 userId가 있고 로그인하지 않은 경우는 허용 (공개 프로필 조회)
+    // URL에 userId가 없고 로그인하지 않은 경우만 로그인 페이지로
+    if (!loading && !urlUserId && !user) {
       navigate('/auth');
-    } else if (user) {
-      fetchStats();
-      fetchProfile();
-      fetchFriends();
-      fetchFriendRequests();
-      fetchConversations();
-      fetchBlockedUsers();
+      return;
     }
-  }, [user, loading, navigate]);
+
+    // targetUserId가 있으면 프로필 로드
+    if (targetUserId) {
+      fetchProfile();
+      if (isOwnProfile && user) {
+        // 자신의 프로필인 경우에만 통계, 친구, 쪽지 등 로드
+        fetchStats();
+        fetchFriends();
+        fetchFriendRequests();
+        fetchConversations();
+        fetchBlockedUsers();
+      } else if (user) {
+        // 다른 사람의 프로필인 경우 통계만 로드 (공개 정보)
+        fetchOtherUserStats();
+      }
+    }
+  }, [user, loading, navigate, targetUserId, urlUserId, isOwnProfile]);
 
   async function fetchStats() {
     if (!user) return;
@@ -119,20 +135,34 @@ export function ProfilePage() {
   }
 
   async function fetchProfile() {
-    if (!user) return;
+    if (!targetUserId) return;
 
     try {
-      const { data, error } = await supabase
+      // 자신의 프로필인 경우 모든 필드 조회 가능
+      // 다른 사람의 프로필인 경우 공개 프로필만 조회 가능
+      let query = supabase
         .from('profiles')
         .select('is_public, nickname, bio, avatar_url')
-        .eq('id', user.id)
-        .maybeSingle();
+        .eq('id', targetUserId);
+
+      // 다른 사람의 프로필인 경우 공개 프로필만 조회
+      if (!isOwnProfile) {
+        query = query.eq('is_public', true);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
-        // 400 에러는 RLS 정책 문제일 수 있으므로 로그만 남기고 계속 진행
         console.error('Error fetching profile:', error);
         // 프로필이 없으면 기본값 설정
         setProfile({ is_public: false });
+        return;
+      }
+
+      // 다른 사람의 프로필이고 공개되지 않은 경우
+      if (!isOwnProfile && (!data || !data.is_public)) {
+        alert('이 사용자의 프로필은 비공개입니다.');
+        navigate('/');
         return;
       }
 
@@ -142,6 +172,36 @@ export function ProfilePage() {
       console.error('Error fetching profile:', error);
       // 에러 발생 시에도 기본값 설정
       setProfile({ is_public: false });
+    }
+  }
+
+  async function fetchOtherUserStats() {
+    if (!targetUserId) return;
+
+    try {
+      // 게시글 수
+      const { count: postsCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', targetUserId);
+
+      // 좋아요 받은 수 (내 게시글의 좋아요 수 합계)
+      const { data: myPosts } = await supabase
+        .from('posts')
+        .select('like_count')
+        .eq('user_id', targetUserId);
+
+      const totalLikes = myPosts?.reduce((sum, post) => sum + (post.like_count || 0), 0) || 0;
+
+      setStats({
+        posts: postsCount || 0,
+        comments: 0, // 다른 사람의 댓글 수는 비공개
+        likes: totalLikes,
+        bookmarks: 0, // 다른 사람의 북마크 수는 비공개
+        prds: 0, // 다른 사람의 PRD 수는 비공개
+      });
+    } catch (error) {
+      console.error('Error fetching other user stats:', error);
     }
   }
 
@@ -174,7 +234,7 @@ export function ProfilePage() {
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !isOwnProfile) return;
 
     // 파일 유효성 검사
     if (!file.type.startsWith('image/')) {
@@ -191,6 +251,7 @@ export function ProfilePage() {
     try {
       const publicUrl = await uploadAvatar(file, user.id);
       await updateProfile({ avatar_url: publicUrl });
+      alert('프로필 사진이 업로드되었습니다.');
     } catch (error: any) {
       console.error('프로필 사진 업로드 오류:', error);
       alert('프로필 사진 업로드에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
@@ -391,7 +452,8 @@ export function ProfilePage() {
     );
   }
 
-  if (!user) {
+  // URL에 userId가 없고 로그인하지 않은 경우는 이미 useEffect에서 처리됨
+  if (!targetUserId) {
     return null;
   }
 
@@ -423,27 +485,33 @@ export function ProfilePage() {
                       <User className="h-8 w-8 text-primary" />
                     </div>
                   )}
-                  <label
-                    htmlFor="avatar-upload"
-                    className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
-                    title="프로필 사진 변경"
-                  >
-                    <Camera className="h-3 w-3" />
-                  </label>
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                    disabled={uploadingAvatar}
-                  />
+                  {isOwnProfile && (
+                    <>
+                      <label
+                        htmlFor="avatar-upload"
+                        className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                        title="프로필 사진 변경"
+                      >
+                        <Camera className="h-3 w-3" />
+                      </label>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        disabled={uploadingAvatar}
+                      />
+                    </>
+                  )}
                 </div>
                 <div>
-                  <CardTitle>{profile?.nickname || user.email}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {user.email} · 가입일: {new Date(user.created_at).toLocaleDateString('ko-KR')}
-                  </p>
+                  <CardTitle>{profile?.nickname || (isOwnProfile ? user?.email : '사용자')}</CardTitle>
+                  {isOwnProfile && user && (
+                    <p className="text-sm text-muted-foreground">
+                      {user.email} · 가입일: {new Date(user.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                  )}
                   {profile?.bio && (
                     <p className="text-sm text-muted-foreground mt-1">{profile.bio}</p>
                   )}
@@ -458,72 +526,83 @@ export function ProfilePage() {
             )}
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_public"
-                  checked={profile?.is_public || false}
-                  disabled={!user || !profile}
-                  onCheckedChange={async (checked: boolean) => {
-                    if (!user || !profile) return;
-                    try {
-                      await updateProfile({ is_public: checked === true });
-                      // 성공 시 프로필 상태 업데이트
-                      setProfile({ ...profile, is_public: checked === true });
-                    } catch (error: any) {
-                      console.error('프로필 업데이트 오류:', error);
-                      alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-                    }
-                  }}
-                />
-                <Label htmlFor="is_public" className="cursor-pointer">
-                  아이디 공개 (친구추가 및 쪽지 받기 허용)
-                </Label>
-              </div>
-              <div>
-                <Label htmlFor="nickname" className="mb-2 block">닉네임</Label>
-                <Input
-                  id="nickname"
-                  placeholder="닉네임을 입력하세요"
-                  value={profile?.nickname || ''}
-                  onChange={(e) => {
-                    const newProfile = { ...profile, nickname: e.target.value };
-                    setProfile(newProfile as any);
-                  }}
-                  onBlur={async () => {
-                    if (profile?.nickname !== undefined) {
+            {isOwnProfile ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is_public"
+                    checked={profile?.is_public || false}
+                    disabled={!user || !profile}
+                    onCheckedChange={async (checked: boolean) => {
+                      if (!user || !profile) return;
                       try {
-                        await updateProfile({ nickname: profile.nickname });
-                      } catch (error) {
-                        alert('닉네임 저장에 실패했습니다.');
+                        await updateProfile({ is_public: checked === true });
+                        // 성공 시 프로필 상태 업데이트
+                        setProfile({ ...profile, is_public: checked === true });
+                      } catch (error: any) {
+                        console.error('프로필 업데이트 오류:', error);
+                        alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
                       }
-                    }
-                  }}
-                />
-              </div>
-              <div>
-                <Label htmlFor="bio" className="mb-2 block">소개</Label>
-                <Textarea
-                  id="bio"
-                  placeholder="자기소개를 입력하세요"
-                  value={profile?.bio || ''}
-                  onChange={(e) => {
-                    const newProfile = { ...profile, bio: e.target.value };
-                    setProfile(newProfile as any);
-                  }}
-                  onBlur={async () => {
-                    if (profile?.bio !== undefined) {
-                      try {
-                        await updateProfile({ bio: profile.bio });
-                      } catch (error) {
-                        alert('소개 저장에 실패했습니다.');
+                    }}
+                  />
+                  <Label htmlFor="is_public" className="cursor-pointer">
+                    아이디 공개 (친구추가 및 쪽지 받기 허용)
+                  </Label>
+                </div>
+                <div>
+                  <Label htmlFor="nickname" className="mb-2 block">닉네임</Label>
+                  <Input
+                    id="nickname"
+                    placeholder="닉네임을 입력하세요"
+                    value={profile?.nickname || ''}
+                    onChange={(e) => {
+                      const newProfile = { ...profile, nickname: e.target.value };
+                      setProfile(newProfile as any);
+                    }}
+                    onBlur={async () => {
+                      if (profile?.nickname !== undefined) {
+                        try {
+                          await updateProfile({ nickname: profile.nickname });
+                        } catch (error) {
+                          alert('닉네임 저장에 실패했습니다.');
+                        }
                       }
-                    }
-                  }}
-                  rows={3}
-                />
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="bio" className="mb-2 block">소개</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="자기소개를 입력하세요"
+                    value={profile?.bio || ''}
+                    onChange={(e) => {
+                      const newProfile = { ...profile, bio: e.target.value };
+                      setProfile(newProfile as any);
+                    }}
+                    onBlur={async () => {
+                      if (profile?.bio !== undefined) {
+                        try {
+                          await updateProfile({ bio: profile.bio });
+                        } catch (error) {
+                          alert('소개 저장에 실패했습니다.');
+                        }
+                      }
+                    }}
+                    rows={3}
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                {profile?.bio && (
+                  <p className="text-sm text-muted-foreground">{profile.bio}</p>
+                )}
+                {!profile?.bio && (
+                  <p className="text-sm text-muted-foreground">소개가 없습니다.</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -531,12 +610,16 @@ export function ProfilePage() {
       <Tabs defaultValue="stats" className="mb-6">
         <TabsList>
           <TabsTrigger value="stats">통계</TabsTrigger>
-          <TabsTrigger value="friends">
-            친구 {friendRequests.length > 0 && `(${friendRequests.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="messages">
-            쪽지 {conversations.filter(c => c.unreadCount > 0).length > 0 && `(${conversations.filter(c => c.unreadCount > 0).length})`}
-          </TabsTrigger>
+          {isOwnProfile && (
+            <>
+              <TabsTrigger value="friends">
+                친구 {friendRequests.length > 0 && `(${friendRequests.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="messages">
+                쪽지 {conversations.filter(c => c.unreadCount > 0).length > 0 && `(${conversations.filter(c => c.unreadCount > 0).length})`}
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <TabsContent value="stats">
@@ -772,7 +855,8 @@ export function ProfilePage() {
           </Dialog>
         </TabsContent>
 
-        <TabsContent value="friends">
+        {isOwnProfile && (
+          <TabsContent value="friends">
           <div className="space-y-4">
             {friendRequests.length > 0 && (
               <Card>
@@ -866,9 +950,11 @@ export function ProfilePage() {
               </Card>
             )}
           </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
-        <TabsContent value="messages">
+        {isOwnProfile && (
+          <TabsContent value="messages">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="md:col-span-1">
               <CardHeader>
@@ -898,8 +984,8 @@ export function ProfilePage() {
                       </div>
                       {conv.lastMessage && (
                         <p className="text-sm text-muted-foreground truncate mt-1">
-                        {conv.lastMessage.content}
-                      </p>
+                          {conv.lastMessage.content}
+                        </p>
                       )}
                     </div>
                   ))
@@ -965,7 +1051,8 @@ export function ProfilePage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={prdsDialogOpen} onOpenChange={setPrdsDialogOpen}>
@@ -1079,10 +1166,12 @@ export function ProfilePage() {
         </DialogContent>
       </Dialog>
 
-      {/* 도네이션 섹션 */}
-      <div className="mt-12">
-        <DonationFooter />
-      </div>
+      {/* 도네이션 섹션 (자신의 프로필에만 표시) */}
+      {isOwnProfile && (
+        <div className="mt-12">
+          <DonationFooter />
+        </div>
+      )}
     </div>
   );
 }
