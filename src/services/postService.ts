@@ -54,7 +54,7 @@ export async function createPost(
       content: data.content,
       category: data.category,
       anonymous_id: anonymousId,
-      tags: data.tags || null,
+      tags: data.tags && data.tags.length > 0 ? data.tags : null,
     })
     .select()
     .single();
@@ -228,7 +228,8 @@ export async function toggleLike(postId: string, userId: string): Promise<boolea
     }
 
     // 카운트 감소
-    await supabase.rpc('decrement_like_count', { post_id_param: postId });\n    return false; // 좋아요 취소됨
+    await supabase.rpc('decrement_like_count', { post_id_param: postId });
+    return false; // 좋아요 취소됨
   } else {
     // 좋아요 추가
     const { error: insertError } = await supabase
