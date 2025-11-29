@@ -1,7 +1,7 @@
-// 커뮤니티 게시판 페이지
-import { useState, useEffect } from 'react';
+// 커뮤니티 게시판 페이지 (SNS 스타일)
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,33 +10,82 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, Calendar, User as UserIcon, Sparkles, UserPlus, Ban, MoreVertical, LogOut } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, Calendar, User as UserIcon, UserPlus, Ban, MoreVertical, LogOut, Search, X, Tag, Shield } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { sendFriendRequest, getFriendStatus, blockUser } from '@/services/friendService';
 import { sendMessage } from '@/services/messageService';
 import { supabase } from '@/lib/supabase';
+import { useAdmin } from '@/hooks/useAdmin';
 import type { Post } from '@/services/postService';
 
 export function CommunityPage() {
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [category, setCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [sortOption, setSortOption] = useState<'latest' | 'popular' | 'comments'>('latest');
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newPost, setNewPost] = useState({ title: '', content: '', category: '자유', isAnonymous: false });
+  const [newPost, setNewPost] = useState({ title: '', content: '', category: '자유', isAnonymous: false, tags: [] as string[] });
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [messageTargetUserId, setMessageTargetUserId] = useState<string | null>(null);
   const [messageContent, setMessageContent] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [authorProfiles, setAuthorProfiles] = useState<Record<string, { is_public: boolean; nickname?: string }>>({});
+  const [authorProfiles, setAuthorProfiles] = useState<Record<string, { is_public: boolean; nickname?: string; avatar_url?: string }>>({});
   const [friendStatuses, setFriendStatuses] = useState<Record<string, 'none' | 'pending' | 'accepted' | 'blocked'>>({});
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const POSTS_PER_PAGE = 20;
 
+  // 검색어 디바운싱 (500ms)
   useEffect(() => {
-    fetchPosts();
-  }, [category]);
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 필터 변경 시 초기화
+  useEffect(() => {
+    setPage(0);
+    setPosts([]);
+    setHasMore(true);
+    fetchPosts(true);
+    fetchAllTags();
+  }, [category, debouncedSearchQuery, selectedTags, sortOption]);
+
+  // 무한 스크롤 옵저버
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMorePosts();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loading]);
 
   useEffect(() => {
     if (user && posts.length > 0) {
@@ -44,26 +93,95 @@ export function CommunityPage() {
     }
   }, [user, posts]);
 
-  async function fetchPosts() {
-    setLoading(true);
+  async function fetchPosts(reset = false) {
+    if (reset) {
+      setLoading(true);
+      setPage(0);
+    }
+
     try {
       const data = await getPosts({
         category: category === 'all' ? undefined : category,
-        limit: 20,
+        search: debouncedSearchQuery || undefined,
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
+        sort: sortOption,
+        limit: POSTS_PER_PAGE,
+        offset: reset ? 0 : page * POSTS_PER_PAGE,
       });
-      setPosts(data);
+
+      if (reset) {
+        setPosts(data);
+      } else {
+        setPosts(prev => [...prev, ...data]);
+      }
+
+      setHasMore(data.length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Error fetching posts:', error);
-      setPosts([]);
+      if (reset) {
+        setPosts([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  }
+
+  async function loadMorePosts() {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    setPage(prev => prev + 1);
+    
+    try {
+      const data = await getPosts({
+        category: category === 'all' ? undefined : category,
+        search: debouncedSearchQuery || undefined,
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
+        sort: sortOption,
+        limit: POSTS_PER_PAGE,
+        offset: (page + 1) * POSTS_PER_PAGE,
+      });
+
+      setPosts(prev => [...prev, ...data]);
+      setHasMore(data.length === POSTS_PER_PAGE);
+    } catch (error) {
+      console.error('Error loading more posts:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function fetchAllTags() {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('tags')
+        .not('tags', 'is', null);
+
+      if (error) throw error;
+
+      const tagsSet = new Set<string>();
+      (data || []).forEach((post: any) => {
+        if (post.tags && Array.isArray(post.tags)) {
+          post.tags.forEach((tag: string) => {
+            if (tag && tag.trim()) {
+              tagsSet.add(tag.trim());
+            }
+          });
+        }
+      });
+
+      setAllTags(Array.from(tagsSet).sort());
+    } catch (error) {
+      console.error('Error fetching tags:', error);
     }
   }
 
   async function fetchAuthorProfiles() {
     if (!user) return;
 
-    const profiles: Record<string, { is_public: boolean; nickname?: string }> = {};
+    const profiles: Record<string, { is_public: boolean; nickname?: string; avatar_url?: string }> = {};
     const statuses: Record<string, 'none' | 'pending' | 'accepted' | 'blocked'> = {};
 
     for (const post of posts) {
@@ -72,7 +190,7 @@ export function CommunityPage() {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_public, nickname')
+          .select('is_public, nickname, avatar_url')
           .eq('id', post.user_id)
           .single();
 
@@ -155,10 +273,16 @@ export function CommunityPage() {
         content: newPost.content,
         category: newPost.category,
         isAnonymous: newPost.isAnonymous,
+        tags: newPost.tags,
       });
       setDialogOpen(false);
-      setNewPost({ title: '', content: '', category: '자유', isAnonymous: false });
-      fetchPosts();
+      setNewPost({ title: '', content: '', category: '자유', isAnonymous: false, tags: [] });
+      // 초기화 후 다시 로드
+      setPage(0);
+      setPosts([]);
+      setHasMore(true);
+      await fetchPosts(true);
+      fetchAllTags();
     } catch (error) {
       console.error('Error creating post:', error);
       alert('게시글 작성에 실패했습니다.');
@@ -167,20 +291,53 @@ export function CommunityPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return '방금 전';
+    if (minutes < 60) return `${minutes}분 전`;
+    if (hours < 24) return `${hours}시간 전`;
+    if (days < 7) return `${days}일 전`;
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const getAuthorDisplay = (post: Post) => {
+    if (post.anonymous_id) {
+      return { name: post.anonymous_id, isClickable: false };
+    }
+    
+    if (user && post.user_id === user.id) {
+      return { name: authorProfiles[post.user_id]?.nickname || user.email || '나', isClickable: false };
+    }
+
+    const profile = authorProfiles[post.user_id];
+    if (profile?.is_public) {
+      return { 
+        name: profile.nickname || post.user?.email || '익명', 
+        isClickable: true,
+        avatarUrl: profile.avatar_url
+      };
+    }
+
+    return { name: post.user?.email || '익명', isClickable: false };
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b">
+      <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold">IdeaSpark</h1>
-              </div>
+              <h1 
+                className="text-2xl font-bold cursor-pointer hover:text-primary transition-colors"
+                onClick={() => navigate('/')}
+              >
+                IdeaSpark
+              </h1>
               <nav className="flex gap-2">
                 <Button
                   variant="ghost"
@@ -192,7 +349,7 @@ export function CommunityPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="font-semibold"
+                  className="font-semibold bg-secondary"
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   커뮤니티
@@ -202,6 +359,16 @@ export function CommunityPage() {
             <div className="flex items-center gap-2">
               {user ? (
                 <>
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/admin')}
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      관리자
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -214,8 +381,8 @@ export function CommunityPage() {
                     variant="ghost"
                     size="sm"
                     onClick={async () => {
-                      await supabase.auth.signOut()
-                      window.location.reload()
+                      await supabase.auth.signOut();
+                      navigate('/auth');
                     }}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
@@ -224,11 +391,10 @@ export function CommunityPage() {
                 </>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() => navigate('/auth')}
                 >
-                  <UserIcon className="h-4 w-4 mr-2" />
                   로그인
                 </Button>
               )}
@@ -237,191 +403,363 @@ export function CommunityPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold">커뮤니티</h1>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button disabled={!user}>
-                <Plus className="h-4 w-4 mr-2" />
-                글쓰기
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>새 게시글 작성</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">카테고리</label>
-                  <Select value={newPost.category} onValueChange={(value) => setNewPost({ ...newPost, category: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="질문">질문</SelectItem>
-                      <SelectItem value="자유">자유</SelectItem>
-                      <SelectItem value="아이디어 공유">아이디어 공유</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">제목</label>
-                  <Input
-                    placeholder="게시글 제목을 입력하세요"
-                    value={newPost.title}
-                    onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">내용</label>
-                  <Textarea
-                    placeholder="게시글 내용을 입력하세요"
-                    value={newPost.content}
-                    onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                    rows={10}
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="anonymous"
-                    checked={newPost.isAnonymous}
-                    onCheckedChange={(checked: boolean) => setNewPost({ ...newPost, isAnonymous: checked === true })}
-                  />
-                  <Label htmlFor="anonymous" className="text-sm font-normal cursor-pointer">
-                    익명으로 작성하기
-                  </Label>
-                </div>
-                <Button onClick={handleCreatePost} className="w-full">
-                  작성하기
+      <div className="container mx-auto px-4 py-6 max-w-4xl">
+        {/* 검색 및 필터 섹션 */}
+        <div className="mb-6 space-y-4">
+          {/* 검색 바 */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="게시글 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* 필터 그룹 */}
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* 정렬 옵션 */}
+            <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'comments') => setSortOption(value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="정렬" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest">최신순</SelectItem>
+                <SelectItem value="popular">인기순</SelectItem>
+                <SelectItem value="comments">댓글순</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* 카테고리 탭 */}
+            <Tabs value={category} onValueChange={setCategory} className="flex-1">
+              <TabsList>
+                <TabsTrigger value="all">전체</TabsTrigger>
+                <TabsTrigger value="질문">질문</TabsTrigger>
+                <TabsTrigger value="자유">자유</TabsTrigger>
+                <TabsTrigger value="아이디어 공유">아이디어 공유</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* 글쓰기 버튼 */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button disabled={!user} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  글쓰기
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>새 게시글 작성</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">카테고리</label>
+                    <Select value={newPost.category} onValueChange={(value) => setNewPost({ ...newPost, category: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="질문">질문</SelectItem>
+                        <SelectItem value="자유">자유</SelectItem>
+                        <SelectItem value="아이디어 공유">아이디어 공유</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">제목</label>
+                    <Input
+                      placeholder="게시글 제목을 입력하세요"
+                      value={newPost.title}
+                      onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">내용</label>
+                    <Textarea
+                      placeholder="게시글 내용을 입력하세요"
+                      value={newPost.content}
+                      onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+                      rows={10}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">태그 (쉼표로 구분)</label>
+                    <Input
+                      placeholder="예: 개발, React, TypeScript"
+                      value={newPost.tags.join(', ')}
+                      onChange={(e) => {
+                        const tags = e.target.value
+                          .split(',')
+                          .map(tag => tag.trim())
+                          .filter(tag => tag.length > 0);
+                        setNewPost({ ...newPost, tags });
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      태그는 쉼표로 구분하여 입력하세요. 예: 개발, React, TypeScript
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="anonymous"
+                      checked={newPost.isAnonymous}
+                      onCheckedChange={(checked: boolean) => setNewPost({ ...newPost, isAnonymous: checked === true })}
+                    />
+                    <Label htmlFor="anonymous" className="text-sm font-normal cursor-pointer">
+                      익명으로 작성하기
+                    </Label>
+                  </div>
+                  <Button onClick={handleCreatePost} className="w-full">
+                    작성하기
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* 선택된 태그 표시 */}
+          {selectedTags.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground">선택된 태그:</span>
+              {selectedTags.map((tag) => (
+                <div
+                  key={tag}
+                  className="flex items-center gap-1 px-2 py-1 bg-primary text-primary-foreground rounded-md text-xs"
+                >
+                  <Tag className="h-3 w-3" />
+                  {tag}
+                  <button
+                    onClick={() => setSelectedTags(selectedTags.filter(t => t !== tag))}
+                    className="ml-1 hover:bg-primary/80 rounded"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTags([])}
+                className="h-7 text-xs"
+              >
+                모두 제거
+              </Button>
+            </div>
+          )}
+
+          {/* 태그 목록 */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <Tag className="h-4 w-4" />
+                태그:
+              </span>
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    if (selectedTags.includes(tag)) {
+                      setSelectedTags(selectedTags.filter(t => t !== tag));
+                    } else {
+                      setSelectedTags([...selectedTags, tag]);
+                    }
+                  }}
+                  className={`px-2 py-1 rounded-md text-xs transition-colors ${
+                    selectedTags.includes(tag)
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <Tabs value={category} onValueChange={setCategory}>
-        <TabsList>
-          <TabsTrigger value="all">전체</TabsTrigger>
-          <TabsTrigger value="질문">질문</TabsTrigger>
-          <TabsTrigger value="자유">자유</TabsTrigger>
-          <TabsTrigger value="아이디어 공유">아이디어 공유</TabsTrigger>
-        </TabsList>
+        {/* 게시글 목록 (SNS 스타일) */}
+        {loading && posts.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">로딩 중...</p>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">게시글이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {posts.map(post => {
+              const author = getAuthorDisplay(post);
+              const isOwner = user && post.user_id === user.id;
+              const canInteract = !isOwner && author.isClickable && user;
 
-        <TabsContent value={category} className="mt-6">
-          {loading ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">로딩 중...</p>
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">게시글이 없습니다.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {posts.map(post => (
+              return (
                 <Card 
                   key={post.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/community/${post.id}`)}
+                  className="hover:shadow-lg transition-shadow"
                 >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="line-clamp-2 mb-2">{post.title}</CardTitle>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <UserIcon className="h-4 w-4" />
-                            {post.anonymous_id ? (
-                              <span>{post.anonymous_id}</span>
-                            ) : user && post.user_id !== user.id && authorProfiles[post.user_id]?.is_public ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    className="flex items-center gap-1 hover:text-foreground"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <span>{authorProfiles[post.user_id]?.nickname || post.user?.email || '익명'}</span>
-                                    <MoreVertical className="h-3 w-3" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                                  {friendStatuses[post.user_id] === 'none' && (
-                                    <DropdownMenuItem onClick={() => handleAddFriend(post.user_id)}>
-                                      <UserPlus className="h-4 w-4 mr-2" />
-                                      친구 추가
-                                    </DropdownMenuItem>
-                                  )}
-                                  {friendStatuses[post.user_id] === 'pending' && (
-                                    <DropdownMenuItem disabled>
-                                      요청 대기 중
-                                    </DropdownMenuItem>
-                                  )}
-                                  {friendStatuses[post.user_id] === 'accepted' && (
-                                    <DropdownMenuItem disabled>
-                                      친구
-                                    </DropdownMenuItem>
-                                  )}
-                                  {friendStatuses[post.user_id] !== 'blocked' && (
-                                    <DropdownMenuItem onClick={() => handleOpenMessageDialog(post.user_id)}>
-                                      <MessageSquare className="h-4 w-4 mr-2" />
-                                      쪽지 보내기
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  {friendStatuses[post.user_id] !== 'blocked' && (
-                                    <DropdownMenuItem 
-                                      onClick={() => handleBlockUser(post.user_id)}
-                                      className="text-destructive focus:text-destructive"
-                                    >
-                                      <Ban className="h-4 w-4 mr-2" />
-                                      차단하기
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <span>{post.user?.email || '익명'}</span>
-                            )}
+                  <CardContent className="p-4">
+                    {/* 작성자 정보 */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-shrink-0">
+                        {author.avatarUrl ? (
+                          <img
+                            src={author.avatarUrl}
+                            alt={author.name}
+                            className="h-10 w-10 rounded-full object-cover border-2 border-primary/20"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <UserIcon className="h-5 w-5 text-primary" />
                           </div>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {formatDate(post.created_at)}
-                          </span>
-                          <span className="px-2 py-1 bg-secondary rounded-md text-xs">
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {canInteract ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="font-semibold hover:text-primary transition-colors text-left flex items-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span className="truncate">{author.name}</span>
+                                  <MoreVertical className="h-3 w-3 flex-shrink-0" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                {friendStatuses[post.user_id] === 'none' && (
+                                  <DropdownMenuItem onClick={() => handleAddFriend(post.user_id)}>
+                                    <UserPlus className="h-4 w-4 mr-2" />
+                                    친구 추가
+                                  </DropdownMenuItem>
+                                )}
+                                {friendStatuses[post.user_id] === 'pending' && (
+                                  <DropdownMenuItem disabled>
+                                    요청 대기 중
+                                  </DropdownMenuItem>
+                                )}
+                                {friendStatuses[post.user_id] === 'accepted' && (
+                                  <DropdownMenuItem disabled>
+                                    친구
+                                  </DropdownMenuItem>
+                                )}
+                                {friendStatuses[post.user_id] !== 'blocked' && (
+                                  <DropdownMenuItem onClick={() => handleOpenMessageDialog(post.user_id)}>
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    쪽지 보내기
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                {friendStatuses[post.user_id] !== 'blocked' && (
+                                  <DropdownMenuItem 
+                                    onClick={() => handleBlockUser(post.user_id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Ban className="h-4 w-4 mr-2" />
+                                    차단하기
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <span className="font-semibold">{author.name}</span>
+                          )}
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <span className="text-xs text-muted-foreground">{formatDate(post.created_at)}</span>
+                          <span className="px-2 py-0.5 bg-secondary rounded-md text-xs ml-auto">
                             {post.category}
                           </span>
                         </div>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
-                      {post.content}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
+
+                    {/* 제목 및 내용 */}
+                    <div 
+                      className="cursor-pointer mb-3"
+                      onClick={() => navigate(`/community/${post.id}`)}
+                    >
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-primary transition-colors">
+                        {post.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                        {post.content}
+                      </p>
+                    </div>
+
+                    {/* 태그 */}
+                    {post.tags && post.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {post.tags.map((tag) => (
+                          <button
+                            key={tag}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!selectedTags.includes(tag)) {
+                                setSelectedTags([...selectedTags, tag]);
+                              }
+                            }}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-xs hover:bg-primary/20 transition-colors"
+                          >
+                            <Tag className="h-3 w-3" />
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 액션 버튼 */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t">
+                      <button
+                        onClick={() => navigate(`/community/${post.id}`)}
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      >
                         <MessageSquare className="h-4 w-4" />
                         {post.comment_count}
-                      </span>
-                      <span className="flex items-center gap-1">
+                      </button>
+                      <button
+                        onClick={() => navigate(`/community/${post.id}`)}
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      >
                         <Heart className="h-4 w-4" />
                         {post.like_count}
-                      </span>
-                      <span className="flex items-center gap-1">
+                      </button>
+                      <button
+                        onClick={() => navigate(`/community/${post.id}`)}
+                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      >
                         <Bookmark className="h-4 w-4" />
                         {post.bookmark_count}
-                      </span>
+                      </button>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-        </Tabs>
+              );
+            })}
+
+            {/* 무한 스크롤 타겟 */}
+            <div ref={observerTarget} className="h-4" />
+            
+            {/* 로딩 더보기 */}
+            {loadingMore && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">더 많은 게시글을 불러오는 중...</p>
+              </div>
+            )}
+
+            {/* 더 이상 없음 */}
+            {!hasMore && posts.length > 0 && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">모든 게시글을 불러왔습니다.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* 쪽지 다이얼로그 */}
       <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
         <DialogContent>
           <DialogHeader>
