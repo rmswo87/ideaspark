@@ -20,6 +20,7 @@ import { deletePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { DonationFooter } from '@/components/DonationFooter';
+import { uploadAvatar } from '@/services/imageService';
 import type { FriendRequest, Friend } from '@/services/friendService';
 import type { Conversation, Message } from '@/services/messageService';
 import type { Post } from '@/services/postService';
@@ -188,54 +189,7 @@ export function ProfilePage() {
 
     setUploadingAvatar(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar/${Date.now()}.${fileExt}`;
-
-      // Supabase Storage에 업로드 (avatars 버킷 사용)
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) {
-        // 버킷이 없으면 profiles 버킷 시도
-        if (error.message.includes('Bucket not found') || error.message.includes('not found')) {
-          const { data: fallbackData, error: fallbackError } = await supabase.storage
-            .from('profiles')
-            .upload(fileName, file, {
-              cacheControl: '3600',
-              upsert: false,
-            });
-
-          if (fallbackError) {
-            const errorMessage = 
-              '프로필 사진 업로드를 위해 Supabase Storage 버킷이 필요합니다.\n\n' +
-              'Supabase Dashboard에서 다음을 수행하세요:\n' +
-              '1. Storage 메뉴로 이동\n' +
-              '2. "New bucket" 클릭\n' +
-              '3. 이름: avatars (또는 profiles)\n' +
-              '4. "Public bucket" 체크\n' +
-              '5. 생성 후 다시 시도하세요.\n\n' +
-              '또는 관리자에게 버킷 생성을 요청하세요.';
-            throw new Error(errorMessage);
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('profiles')
-            .getPublicUrl(fallbackData.path);
-
-          await updateProfile({ avatar_url: publicUrl });
-          return;
-        }
-        throw error;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(data.path);
-
+      const publicUrl = await uploadAvatar(file, user.id);
       await updateProfile({ avatar_url: publicUrl });
     } catch (error: any) {
       console.error('프로필 사진 업로드 오류:', error);
@@ -419,7 +373,7 @@ export function ProfilePage() {
 
   function handleOpenPrdsDialog() {
     setPrdsDialogOpen(true);
-      fetchPrdsList();
+    fetchPrdsList();
   }
 
   const formatDate = (dateString: string) => {
@@ -509,11 +463,16 @@ export function ProfilePage() {
                 <Checkbox
                   id="is_public"
                   checked={profile?.is_public || false}
+                  disabled={!user || !profile}
                   onCheckedChange={async (checked: boolean) => {
+                    if (!user || !profile) return;
                     try {
                       await updateProfile({ is_public: checked === true });
-                    } catch (error) {
-                      alert('설정 저장에 실패했습니다.');
+                      // 성공 시 프로필 상태 업데이트
+                      setProfile({ ...profile, is_public: checked === true });
+                    } catch (error: any) {
+                      console.error('프로필 업데이트 오류:', error);
+                      alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
                     }
                   }}
                 />
@@ -642,7 +601,7 @@ export function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold">{stats.bookmarks}</p>
-                <p className="text-muted-foreground mt-1">클릭하여 확인</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
               </CardContent>
             </Card>
 
@@ -939,8 +898,8 @@ export function ProfilePage() {
                       </div>
                       {conv.lastMessage && (
                         <p className="text-sm text-muted-foreground truncate mt-1">
-                          {conv.lastMessage.content}
-                        </p>
+                        {conv.lastMessage.content}
+                      </p>
                       )}
                     </div>
                   ))
