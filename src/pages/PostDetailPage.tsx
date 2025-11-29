@@ -1,13 +1,20 @@
 // 게시글 상세 페이지
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getPost, toggleLike, toggleBookmark, isLiked, isBookmarked, deletePost } from '@/services/postService';
+import { getPost, toggleLike, toggleBookmark, isLiked, isBookmarked, deletePost, updatePost } from '@/services/postService';
 import { CommentSection } from '@/components/CommentSection';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Heart, Bookmark, Trash2, Calendar, User } from 'lucide-react';
+import { ArrowLeft, Heart, Bookmark, Trash2, Calendar, User, UserPlus, MessageSquare, Edit2, Save, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { sendFriendRequest, getFriendStatus } from '@/services/friendService';
+import { sendMessage } from '@/services/messageService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/lib/supabase';
 import type { Post } from '@/services/postService';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +24,15 @@ export function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [authorProfile, setAuthorProfile] = useState<{ is_public: boolean; nickname?: string } | null>(null);
+  const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted' | 'blocked'>('none');
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageContent, setMessageContent] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -31,6 +47,10 @@ export function PostDetailPage() {
     try {
       const postData = await getPost(id);
       setPost(postData);
+      if (postData) {
+        setEditTitle(postData.title);
+        setEditContent(postData.content);
+      }
 
       if (user && postData) {
         // 좋아요/북마크 상태 확인
@@ -40,6 +60,22 @@ export function PostDetailPage() {
         ]);
         setLiked(likedStatus);
         setBookmarked(bookmarkedStatus);
+
+        // 작성자 프로필 정보 가져오기 (공개 여부 확인)
+        if (postData.user_id !== user.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_public, nickname')
+            .eq('id', postData.user_id)
+            .single();
+          
+          if (profile) {
+            setAuthorProfile(profile);
+            // 친구 상태 확인
+            const status = await getFriendStatus(postData.user_id);
+            setFriendStatus(status);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching post:', error);
@@ -106,6 +142,45 @@ export function PostDetailPage() {
     }
   }
 
+  async function handleStartEdit() {
+    if (!post) return;
+    setEditTitle(post.title);
+    setEditContent(post.content);
+    setIsEditing(true);
+  }
+
+  async function handleCancelEdit() {
+    if (!post) return;
+    setEditTitle(post.title);
+    setEditContent(post.content);
+    setIsEditing(false);
+  }
+
+  async function handleSaveEdit() {
+    if (!user || !post || !id) return;
+
+    if (!editTitle.trim() || !editContent.trim()) {
+      alert('제목과 내용을 모두 입력해주세요.');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const updated = await updatePost(id, {
+        title: editTitle.trim(),
+        content: editContent,
+      });
+      setPost(updated);
+      setIsEditing(false);
+      alert('게시글이 수정되었습니다.');
+    } catch (error) {
+      console.error('Error updating post:', error);
+      alert('게시글 수정에 실패했습니다.');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -135,6 +210,38 @@ export function PostDetailPage() {
   }
 
   const isOwner = user && post.user_id === user.id;
+  const canAddFriend = user && !isOwner && authorProfile?.is_public && friendStatus === 'none';
+  const canSendMessage = user && !isOwner && authorProfile?.is_public;
+
+  async function handleAddFriend() {
+    if (!user || !post) return;
+    
+    try {
+      await sendFriendRequest(post.user_id);
+      setFriendStatus('pending');
+      alert('친구 요청을 보냈습니다.');
+    } catch (error: any) {
+      console.error('Error sending friend request:', error);
+      alert(error.message || '친구 요청에 실패했습니다.');
+    }
+  }
+
+  async function handleSendMessage() {
+    if (!user || !post || !messageContent.trim()) return;
+
+    setSendingMessage(true);
+    try {
+      await sendMessage(post.user_id, messageContent);
+      setMessageContent('');
+      setMessageDialogOpen(false);
+      alert('쪽지를 보냈습니다.');
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      alert(error.message || '쪽지 전송에 실패했습니다.');
+    } finally {
+      setSendingMessage(false);
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -151,11 +258,20 @@ export function PostDetailPage() {
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="mb-2">{post.title}</CardTitle>
+              {isEditing ? (
+                <Textarea
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="mb-2 text-lg font-semibold"
+                  rows={1}
+                />
+              ) : (
+                <CardTitle className="mb-2">{post.title}</CardTitle>
+              )}
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <User className="h-4 w-4" />
-                  {post.anonymous_id || post.user?.email || '익명'}
+                  {post.anonymous_id || authorProfile?.nickname || post.user?.email || '익명'}
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
@@ -164,21 +280,132 @@ export function PostDetailPage() {
                 <span className="px-2 py-1 bg-secondary rounded-md text-xs">
                   {post.category}
                 </span>
+                {!isOwner && authorProfile?.is_public && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    {canAddFriend && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddFriend}
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        친구추가
+                      </Button>
+                    )}
+                    {friendStatus === 'pending' && (
+                      <span className="text-xs text-muted-foreground">요청 대기 중</span>
+                    )}
+                    {friendStatus === 'accepted' && (
+                      <span className="text-xs text-muted-foreground">친구</span>
+                    )}
+                    {canSendMessage && (
+                      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            쪽지
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>쪽지 보내기</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <Textarea
+                              placeholder="쪽지 내용을 입력하세요"
+                              value={messageContent}
+                              onChange={(e) => setMessageContent(e.target.value)}
+                              rows={6}
+                            />
+                            <Button
+                              onClick={handleSendMessage}
+                              disabled={sendingMessage || !messageContent.trim()}
+                              className="w-full"
+                            >
+                              {sendingMessage ? '전송 중...' : '보내기'}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             {isOwner && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDelete}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex flex-col gap-2">
+                {!isEditing ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStartEdit}
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" />
+                      수정
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDelete}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      삭제
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleSaveEdit}
+                      disabled={savingEdit}
+                    >
+                      <Save className="h-4 w-4 mr-1" />
+                      {savingEdit ? '저장 중...' : '저장'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCancelEdit}
+                      disabled={savingEdit}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      취소
+                    </Button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          <div className="whitespace-pre-wrap mb-6">{post.content}</div>
+          <div className="mb-6">
+            {isEditing ? (
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                rows={10}
+                className="font-mono text-sm"
+              />
+            ) : (
+              <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-muted-foreground">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    img: ({ node, ...props }) => (
+                      <img {...props} className="max-w-full h-auto rounded-md my-2" alt={props.alt || ''} />
+                    ),
+                    p: ({ node, ...props }) => (
+                      <p {...props} className="mb-2 last:mb-0" />
+                    ),
+                  }}
+                >
+                  {post.content}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <Button
               variant={liked ? 'default' : 'outline'}
@@ -206,4 +433,3 @@ export function PostDetailPage() {
     </div>
   );
 }
-
