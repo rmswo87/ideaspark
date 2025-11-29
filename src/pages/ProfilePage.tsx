@@ -11,12 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest, getBlockedUsers, unblockUser } from '@/services/friendService';
-import { getPRDs } from '@/services/prdService';
+import { getPRDs, deletePRD } from '@/services/prdService';
 import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
-import { deletePRD } from '@/services/prdService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { uploadAvatar } from '@/services/imageService';
@@ -271,8 +270,8 @@ export function ProfilePage() {
     if (!user) return;
 
     try {
-      const blocked = await getBlockedUsers();
-      setBlockedUsers(blocked);
+      const data = await getBlockedUsers();
+      setBlockedUsers(data);
     } catch (error) {
       console.error('Error fetching blocked users:', error);
     }
@@ -350,8 +349,8 @@ export function ProfilePage() {
       const totalBookmarks = myBookmarkedPosts?.reduce((sum, post) => sum + (post.bookmark_count || 0), 0) || 0;
 
       // PRD 수
-      const prds = await getPRDs();
-      const prdsCount = prds.filter(prd => prd.user_id === user.id).length;
+      const prds = await getPRDs({ userId: user.id });
+      const prdsCount = prds.length;
 
       setStats({
         posts: postsCount || 0,
@@ -402,61 +401,25 @@ export function ProfilePage() {
     }
   }
 
-  async function handleOpenPostsDialog(type: 'my' | 'liked' | 'bookmarked') {
+  async function fetchPrdsList() {
     if (!user) return;
 
-    setPostsDialogType(type);
-    setPostsDialogOpen(true);
-    setLoadingPosts(true);
-    try {
-      let posts: Post[] = [];
-      if (type === 'my') {
-        posts = await getMyPosts();
-      } else if (type === 'liked') {
-        posts = await getLikedPosts();
-      } else if (type === 'bookmarked') {
-        posts = await getBookmarkedPosts();
-      }
-      setPostsList(posts);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-      setPostsList([]);
-    } finally {
-      setLoadingPosts(false);
-    }
-  }
-
-  async function handleOpenCommentsDialog() {
-    if (!user) return;
-
-    setCommentsDialogOpen(true);
-    setLoadingComments(true);
-    try {
-      const comments = await getMyComments();
-      setCommentsList(comments);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-      setCommentsList([]);
-    } finally {
-      setLoadingComments(false);
-    }
-  }
-
-  async function handleOpenPrdsDialog() {
-    if (!user) return;
-
-    setPrdsDialogOpen(true);
     setLoadingPrds(true);
     try {
-      const prds = await getPRDs();
-      const myPrds = prds.filter(prd => prd.user_id === user.id);
-      setPrdsList(myPrds);
+      const prds = await getPRDs({ userId: user.id });
+      setPrdsList(prds);
     } catch (error) {
       console.error('Error fetching PRDs:', error);
       setPrdsList([]);
+      alert('PRD 목록을 불러오는데 실패했습니다.');
     } finally {
       setLoadingPrds(false);
     }
+  }
+
+  function handleOpenPrdsDialog() {
+    setPrdsDialogOpen(true);
+    fetchPrdsList();
   }
 
   async function handleDeletePRD(prdId: string) {
@@ -464,395 +427,443 @@ export function ProfilePage() {
 
     try {
       await deletePRD(prdId);
-      await handleOpenPrdsDialog();
+      await fetchPrdsList();
       alert('PRD가 삭제되었습니다.');
     } catch (error: any) {
       alert(error.message || 'PRD 삭제에 실패했습니다.');
     }
   }
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">로딩 중...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">로딩 중...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/')}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          뒤로 가기
-        </Button>
+    <div className="container mx-auto px-4 py-8">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/')}
+        className="mb-4"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        뒤로 가기
+      </Button>
 
-        <div className="mb-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* 왼쪽: 프로필 기본 정보 */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    {profile?.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt="프로필 사진"
-                        className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+      <div className="mb-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* 왼쪽: 프로필 기본 정보 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="프로필 사진"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-10 w-10 text-primary" />
+                    </div>
+                  )}
+                  {isOwnProfile && (
+                    <>
+                      <label
+                        htmlFor="avatar-upload"
+                        className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                        title="프로필 사진 변경"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </label>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        disabled={uploadingAvatar}
                       />
-                    ) : (
-                      <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="h-10 w-10 text-primary" />
-                      </div>
-                    )}
-                    {isOwnProfile && (
-                      <>
-                        <label
-                          htmlFor="avatar-upload"
-                          className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
-                          title="프로필 사진 변경"
-                        >
-                          <Camera className="h-4 w-4" />
-                        </label>
-                        <input
-                          id="avatar-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarUpload}
-                          className="hidden"
-                          disabled={uploadingAvatar}
-                        />
-                      </>
-                    )}
+                    </>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl mb-2">
+                    {profile?.nickname || (isOwnProfile ? user?.email : '사용자')}
+                  </CardTitle>
+                  {isOwnProfile && user && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {user.email} · 가입일: {new Date(user.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                  )}
+                  {profile?.bio && (
+                    <p className="text-sm text-muted-foreground break-words">
+                      {profile.bio}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {uploadingAvatar && (
+                <div className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
+                  <Upload className="h-4 w-4 animate-pulse" />
+                  프로필 사진 업로드 중...
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {isOwnProfile ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_public"
+                      checked={profile?.is_public || false}
+                      disabled={!user || !profile}
+                      onCheckedChange={async (checked: boolean) => {
+                        if (!user || !profile) return;
+                        try {
+                          await updateProfile({ is_public: checked === true });
+                          setProfile({ ...profile, is_public: checked === true });
+                        } catch (error: any) {
+                          console.error('프로필 업데이트 오류:', error);
+                          alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+                        }
+                      }}
+                    />
+                    <Label htmlFor="is_public" className="cursor-pointer">
+                      아이디 공개 (친구추가 및 쪽지 받기 허용)
+                    </Label>
                   </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-xl mb-2">
-                      {profile?.nickname || (isOwnProfile ? user?.email : '사용자')}
-                    </CardTitle>
-                    {isOwnProfile && user && (
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {user.email} · 가입일: {new Date(user.created_at).toLocaleDateString('ko-KR')}
-                      </p>
-                    )}
-                    {profile?.bio && (
-                      <p className="text-sm text-muted-foreground break-words">
-                        {profile.bio}
-                      </p>
-                    )}
+                  <div>
+                    <Label htmlFor="nickname" className="mb-2 block">닉네임</Label>
+                    <Input
+                      id="nickname"
+                      placeholder="닉네임을 입력하세요"
+                      value={profile?.nickname || ''}
+                      onChange={(e) => {
+                        const newProfile = { ...profile, nickname: e.target.value };
+                        setProfile(newProfile as any);
+                      }}
+                      onBlur={async () => {
+                        if (profile?.nickname !== undefined) {
+                          try {
+                            await updateProfile({ nickname: profile.nickname });
+                          } catch (error) {
+                            alert('닉네임 저장에 실패했습니다.');
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bio" className="mb-2 block">소개</Label>
+                    <Textarea
+                      id="bio"
+                      placeholder="자기소개를 입력하세요"
+                      value={profile?.bio || ''}
+                      onChange={(e) => {
+                        const newProfile = { ...profile, bio: e.target.value };
+                        setProfile(newProfile as any);
+                      }}
+                      onBlur={async () => {
+                        if (profile?.bio !== undefined) {
+                          try {
+                            await updateProfile({ bio: profile.bio });
+                          } catch (error) {
+                            alert('소개 저장에 실패했습니다.');
+                          }
+                        }
+                      }}
+                      rows={3}
+                    />
                   </div>
                 </div>
-                {uploadingAvatar && (
-                  <div className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
-                    <Upload className="h-4 w-4 animate-pulse" />
-                    프로필 사진 업로드 중...
+              ) : (
+                <div className="space-y-2">
+                  {profile?.bio && (
+                    <p className="text-sm text-muted-foreground">{profile.bio}</p>
+                  )}
+                  {!profile?.bio && (
+                    <p className="text-sm text-muted-foreground">소개가 없습니다.</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 오른쪽: 도네이션 박스 (같은 사이즈) */}
+          {isOwnProfile && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl mb-2">개발자를 위한 커피 한 잔 ☕</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-sm font-medium">은행 및 계좌번호</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="font-mono text-base flex-1">
+                        {donationBankName} {donationAccountNumber}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(donationAccountNumber)
+                            .then(() => {
+                              setDonationCopied(true);
+                              setTimeout(() => setDonationCopied(false), 2000);
+                            })
+                            .catch(() => {
+                              alert('계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.');
+                            });
+                        }}
+                      >
+                        {donationCopied ? '복사됨' : '복사'}
+                      </Button>
+                    </div>
                   </div>
-                )}
+                  <div>
+                    <Label className="text-sm font-medium">예금주</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{donationAccountHolder}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDonationShowQR(true)}
+                  >
+                    QR 코드 보기
+                  </Button>
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    피드백과 문의도 언제나 환영입니다.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <Tabs defaultValue="stats" className="mb-6">
+        <TabsList>
+          <TabsTrigger value="stats">통계</TabsTrigger>
+          {isOwnProfile && (
+            <>
+              <TabsTrigger value="friends">
+                친구 {friendRequests.length > 0 && `(${friendRequests.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="messages">
+                쪽지 {conversations.filter(c => c.unreadCount > 0).length > 0 && `(${conversations.filter(c => c.unreadCount > 0).length})`}
+              </TabsTrigger>
+              <TabsTrigger value="prds">PRD</TabsTrigger>
+            </>
+          )}
+        </TabsList>
+
+        <TabsContent value="stats">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleOpenPostsDialog('my')}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  작성한 게시글
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {isOwnProfile ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="is_public"
-                        checked={profile?.is_public || false}
-                        disabled={!user || !profile}
-                        onCheckedChange={async (checked: boolean) => {
-                          if (!user || !profile) return;
-                          try {
-                            await updateProfile({ is_public: checked === true });
-                            setProfile({ ...profile, is_public: checked === true });
-                          } catch (error: any) {
-                            console.error('프로필 업데이트 오류:', error);
-                            alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-                          }
-                        }}
-                      />
-                      <Label htmlFor="is_public" className="cursor-pointer">
-                        아이디 공개 (친구추가 및 쪽지 받기 허용)
-                      </Label>
+                <p className="text-3xl font-bold">{stats.posts}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={handleOpenCommentsDialog}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  작성한 댓글
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats.comments}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleOpenPostsDialog('liked')}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Heart className="h-5 w-5" />
+                  좋아요한 글
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats.likes}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleOpenPostsDialog('bookmarked')}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bookmark className="h-5 w-5" />
+                  북마크한 글
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats.bookmarks}</p>
+                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+              </CardContent>
+            </Card>
+
+            {isOwnProfile && (
+              <Card 
+                className="cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={handleOpenPrdsDialog}
+              >
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    생성한 PRD
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{stats.prds}</p>
+                  <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        {isOwnProfile && (
+          <TabsContent value="friends">
+          <div className="space-y-4">
+            {friendRequests.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>받은 친구 요청 ({friendRequests.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {friendRequests.map((request) => (
+                    <div key={request.id} className="flex items-center justify-between p-2 border rounded">
+                      <span>{request.requester.nickname || request.requester.email}</span>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleAcceptRequest(request.id)}>
+                          수락
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleRejectRequest(request.id)}>
+                          거절
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="nickname" className="mb-2 block">닉네임</Label>
-                      <Input
-                        id="nickname"
-                        placeholder="닉네임을 입력하세요"
-                        value={profile?.nickname || ''}
-                        onChange={(e) => {
-                          const newProfile = { ...profile, nickname: e.target.value };
-                          setProfile(newProfile as any);
-                        }}
-                        onBlur={async () => {
-                          if (profile?.nickname !== undefined) {
-                            try {
-                              await updateProfile({ nickname: profile.nickname });
-                            } catch (error) {
-                              alert('닉네임 저장에 실패했습니다.');
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bio" className="mb-2 block">소개</Label>
-                      <Textarea
-                        id="bio"
-                        placeholder="자기소개를 입력하세요"
-                        value={profile?.bio || ''}
-                        onChange={(e) => {
-                          const newProfile = { ...profile, bio: e.target.value };
-                          setProfile(newProfile as any);
-                        }}
-                        onBlur={async () => {
-                          if (profile?.bio !== undefined) {
-                            try {
-                              await updateProfile({ bio: profile.bio });
-                            } catch (error) {
-                              alert('소개 저장에 실패했습니다.');
-                            }
-                          }
-                        }}
-                        rows={3}
-                      />
-                    </div>
-                  </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+            <Card>
+              <CardHeader>
+                <CardTitle>친구 목록 ({friends.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {friends.length === 0 ? (
+                  <p className="text-muted-foreground">친구가 없습니다.</p>
                 ) : (
                   <div className="space-y-2">
-                    {profile?.bio && (
-                      <p className="text-sm text-muted-foreground">{profile.bio}</p>
-                    )}
-                    {!profile?.bio && (
-                      <p className="text-sm text-muted-foreground">소개가 없습니다.</p>
-                    )}
+                    {friends.map((friend) => {
+                      const friendUser = (friend.requester_id === user?.id ? friend.addressee : friend.requester) || null;
+                      return (
+                        <div key={friend.id} className="flex items-center justify-between p-2 border rounded">
+                          <span>{friendUser?.nickname || friendUser?.email || '익명'}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (friendUser) {
+                                fetchMessages(friendUser.id);
+                                // 메시지 탭으로 전환
+                                const tabsList = document.querySelector('[role="tablist"]');
+                                const messageTab = Array.from(tabsList?.children || []).find(
+                                  (tab: any) => tab.textContent?.includes('쪽지')
+                                ) as HTMLElement;
+                                messageTab?.click();
+                              }
+                            }}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            쪽지
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
             </Card>
-
-            {/* 오른쪽: 도네이션 박스 (같은 사이즈) */}
-            {isOwnProfile && (
+            {blockedUsers.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl mb-2">개발자를 위한 커피 한 잔 ☕</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
-                  </p>
+                  <CardTitle>차단한 사용자 ({blockedUsers.length})</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent>
                   <div className="space-y-2">
-                    <div>
-                      <Label className="text-sm font-medium">은행 및 계좌번호</Label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="font-mono text-base flex-1">
-                          {donationBankName} {donationAccountNumber}
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard
-                              .writeText(donationAccountNumber)
-                              .then(() => {
-                                setDonationCopied(true);
-                                setTimeout(() => setDonationCopied(false), 2000);
-                              })
-                              .catch(() => {
-                                alert('계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.');
-                              });
-                          }}
-                        >
-                          {donationCopied ? '복사됨' : '복사'}
-                        </Button>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">예금주</Label>
-                      <p className="text-sm text-muted-foreground mt-1">{donationAccountHolder}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setDonationShowQR(true)}
-                    >
-                      QR 코드 보기
-                    </Button>
-                  </div>
-                  <div className="pt-4 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      피드백과 문의도 언제나 환영입니다.
-                    </p>
+                    {blockedUsers.map((blocked) => {
+                      const blockedUser = (blocked.requester_id === user?.id ? blocked.addressee : blocked.requester) || null;
+                      return (
+                        <div key={blocked.id} className="flex items-center justify-between p-2 border rounded">
+                          <span>{blockedUser?.nickname || blockedUser?.email || '익명'}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (blockedUser) {
+                                handleUnblockUser(blockedUser.id);
+                              }
+                            }}
+                          >
+                            차단 해제
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
             )}
           </div>
-        </div>
+          </TabsContent>
+        )}
 
-        {/* 통계 및 기능 탭 (자신의 프로필일 때만) */}
         {isOwnProfile && (
-          <Tabs defaultValue="stats" className="mb-6">
-            <TabsList>
-              <TabsTrigger value="stats">통계</TabsTrigger>
-              <TabsTrigger value="friends">친구</TabsTrigger>
-              <TabsTrigger value="messages">쪽지</TabsTrigger>
-              <TabsTrigger value="prds">PRD</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="stats" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>활동 통계</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div className="text-center p-4 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors" onClick={() => handleOpenPostsDialog('my')}>
-                      <div className="text-2xl font-bold mb-1">{stats.posts}</div>
-                      <div className="text-sm text-muted-foreground">게시글</div>
-                    </div>
-                    <div className="text-center p-4 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors" onClick={handleOpenCommentsDialog}>
-                      <div className="text-2xl font-bold mb-1">{stats.comments}</div>
-                      <div className="text-sm text-muted-foreground">댓글</div>
-                    </div>
-                    <div className="text-center p-4 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors" onClick={() => handleOpenPostsDialog('liked')}>
-                      <div className="text-2xl font-bold mb-1">{stats.likes}</div>
-                      <div className="text-sm text-muted-foreground">좋아요</div>
-                    </div>
-                    <div className="text-center p-4 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors" onClick={() => handleOpenPostsDialog('bookmarked')}>
-                      <div className="text-2xl font-bold mb-1">{stats.bookmarks}</div>
-                      <div className="text-sm text-muted-foreground">북마크</div>
-                    </div>
-                    <div className="text-center p-4 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors" onClick={handleOpenPrdsDialog}>
-                      <div className="text-2xl font-bold mb-1">{stats.prds}</div>
-                      <div className="text-sm text-muted-foreground">PRD</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="friends">
-              <Card>
-                <CardHeader>
-                  <CardTitle>친구 목록</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {friends.length === 0 ? (
-                    <p className="text-muted-foreground">친구가 없습니다.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {friends.map((friend) => {
-                        const friendUser = (friend.requester_id === user?.id ? friend.addressee : friend.requester) || null;
-                        return (
-                          <div key={friend.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <div className="font-medium">{friendUser?.nickname || friendUser?.email || '익명'}</div>
-                                <div className="text-sm text-muted-foreground">{friendUser?.email || ''}</div>
-                              </div>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (friendUser) {
-                                  navigate(`/profile/${friendUser.id}`);
-                                }
-                              }}
-                            >
-                              프로필 보기
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>친구 요청</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {friendRequests.length === 0 ? (
-                    <p className="text-muted-foreground">받은 친구 요청이 없습니다.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {friendRequests.map((request) => (
-                        <div key={request.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{request.sender_nickname || request.sender_email}</div>
-                              <div className="text-sm text-muted-foreground">{request.sender_email}</div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAcceptFriendRequest(request.id)}
-                            >
-                              수락
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteFriendRequest(request.id)}
-                            >
-                              거절
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {blockedUsers.length > 0 && (
-                <Card className="mt-4">
-                  <CardHeader>
-                    <CardTitle>차단한 사용자 ({blockedUsers.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {blockedUsers.map((blocked) => {
-                        const blockedUser = (blocked.requester_id === user?.id ? blocked.addressee : blocked.requester) || null;
-                        return (
-                          <div key={blocked.id} className="flex items-center justify-between p-2 border rounded">
-                            <span>{blockedUser?.nickname || blockedUser?.email || '익명'}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                if (blockedUser) {
-                                  handleUnblockUser(blockedUser.id);
-                                }
-                              }}
-                            >
-                              차단 해제
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="messages">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <TabsContent value="messages">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="md:col-span-1">
               <CardHeader>
                 <CardTitle>대화 목록</CardTitle>
@@ -943,56 +954,106 @@ export function ProfilePage() {
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-center py-12">
-                    대화를 선택하세요
+                    왼쪽에서 대화를 선택하세요.
                   </p>
                 )}
               </CardContent>
             </Card>
-          </div>
-            </TabsContent>
+            </div>
+          </TabsContent>
+        )}
 
-            <TabsContent value="prds">
-              <Card>
-                <CardHeader>
-                  <CardTitle>내 PRD</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {prdsList.length === 0 ? (
-                    <p className="text-muted-foreground">생성한 PRD가 없습니다.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {prdsList.map((prd) => (
-                        <div key={prd.id} className="p-4 bg-secondary rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-semibold">{prd.title}</h3>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeletePRD(prd.id)}
-                            >
-                              삭제
-                            </Button>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {prd.status} · {new Date(prd.created_at).toLocaleDateString('ko-KR')}
-                          </p>
+        {isOwnProfile && (
+          <TabsContent value="prds">
+            <Card>
+              <CardHeader>
+                <CardTitle>내 PRD</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingPrds ? (
+                  <p className="text-muted-foreground">로딩 중...</p>
+                ) : prdsList.length === 0 ? (
+                  <p className="text-muted-foreground">생성한 PRD가 없습니다.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {prdsList.map((prd) => (
+                      <div key={prd.id} className="p-4 bg-secondary rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold">{prd.title}</h3>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setSelectedPrd(prd)}
+                            onClick={() => handleDeletePRD(prd.id)}
                           >
-                            보기
+                            삭제
                           </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {prd.status} · {new Date(prd.created_at).toLocaleDateString('ko-KR')}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedPrd(prd)}
+                        >
+                          보기
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         )}
-      </div>
+      </Tabs>
+
+      <Dialog open={prdsDialogOpen} onOpenChange={setPrdsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>생성한 PRD</DialogTitle>
+          </DialogHeader>
+          {loadingPrds ? (
+            <p className="text-muted-foreground">로딩 중...</p>
+          ) : prdsList.length === 0 ? (
+            <p className="text-muted-foreground">PRD가 없습니다.</p>
+          ) : (
+            <div className="space-y-4">
+              {prdsList.map((prd) => (
+                <Card key={prd.id}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{prd.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(prd.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPrdsDialogOpen(false);
+                          setSelectedPrd(prd);
+                        }}
+                      >
+                        보기
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeletePRD(prd.id)}
+                      >
+                        삭제
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* 게시글 목록 다이얼로그 */}
       <Dialog open={postsDialogOpen} onOpenChange={setPostsDialogOpen}>
@@ -1098,7 +1159,7 @@ export function ProfilePage() {
                     </div>
                   </CardContent>
                 </Card>
-              )}
+              ))}
             </div>
           )}
         </DialogContent>
