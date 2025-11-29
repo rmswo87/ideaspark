@@ -59,7 +59,14 @@ function HomePage() {
       subredditFilter,
       sortOption,
       debouncedSearchQuery,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      location: window.location.href,
+      env: {
+        mode: import.meta.env.MODE,
+        isVercel: import.meta.env.VITE_VERCEL === 'true',
+        isGitHubPages: import.meta.env.VITE_GITHUB_PAGES === 'true'
+      }
     });
   }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery]);
 
@@ -73,6 +80,11 @@ function HomePage() {
     };
     
     console.log('[필터 디버깅] getIdeas 호출:', filters);
+    console.log('[필터 디버깅] 환경:', {
+      isVercel: import.meta.env.VITE_VERCEL === 'true',
+      isGitHubPages: import.meta.env.VITE_GITHUB_PAGES === 'true',
+      env: import.meta.env.MODE
+    });
     setLoading(true);
     
     try {
@@ -90,12 +102,16 @@ function HomePage() {
     }
   }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery]);
 
-  // 아이디어 목록 가져오기
+  // 아이디어 목록 가져오기 - 필터 변경 시 즉시 반영
   useEffect(() => {
     fetchIdeas();
+  }, [fetchIdeas])
+
+  // 통계와 서브레딧 목록은 초기 로드 시에만 가져오기
+  useEffect(() => {
     fetchStats();
     fetchSubreddits();
-  }, [fetchIdeas])
+  }, [])
 
   async function fetchSubreddits() {
     try {
@@ -145,18 +161,18 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>IdeaSpark</h1>
-              <nav className="flex gap-2">
+      {/* Header - 모바일 최적화 */}
+      <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+              <h1 className="text-xl sm:text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>IdeaSpark</h1>
+              <nav className="flex gap-1 sm:gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
-                  className={location.pathname === '/' ? 'font-semibold bg-secondary' : ''}
+                  className={`text-xs sm:text-sm ${location.pathname === '/' ? 'font-semibold bg-secondary' : ''}`}
                 >
                   아이디어
                 </Button>
@@ -164,7 +180,7 @@ function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/community')}
-                  className={location.pathname.includes('/community') ? 'font-semibold bg-secondary' : ''}
+                  className={`text-xs sm:text-sm ${location.pathname.includes('/community') ? 'font-semibold bg-secondary' : ''}`}
                 >
                   커뮤니티
                 </Button>
@@ -172,12 +188,13 @@ function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/contact')}
+                  className="text-xs sm:text-sm"
                 >
                   문의 / 피드백
                 </Button>
               </nav>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end">
               {user ? (
                 <>
                   {isAdmin && (
@@ -185,18 +202,20 @@ function HomePage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate('/admin')}
+                      className="text-xs sm:text-sm"
                     >
-                      <Shield className="h-4 w-4 mr-2" />
-                      관리자
+                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">관리자</span>
                     </Button>
                   )}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/profile')}
+                    className="text-xs sm:text-sm"
                   >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    프로필
+                    <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">프로필</span>
                   </Button>
                   <Button
                     variant="ghost"
@@ -205,9 +224,10 @@ function HomePage() {
                       await supabase.auth.signOut()
                       navigate('/auth')
                     }}
+                    className="text-xs sm:text-sm"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    로그아웃
+                    <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">로그아웃</span>
                   </Button>
                 </>
               ) : (
@@ -215,8 +235,9 @@ function HomePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/auth')}
+                  className="text-xs sm:text-sm"
                 >
-                  <UserIcon className="h-4 w-4 mr-2" />
+                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   로그인
                 </Button>
               )}
@@ -225,11 +246,11 @@ function HomePage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 space-y-4">
+      {/* Main Content - 모바일 최적화 */}
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="mb-6 sm:mb-8 space-y-3 sm:space-y-4">
           <div>
-            <h2 className="text-3xl font-bold mb-2">아이디어 대시보드</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2">아이디어 대시보드</h2>
           </div>
 
           {/* Stats */}
@@ -272,7 +293,7 @@ function HomePage() {
                   placeholder="아이디어 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 min-h-[44px] text-base sm:text-sm"
                 />
               </div>
               <Button 
@@ -285,11 +306,11 @@ function HomePage() {
               </Button>
             </div>
 
-            {/* 필터 그룹 */}
-            <div className="flex flex-wrap gap-4">
+            {/* 필터 그룹 - 모바일 최적화 */}
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
               {/* 카테고리 필터 */}
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-full sm:w-[160px] min-h-[44px] touch-manipulation">
                   <SelectValue placeholder="카테고리" />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,7 +326,7 @@ function HomePage() {
 
               {/* 서브레딧 필터 */}
               <Select value={subredditFilter} onValueChange={setSubredditFilter}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px] min-h-[44px] touch-manipulation">
                   <SelectValue placeholder="서브레딧" />
                 </SelectTrigger>
                 <SelectContent>
@@ -320,7 +341,7 @@ function HomePage() {
 
               {/* 정렬 옵션 */}
               <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'subreddit') => setSortOption(value)}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px] min-h-[44px] touch-manipulation">
                   <SelectValue placeholder="정렬" />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,7 +375,7 @@ function HomePage() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {ideas.map((idea) => (
               <IdeaCard
                 key={idea.id}
