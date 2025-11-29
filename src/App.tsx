@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { DonationFooter } from '@/components/DonationFooter'
 
 function HomePage() {
   const { user } = useAuth()
@@ -50,94 +51,81 @@ function HomePage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  const fetchIdeas = useCallback(async () => {
+  // 아이디어 목록 로드
+  const loadIdeas = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getIdeas({
-        category: categoryFilter === 'all' ? undefined : categoryFilter,
-        subreddit: subredditFilter === 'all' ? undefined : subredditFilter,
-        sort: sortOption,
-        limit: 50,
+      const fetchedIdeas = await getIdeas({
         search: debouncedSearchQuery || undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        subreddit: subredditFilter !== 'all' ? subredditFilter : undefined,
+        sort: sortOption
       })
-      setIdeas(data)
+      setIdeas(fetchedIdeas)
     } catch (error) {
-      console.error('Error fetching ideas:', error)
-      // 에러 발생 시 빈 배열로 설정
-      setIdeas([])
+      console.error('Error loading ideas:', error)
     } finally {
       setLoading(false)
     }
-  }, [categoryFilter, subredditFilter, sortOption, debouncedSearchQuery])
+  }, [debouncedSearchQuery, categoryFilter, subredditFilter, sortOption])
 
-  // 아이디어 목록 가져오기
   useEffect(() => {
-    let isMounted = true;
-    
-    async function fetchIdeasSafe() {
-      if (!isMounted) return;
-      await fetchIdeas();
-    }
-    
-    fetchIdeasSafe();
-    fetchStats();
-    fetchSubreddits();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchIdeas])
+    loadIdeas()
+  }, [loadIdeas])
 
-  async function fetchSubreddits() {
-    try {
-      const data = await getSubreddits()
-      setSubreddits(data)
-    } catch (error) {
-      console.error('Error fetching subreddits:', error)
+  // 통계 로드
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const statsData = await getIdeaStats()
+        setStats(statsData)
+      } catch (error) {
+        console.error('Error loading stats:', error)
+      }
     }
-  }
+    loadStats()
+  }, [])
 
-  async function fetchStats() {
-    try {
-      const statsData = await getIdeaStats()
-      setStats(statsData)
-    } catch (error) {
-      console.error('Error fetching stats:', error)
+  // 서브레딧 목록 로드
+  useEffect(() => {
+    const loadSubreddits = async () => {
+      try {
+        const subredditList = await getSubreddits()
+        setSubreddits(subredditList)
+      } catch (error) {
+        console.error('Error loading subreddits:', error)
+      }
     }
-  }
+    loadSubreddits()
+  }, [])
 
-  async function handleCollectIdeas() {
+  const handleCollectIdeas = async () => {
     setCollecting(true)
     try {
       await collectIdeas()
-      await fetchIdeas()
-      await fetchStats()
-      await fetchSubreddits()
+      await loadIdeas()
     } catch (error) {
       console.error('Error collecting ideas:', error)
-      alert('아이디어 수집에 실패했습니다.')
+      alert('아이디어 수집 중 오류가 발생했습니다.')
     } finally {
       setCollecting(false)
     }
   }
 
-  function formatDate(dateString: string): string {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
+    return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+      {/* Header */}
+      <header className="border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>IdeaSpark</h1>
-              <div className="flex items-center gap-2">
+              <nav className="flex gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -154,19 +142,11 @@ function HomePage() {
                 >
                   커뮤니티
                 </Button>
-              </div>
+              </nav>
             </div>
             <div className="flex items-center gap-2">
               {user ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/profile')}
-                  >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    프로필
-                  </Button>
                   {isAdmin && (
                     <Button
                       variant="ghost"
@@ -178,11 +158,19 @@ function HomePage() {
                     </Button>
                   )}
                   <Button
-                    variant="outline"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <UserIcon className="h-4 w-4 mr-2" />
+                    프로필
+                  </Button>
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={async () => {
                       await supabase.auth.signOut()
-                      navigate('/')
+                      navigate('/auth')
                     }}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
@@ -191,11 +179,10 @@ function HomePage() {
                 </>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() => navigate('/auth')}
                 >
-                  <UserIcon className="h-4 w-4 mr-2" />
                   로그인
                 </Button>
               )}
@@ -204,91 +191,45 @@ function HomePage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 space-y-4">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">아이디어 대시보드</h2>
-          </div>
-
-          {/* Stats */}
-          {stats.total > 0 && (
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
-              <span className="font-medium">총 {stats.total}개 아이디어</span>
-              {Object.entries(stats.byCategory).length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  <span className="font-medium">카테고리:</span>
-                  {Object.entries(stats.byCategory).map(([cat, count]) => (
-                    <span key={cat} className="px-2 py-0.5 bg-secondary rounded text-xs">
-                      {cat} ({count})
-                    </span>
-                  ))}
-                </div>
-              )}
-              {Object.entries(stats.bySubreddit || {}).length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  <span className="font-medium">서브레딧:</span>
-                  {Object.entries(stats.bySubreddit || {})
-                    .sort(([, a], [, b]) => (b as number) - (a as number))
-                    .slice(0, 5)
-                    .map(([sub, count]) => (
-                      <span key={sub} className="px-2 py-0.5 bg-secondary rounded text-xs">
-                        r/{sub} ({count})
-                      </span>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Search and Filter */}
-          <div className="space-y-4">
-            {/* 검색 및 기본 필터 */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1 max-w-md">
+        {/* 검색 및 필터 */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex-1">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
+                  type="text"
                   placeholder="아이디어 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
-              <Button 
-                onClick={handleCollectIdeas} 
-                disabled={collecting}
-                variant="outline"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${collecting ? 'animate-spin' : ''}`} />
-                {collecting ? '수집 중...' : '아이디어 수집'}
-              </Button>
             </div>
-
-            {/* 필터 그룹 */}
-            <div className="flex flex-wrap gap-4">
+            <div className="flex gap-2">
               {/* 카테고리 필터 */}
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="카테고리" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체 카테고리</SelectItem>
-                  <SelectItem value="development">개발</SelectItem>
-                  <SelectItem value="design">디자인</SelectItem>
-                  <SelectItem value="business">비즈니스</SelectItem>
-                  <SelectItem value="education">교육</SelectItem>
-                  <SelectItem value="product">제품</SelectItem>
-                  <SelectItem value="general">일반</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
+                  {Object.keys(stats.byCategory).map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category} ({stats.byCategory[category]})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
               {/* 서브레딧 필터 */}
               <Select value={subredditFilter} onValueChange={setSubredditFilter}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="서브레딧" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체 서브레딧</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
                   {subreddits.map((subreddit) => (
                     <SelectItem key={subreddit} value={subreddit}>
                       r/{subreddit}
@@ -304,7 +245,7 @@ function HomePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="latest">최신순</SelectItem>
-                  <SelectItem value="popular">인기순</SelectItem>
+                  <SelectItem value="popular">추천순</SelectItem>
                   <SelectItem value="subreddit">서브레딧순</SelectItem>
                 </SelectContent>
               </Select>
@@ -345,6 +286,7 @@ function HomePage() {
           </div>
         )}
       </main>
+      <DonationFooter />
     </div>
   )
 }
