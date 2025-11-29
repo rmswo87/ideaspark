@@ -371,9 +371,11 @@ function HomePage() {
 }
 
 function App() {
-  // Vercel과 GitHub Pages 모두 동일한 루트 경로 사용
-  // Vercel 배포 환경은 건드리지 않고, GitHub Pages도 동일하게 설정
-  const basename = undefined;
+  // Vercel과 GitHub Pages 배포 환경 구분
+  // Vercel: 루트 경로 (/) - 프로덕션 환경
+  // GitHub Pages: /ideaspark/ - 테스트/이중화 환경
+  // 두 환경 모두 동일한 코드베이스 사용, 환경 변수로 구분
+  const basename = import.meta.env.VITE_GITHUB_PAGES === 'true' ? '/ideaspark' : undefined;
   
   return (
     <ErrorBoundary>
