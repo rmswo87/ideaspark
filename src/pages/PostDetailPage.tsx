@@ -5,7 +5,9 @@ import { getPost, toggleLike, toggleBookmark, isLiked, isBookmarked, deletePost,
 import { CommentSection } from '@/components/CommentSection';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Heart, Bookmark, Trash2, Calendar, User, UserPlus, MessageSquare, Edit2, Save, X } from 'lucide-react';
+import { ArrowLeft, Heart, Bookmark, Trash2, Calendar, User, UserPlus, MessageSquare, Edit2, Save, X, Tag } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { sendFriendRequest, getFriendStatus } from '@/services/friendService';
 import { sendMessage } from '@/services/messageService';
@@ -32,6 +34,8 @@ export function PostDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editTagsInput, setEditTagsInput] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
@@ -70,6 +74,8 @@ export function PostDetailPage() {
       if (postData) {
         setEditTitle(postData.title);
         setEditContent(postData.content);
+        setEditCategory(postData.category);
+        setEditTagsInput(postData.tags?.join(', ') || '');
       }
 
       if (user && postData) {
@@ -166,6 +172,8 @@ export function PostDetailPage() {
     if (!post) return;
     setEditTitle(post.title);
     setEditContent(post.content);
+    setEditCategory(post.category);
+    setEditTagsInput(post.tags?.join(', ') || '');
     setIsEditing(true);
   }
 
@@ -173,6 +181,8 @@ export function PostDetailPage() {
     if (!post) return;
     setEditTitle(post.title);
     setEditContent(post.content);
+    setEditCategory(post.category);
+    setEditTagsInput(post.tags?.join(', ') || '');
     setIsEditing(false);
   }
 
@@ -186,9 +196,17 @@ export function PostDetailPage() {
 
     setSavingEdit(true);
     try {
+      // 태그 배열로 변환
+      const tags = editTagsInput
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+
       const updated = await updatePost(id, {
         title: editTitle.trim(),
         content: editContent,
+        category: editCategory,
+        tags: tags.length > 0 ? tags : undefined,
       });
       setPost(updated);
       setIsEditing(false);
@@ -288,7 +306,7 @@ export function PostDetailPage() {
               ) : (
                 <CardTitle className="mb-2">{post.title}</CardTitle>
               )}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
                   <User className="h-4 w-4" />
                   {post.anonymous_id || authorProfile?.nickname || post.user?.email || '익명'}
@@ -297,9 +315,34 @@ export function PostDetailPage() {
                   <Calendar className="h-4 w-4" />
                   {formatDate(post.created_at)}
                 </span>
-                <span className="px-2 py-1 bg-secondary rounded-md text-xs">
-                  {post.category}
-                </span>
+                {isEditing ? (
+                  <Select value={editCategory} onValueChange={setEditCategory}>
+                    <SelectTrigger className="w-[120px] h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="자유">자유</SelectItem>
+                      <SelectItem value="질문">질문</SelectItem>
+                      <SelectItem value="정보">정보</SelectItem>
+                      <SelectItem value="후기">후기</SelectItem>
+                      <SelectItem value="기타">기타</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="px-2 py-1 bg-secondary rounded-md text-xs">
+                    {post.category}
+                  </span>
+                )}
+                {!isEditing && post.tags && post.tags.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                  {post.tags.map((tag: string) => (
+                    <span key={tag} className="px-2 py-0.5 bg-primary/10 text-primary rounded-md text-xs flex items-center gap-1">
+                      <Tag className="h-3 w-3" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                )}
                 {!isOwner && authorProfile?.is_public && (
                   <div className="flex items-center gap-2 ml-auto">
                     {canAddFriend && (
@@ -400,7 +443,20 @@ export function PostDetailPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-6">
+          <div className="mb-6 space-y-4">
+            {isEditing && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">태그 (쉼표로 구분)</label>
+                <Input
+                  placeholder="예: 개발, React, TypeScript"
+                  value={editTagsInput}
+                  onChange={(e) => setEditTagsInput(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  태그는 쉼표로 구분하여 입력하세요.
+                </p>
+              </div>
+            )}
             {isEditing ? (
               <Textarea
                 value={editContent}
