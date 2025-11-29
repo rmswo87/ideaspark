@@ -5,9 +5,6 @@ values
   ('post-images', 'post-images', true)
 on conflict (id) do nothing;
 
--- Enable RLS on storage.objects (safety)
-alter table storage.objects enable row level security;
-
 -- Remove existing conflicting policies
 drop policy if exists "Public read for avatars" on storage.objects;
 drop policy if exists "Public read for post images" on storage.objects;
