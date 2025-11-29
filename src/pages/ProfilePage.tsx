@@ -266,7 +266,7 @@ export function ProfilePage() {
     if (!file || !user || !isOwnProfile) return;
 
     // 파일 유효성 검사
-    if (!file.type.startswith('image/')) {
+    if (!file.type.startsWith('image/')) {
       alert('이미지 파일만 업로드 가능합니다.');
       return;
     }
@@ -614,16 +614,16 @@ export function ProfilePage() {
                     id="is_public"
                     checked={profile?.is_public || false}
                     disabled={!user || !profile}
-                    onCheckedChange={(checked: boolean) => {
+                    onCheckedChange={async (checked: boolean) => {
                       if (!user || !profile) return;
-                      updateProfile({ is_public: checked === true })
-                        .then(() => {
-                          setProfile({ ...profile, is_public: checked === true });
-                        })
-                        .catch((error: any) => {
-                          console.error('프로필 업데이트 오류:', error);
-                          alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-                        });
+                      try {
+                        await updateProfile({ is_public: checked === true });
+                        // 성공 시 프로필 상태 업데이트
+                        setProfile({ ...profile, is_public: checked === true });
+                      } catch (error: any) {
+                        console.error('프로필 업데이트 오류:', error);
+                        alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+                      }
                     }}
                   />
                   <Label htmlFor="is_public" className="cursor-pointer">
@@ -640,11 +640,13 @@ export function ProfilePage() {
                       const newProfile = { ...profile, nickname: e.target.value };
                       setProfile(newProfile as any);
                     }}
-                    onBlur={() => {
+                    onBlur={async () => {
                       if (profile?.nickname !== undefined) {
-                        updateProfile({ nickname: profile.nickname }).catch(() => {
+                        try {
+                          await updateProfile({ nickname: profile.nickname });
+                        } catch (error) {
                           alert('닉네임 저장에 실패했습니다.');
-                        });
+                        }
                       }
                     }}
                   />
@@ -659,11 +661,13 @@ export function ProfilePage() {
                       const newProfile = { ...profile, bio: e.target.value };
                       setProfile(newProfile as any);
                     }}
-                    onBlur={() => {
+                    onBlur={async () => {
                       if (profile?.bio !== undefined) {
-                        updateProfile({ bio: profile.bio }).catch(() => {
+                        try {
+                          await updateProfile({ bio: profile.bio });
+                        } catch (error) {
                           alert('소개 저장에 실패했습니다.');
-                        });
+                        }
                       }
                     }}
                     rows={3}
@@ -719,7 +723,7 @@ export function ProfilePage() {
 
             <Card 
               className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={handleOpenCommentsDialog}
+              onClick={() => handleOpenCommentsDialog()}
             >
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -911,7 +915,7 @@ export function ProfilePage() {
                               <span>{formatDate(comment.created_at)}</span>
                             </div>
                           </div>
-                          {/* 댓글 삭제는 추후 전용 관리 UI에서 제공 예정 */}
+                          {/* TODO: 댓글 삭제 기능은 추후 전용 관리 페이지에서 제공 예정 */}
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -1068,7 +1072,7 @@ export function ProfilePage() {
                         </p>
                       )}
                     </div>
-                  ))}
+                  ))
                 )}
               </CardContent>
             </Card>
