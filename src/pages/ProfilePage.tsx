@@ -282,10 +282,38 @@ export function ProfilePage() {
     if (!user) return;
 
     try {
-      const convs = await getConversations();
-      setConversations(convs);
+      const data = await getConversations();
+      setConversations(data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
+    }
+  }
+
+  async function fetchMessages(userId: string) {
+    if (!user) return;
+
+    try {
+      const data = await getConversation(userId);
+      setMessages(data.reverse()); // 최신 메시지가 아래에 오도록
+      setSelectedConversation(userId);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  }
+
+  async function handleSendMessage(receiverId: string) {
+    if (!messageContent.trim()) return;
+
+    setSendingMessage(true);
+    try {
+      await sendMessage(receiverId, messageContent);
+      setMessageContent('');
+      await fetchMessages(receiverId);
+      await fetchConversations();
+    } catch (error: any) {
+      alert(error.message || '쪽지 전송에 실패했습니다.');
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -371,109 +399,6 @@ export function ProfilePage() {
       alert('차단을 해제했습니다.');
     } catch (error: any) {
       alert(error.message || '차단 해제에 실패했습니다.');
-    }
-  }
-
-  async function handleOpenConversation(conversationId: string) {
-    if (!user) return;
-
-    setSelectedConversation(conversationId);
-    try {
-      const conversation = await getConversation(conversationId);
-      setMessages(conversation.messages || []);
-    } catch (error) {
-      console.error('Error fetching conversation:', error);
-    }
-  }
-
-  async function handleSendMessage() {
-    if (!user || !selectedConversation || !messageContent.trim()) return;
-
-    setSendingMessage(true);
-    try {
-      const conversation = await getConversation(selectedConversation);
-      const otherUserId = conversation.participants.find(p => p.id !== user.id)?.id;
-      if (!otherUserId) {
-        alert('대화 상대를 찾을 수 없습니다.');
-        return;
-      }
-      await sendMessage(otherUserId, messageContent);
-      setMessageContent('');
-      await handleOpenConversation(selectedConversation);
-      await fetchConversations();
-    } catch (error: any) {
-      alert(error.message || '쪽지 전송에 실패했습니다.');
-    } finally {
-      setSendingMessage(false);
-    }
-  }
-
-  async function handleOpenPostsDialog(type: 'my' | 'liked' | 'bookmarked') {
-    if (!user) return;
-
-    setPostsDialogType(type);
-    setPostsDialogOpen(true);
-    setLoadingPosts(true);
-    try {
-      let posts: Post[] = [];
-      if (type === 'my') {
-        posts = await getMyPosts();
-      } else if (type === 'liked') {
-        posts = await getLikedPosts();
-      } else if (type === 'bookmarked') {
-        posts = await getBookmarkedPosts();
-      }
-      setPostsList(posts);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-      setPostsList([]);
-    } finally {
-      setLoadingPosts(false);
-    }
-  }
-
-  async function handleOpenCommentsDialog() {
-    if (!user) return;
-
-    setCommentsDialogOpen(true);
-    setLoadingComments(true);
-    try {
-      const comments = await getMyComments();
-      setCommentsList(comments);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-      setCommentsList([]);
-    } finally {
-      setLoadingComments(false);
-    }
-  }
-
-  async function handleOpenPrdsDialog() {
-    if (!user) return;
-
-    setPrdsDialogOpen(true);
-    setLoadingPrds(true);
-    try {
-      const prds = await getPRDs();
-      const myPrds = prds.filter(prd => prd.user_id === user.id);
-      setPrdsList(myPrds);
-    } catch (error) {
-      console.error('Error fetching PRDs:', error);
-      setPrdsList([]);
-    } finally {
-      setLoadingPrds(false);
-    }
-  }
-
-  async function handleDeletePRD(prdId: string) {
-    if (!user || !confirm('정말 이 PRD를 삭제하시겠습니까?')) return;
-
-    try {
-      await deletePRD(prdId);
-      await handleOpenPrdsDialog();
-      alert('PRD가 삭제되었습니다.');
-    } catch (error: any) {
-      alert(error.message || 'PRD 삭제에 실패했습니다.');
     }
   }
 
@@ -854,88 +779,103 @@ export function ProfilePage() {
             </TabsContent>
 
             <TabsContent value="messages">
-              <Card>
-                <CardHeader>
-                  <CardTitle>쪽지</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {conversations.length === 0 ? (
-                    <p className="text-muted-foreground">받은 쪽지가 없습니다.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {conversations.map((conv) => (
-                        <div
-                          key={conv.id}
-                          className="flex items-center justify-between p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors"
-                          onClick={() => handleOpenConversation(conv.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{conv.participant?.nickname || conv.participant?.email || '익명'}</div>
-                              <div className="text-sm text-muted-foreground line-clamp-1">
-                                {conv.lastMessage?.content || '메시지 없음'}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {conv.lastMessage?.created_at
-                              ? new Date(conv.lastMessage.created_at).toLocaleDateString('ko-KR')
-                              : ''}
-                          </div>
-                        </div>
-                      ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle>대화 목록</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 max-h-[600px] overflow-y-auto">
+                {conversations.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">대화가 없습니다.</p>
+                ) : (
+                  conversations.map((conv) => (
+                    <div
+                      key={conv.user.id}
+                      className={`p-3 border rounded cursor-pointer hover:bg-accent ${
+                        selectedConversation === conv.user.id ? 'bg-accent' : ''
+                      }`}
+                      onClick={() => fetchMessages(conv.user.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          {conv.user.nickname || conv.user.email}
+                        </span>
+                        {conv.unreadCount > 0 && (
+                          <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                            {conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      {conv.lastMessage && (
+                        <p className="text-sm text-muted-foreground truncate mt-1">
+                          {conv.lastMessage.content}
+                        </p>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {selectedConversation && (
-                <Card className="mt-4">
-                  <CardHeader>
-                    <CardTitle>대화</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
+                  ))
+                )}
+              </CardContent>
+            </Card>
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>
+                  {selectedConversation
+                    ? (() => {
+                        const conv = conversations.find(c => c.user.id === selectedConversation);
+                        return conv?.user.nickname || conv?.user.email || '대화';
+                      })()
+                    : '대화를 선택하세요'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedConversation ? (
+                  <div className="flex flex-col h-[600px]">
+                    <div className="flex-1 overflow-y-auto space-y-2 mb-4">
                       {messages.map((msg) => (
                         <div
                           key={msg.id}
-                          className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                          className={`p-2 rounded ${
+                            msg.sender_id === user?.id
+                              ? 'bg-primary text-primary-foreground ml-auto max-w-[80%]'
+                              : 'bg-secondary mr-auto max-w-[80%]'
+                          }`}
                         >
-                          <div
-                            className={`max-w-[70%] p-3 rounded-lg ${
-                              msg.sender_id === user?.id
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-secondary'
-                            }`}
-                          >
-                            <div className="text-sm">{msg.content}</div>
-                            <div className="text-xs mt-1 opacity-70">
-                              {new Date(msg.created_at).toLocaleString('ko-KR')}
-                            </div>
-                          </div>
+                          <p className="text-sm">{msg.content}</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            {new Date(msg.created_at).toLocaleString('ko-KR')}
+                          </p>
                         </div>
                       ))}
                     </div>
                     <div className="flex gap-2">
                       <Textarea
+                        placeholder="쪽지를 입력하세요"
                         value={messageContent}
                         onChange={(e) => setMessageContent(e.target.value)}
-                        placeholder="메시지를 입력하세요..."
-                        rows={2}
+                        rows={3}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(selectedConversation);
+                          }
+                        }}
                       />
                       <Button
-                        onClick={handleSendMessage}
+                        onClick={() => handleSendMessage(selectedConversation)}
                         disabled={sendingMessage || !messageContent.trim()}
                       >
-                        {sendingMessage ? '전송 중...' : '전송'}
+                        전송
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-12">
+                    대화를 선택하세요
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
             </TabsContent>
 
             <TabsContent value="prds">
