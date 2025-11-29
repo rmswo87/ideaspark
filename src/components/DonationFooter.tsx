@@ -10,13 +10,13 @@ export function DonationFooter() {
   const [showQR, setShowQR] = useState(false);
   const [qrError, setQrError] = useState(false);
 
-  // 계좌번호 (실제 계좌번호로 교체 필요)
-  const accountNumber = '123-456-789012';
+  // 계좌번호
+  const accountNumber = '3333258583773';
   const bankName = '카카오뱅크';
-  const accountHolder = '홍길동';
+  const accountHolder = '자취만렙';
 
-  // QR 코드 이미지 URL (실제 QR 코드 이미지로 교체 필요)
-  const qrCodeUrl = '/qr-code-donation.png'; // public 폴더에 QR 코드 이미지 추가 필요
+  // QR 코드 이미지 URL
+  const qrCodeUrl = '/qr-code-donation.png';
 
   const handleCopyAccount = () => {
     navigator.clipboard.writeText(accountNumber).then(() => {
