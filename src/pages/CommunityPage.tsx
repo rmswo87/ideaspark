@@ -60,7 +60,7 @@ export function CommunityPage() {
     setPage(0);
     setPosts([]);
     setHasMore(true);
-    fetchPosts(true);
+    fetchPosts(0, true);
     fetchAllTags();
   }, [category, debouncedSearchQuery, selectedTags, sortOption]);
 
@@ -93,10 +93,9 @@ export function CommunityPage() {
     }
   }, [user, posts]);
 
-  async function fetchPosts(reset = false) {
+  async function fetchPosts(offset: number, reset = false) {
     if (reset) {
       setLoading(true);
-      setPage(0);
     }
 
     try {
@@ -106,7 +105,7 @@ export function CommunityPage() {
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         sort: sortOption,
         limit: POSTS_PER_PAGE,
-        offset: reset ? 0 : page * POSTS_PER_PAGE,
+        offset: offset,
       });
 
       if (reset) {
@@ -131,7 +130,8 @@ export function CommunityPage() {
     if (loadingMore || !hasMore) return;
 
     setLoadingMore(true);
-    setPage(prev => prev + 1);
+    const nextPage = page + 1;
+    setPage(nextPage);
     
     try {
       const data = await getPosts({
@@ -140,7 +140,7 @@ export function CommunityPage() {
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         sort: sortOption,
         limit: POSTS_PER_PAGE,
-        offset: (page + 1) * POSTS_PER_PAGE,
+        offset: nextPage * POSTS_PER_PAGE,
       });
 
       setPosts(prev => [...prev, ...data]);
@@ -281,7 +281,7 @@ export function CommunityPage() {
       setPage(0);
       setPosts([]);
       setHasMore(true);
-      await fetchPosts(true);
+      await fetchPosts(0, true);
       fetchAllTags();
     } catch (error) {
       console.error('Error creating post:', error);
