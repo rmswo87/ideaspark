@@ -150,7 +150,7 @@ function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
-                  className={location.pathname === '/' || location.pathname === '/ideaspark' || location.pathname === '/ideaspark/' ? 'bg-secondary' : ''}
+                  className={location.pathname === '/' || location.pathname === '/ideaspark' || location.pathname === '/ideaspark/' ? 'font-semibold bg-secondary' : ''}
                 >
                   아이디어
                 </Button>
@@ -158,7 +158,7 @@ function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/community')}
-                  className={location.pathname.includes('/community') ? 'bg-secondary' : ''}
+                  className={location.pathname.includes('/community') ? 'font-semibold bg-secondary' : ''}
                 >
                   커뮤니티
                 </Button>
