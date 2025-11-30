@@ -28,9 +28,11 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
   async function fetchStats() {
     setLoading(true);
     try {
-      // 실제로는 auth.users를 직접 조회할 수 없으므로 다른 방법 사용
-      const { data: { users } } = await supabase.auth.admin.listUsers();
-      const totalUsers = users?.length || 0;
+      // profiles 테이블에서 사용자 수 조회
+      const { count: usersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      const totalUsers = usersCount || 0;
 
       // 아이디어 수
       const { count: ideasCount } = await supabase
@@ -62,14 +64,18 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
         .limit(5);
 
       if (posts) {
-        // 사용자 이메일 가져오기
+        // profiles 테이블에서 사용자 정보 가져오기
         const postsWithUsers = await Promise.all(
           posts.map(async (post) => {
             try {
-              const { data: { user } } = await supabase.auth.admin.getUserById(post.user_id);
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('email, nickname')
+                .eq('id', post.user_id)
+                .single();
               return {
                 ...post,
-                userEmail: user?.email || '익명',
+                userEmail: profile?.email || profile?.nickname || '익명',
               };
             } catch {
               return {
@@ -92,6 +98,7 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
       if (ideas) {
         setRecentIdeas(ideas);
       }
+
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
@@ -261,3 +268,4 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
     </div>
   );
 }
+
