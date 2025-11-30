@@ -19,7 +19,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
-export function IdeaDetailPage() {
+function IdeaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<Idea | null>(null);
@@ -211,17 +211,17 @@ export function IdeaDetailPage() {
       const contentToUse = selectedProposal?.content || prd?.content;
       
       // 개발 계획서는 여러 번에 나누어서 생성되므로 진행 상황 추적
-      // ai.ts의 generateDevelopmentPlan은 내부적으로 3개 부분으로 나누어 생성합니다
+      // ai.ts의 generateDevelopmentPlan은 내부적으로 5개 부분으로 나누어 생성합니다
       // 진행 상황을 시뮬레이션하기 위해 약간의 지연을 추가합니다
       const progressInterval = setInterval(() => {
         setPlanGenerationProgress(prev => {
-          if (!prev) return { current: 0, total: 3 };
+          if (!prev) return { current: 0, total: 5 };
           if (prev.current < prev.total) {
             return { ...prev, current: prev.current + 1 };
           }
           return prev;
         });
-      }, 20000); // 20초마다 진행 상황 업데이트 (실제 생성 시간에 맞춰 조정)
+      }, 25000); // 25초마다 진행 상황 업데이트 (실제 생성 시간에 맞춰 조정)
       
       const newPlan = await generateDevelopmentPlan(id, user.id, contentToUse);
       
@@ -238,7 +238,10 @@ export function IdeaDetailPage() {
       setGeneratingPlan(false);
       setPlanGenerationProgress(null);
     } catch (error) {
-      console.error('Development plan generation error:', error);
+      // 프로덕션 환경이 아닐 때만 에러 로그 출력
+      if (import.meta.env.DEV) {
+        console.error('Development plan generation error:', error);
+      }
       if (!isMountedRef.current) return;
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -368,27 +371,13 @@ export function IdeaDetailPage() {
             <Loader2 className="h-16 w-16 animate-spin mx-auto mb-6 text-primary" />
             <h3 className="text-xl font-bold mb-3">
               {generating && 'PRD 생성 중...'}
-              {generatingPlan && (
-                <>
-                  개발 계획서 생성 중...
-                  {planGenerationProgress && (
-                    <div className="mt-2 text-sm font-normal text-muted-foreground">
-                      ({planGenerationProgress.current}/{planGenerationProgress.total} 부분 완료)
-                    </div>
-                  )}
-                </>
-              )}
+              {generatingPlan && '개발 계획서 생성 중...'}
               {generatingProposal && '제안서 생성 중...'}
             </h3>
             <p className="text-base text-muted-foreground mb-2">
-              {generatingPlan && planGenerationProgress 
-                ? `AI가 개발 계획서를 ${planGenerationProgress.total}개 부분으로 나누어 생성하고 있습니다. (${planGenerationProgress.current}/${planGenerationProgress.total} 완료)`
-                : 'AI가 문서를 생성하고 있습니다.'}
-            </p>
-            <p className="text-sm text-muted-foreground">
               {generatingPlan 
-                ? '개발 계획서는 상세하므로 여러 번에 나누어 생성합니다. 잠시만 기다려주세요.'
-                : '잠시만 기다려주세요. 보통 30초~2분 정도 소요됩니다.'}
+                ? '개발 계획서는 상세하게 작성중입니다. 잠시만 기다려주세요.'
+                : 'AI가 문서를 생성하고 있습니다. 잠시만 기다려주세요.'}
             </p>
             {generatingPlan && planGenerationProgress && (
               <div className="mt-4 w-full bg-secondary rounded-full h-2.5">
@@ -877,3 +866,5 @@ export function IdeaDetailPage() {
     </div>
   );
 }
+
+export default IdeaDetailPage;
