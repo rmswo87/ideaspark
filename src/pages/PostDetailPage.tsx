@@ -13,12 +13,14 @@ import { sendFriendRequest, getFriendStatus } from '@/services/friendService';
 import { sendMessage } from '@/services/messageService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import type { Post } from '@/services/postService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-export function PostDetailPage() {
+function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -36,6 +38,7 @@ export function PostDetailPage() {
   const [editContent, setEditContent] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editTagsInput, setEditTagsInput] = useState('');
+  const [editIsAnonymous, setEditIsAnonymous] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
@@ -76,6 +79,7 @@ export function PostDetailPage() {
         setEditContent(postData.content);
         setEditCategory(postData.category);
         setEditTagsInput(postData.tags?.join(', ') || '');
+        setEditIsAnonymous(!!postData.anonymous_id);
       }
 
       if (user && postData) {
@@ -88,16 +92,17 @@ export function PostDetailPage() {
         setBookmarked(bookmarkedStatus);
 
         // 작성자 프로필 정보 가져오기 (공개 여부 확인)
-        if (postData.user_id !== user.id) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_public, nickname')
-            .eq('id', postData.user_id)
-            .single();
-          
-          if (profile) {
-            setAuthorProfile(profile);
-            // 친구 상태 확인
+        // 자신의 게시글이 아닌 경우와 자신의 게시글인 경우 모두 프로필 로드
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_public, nickname')
+          .eq('id', postData.user_id)
+          .single();
+        
+        if (profile) {
+          setAuthorProfile(profile);
+          // 다른 사용자의 게시글인 경우에만 친구 상태 확인
+          if (postData.user_id !== user.id && profile.is_public) {
             const status = await getFriendStatus(postData.user_id);
             setFriendStatus(status);
           }
@@ -207,6 +212,7 @@ export function PostDetailPage() {
         content: editContent,
         category: editCategory,
         tags: tags.length > 0 ? tags : undefined,
+        isAnonymous: editIsAnonymous,
       });
       setPost(updated);
       setIsEditing(false);
@@ -309,7 +315,30 @@ export function PostDetailPage() {
               <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
                   <User className="h-4 w-4" />
-                  {post.anonymous_id || authorProfile?.nickname || post.user?.email || '익명'}
+                  {(() => {
+                    // anonymous_id가 있으면 익명 게시글
+                    if (post.anonymous_id) {
+                      return post.anonymous_id;
+                    }
+                    
+                    // 자신의 게시글: 닉네임 우선, 없으면 '나'
+                    if (isOwner) {
+                      return authorProfile?.nickname || '나';
+                    }
+
+                    // 다른 사용자의 게시글
+                    if (!authorProfile) {
+                      return '로딩 중...';
+                    }
+
+                    // 공개 프로필: 닉네임 표시
+                    if (authorProfile.is_public) {
+                      return authorProfile.nickname || '익명';
+                    }
+
+                    // 비공개 프로필이지만 anonymous_id가 없는 경우: 닉네임이 있으면 표시
+                    return authorProfile.nickname || '익명';
+                  })()}
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
@@ -445,17 +474,29 @@ export function PostDetailPage() {
         <CardContent>
           <div className="mb-6 space-y-4">
             {isEditing && (
-              <div>
-                <label className="text-sm font-medium mb-2 block">태그 (쉼표로 구분)</label>
-                <Input
-                  placeholder="예: 개발, React, TypeScript"
-                  value={editTagsInput}
-                  onChange={(e) => setEditTagsInput(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  태그는 쉼표로 구분하여 입력하세요.
-                </p>
-              </div>
+              <>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">태그 (쉼표로 구분)</label>
+                  <Input
+                    placeholder="예: 개발, React, TypeScript"
+                    value={editTagsInput}
+                    onChange={(e) => setEditTagsInput(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    태그는 쉼표로 구분하여 입력하세요.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-anonymous"
+                    checked={editIsAnonymous}
+                    onCheckedChange={(checked: boolean) => setEditIsAnonymous(checked === true)}
+                  />
+                  <Label htmlFor="edit-anonymous" className="text-sm font-normal cursor-pointer">
+                    익명으로 작성하기
+                  </Label>
+                </div>
+              </>
             )}
             {isEditing ? (
               <Textarea
@@ -478,6 +519,7 @@ export function PostDetailPage() {
                           src={rewritten}
                           className="max-w-full h-auto rounded-md my-2"
                           alt={props.alt || ''}
+                          loading="lazy"
                         />
                       );
                     },
@@ -518,3 +560,5 @@ export function PostDetailPage() {
     </div>
   );
 }
+
+export default PostDetailPage;
