@@ -302,7 +302,7 @@ function HomePage() {
       </header>
 
       {/* Main Content - 모바일 최적화 */}
-      <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-6 pb-20 md:pb-8 overflow-x-hidden max-w-full">
+      <main className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-6 pb-20 md:pb-8 overflow-x-hidden max-w-6xl">
         <div className="mb-4 sm:mb-5 space-y-3 sm:space-y-4">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
@@ -696,8 +696,4 @@ function App() {
   )
 }
 
-<<<<<<< HEAD
 export default App
-=======
-export default App
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
