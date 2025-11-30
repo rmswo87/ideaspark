@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { PRDViewer } from '@/components/PRDViewer';
 import { generatePRD, generateDevelopmentPlan, getPRD, getPRDs } from '@/services/prdService';
 import { generateProposal, getProposals, type Proposal } from '@/services/proposalService';
-import { getIdea } from '@/services/ideaService';
+import { getIdea, fetchRedditPostContent, updateIdeaContent } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
 import { trackIdeaView, trackUserBehavior } from '@/services/recommendationService';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,32 @@ function IdeaDetailPage() {
     setLoading(true);
     try {
       const ideaData = await getIdea(id);
-      setIdea(ideaData);
+      if (ideaData) {
+        setIdea(ideaData);
+        
+        // 내용이 비어있고 Reddit URL이 있는 경우, Reddit에서 직접 가져오기 시도
+        if ((!ideaData.content || ideaData.content.trim() === '') && ideaData.url) {
+          console.log('Content is empty, fetching from Reddit URL:', ideaData.url);
+          try {
+            const fetchedContent = await fetchRedditPostContent(ideaData.url);
+            if (fetchedContent && fetchedContent.trim() !== '') {
+              // 데이터베이스 업데이트
+              const updatedIdea = await updateIdeaContent(id, fetchedContent);
+              if (updatedIdea && isMountedRef.current) {
+                setIdea(updatedIdea);
+                console.log('Successfully fetched and updated content from Reddit');
+              }
+            } else {
+              console.warn('Failed to fetch content from Reddit URL');
+            }
+          } catch (fetchError) {
+            console.error('Error fetching content from Reddit:', fetchError);
+            // 에러가 발생해도 기존 아이디어는 표시
+          }
+        }
+      } else {
+        setIdea(null);
+      }
     } catch (error) {
       console.error('Error fetching idea:', error);
       setIdea(null);

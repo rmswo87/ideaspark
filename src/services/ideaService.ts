@@ -251,3 +251,58 @@ export async function getSubreddits(): Promise<string[]> {
   const uniqueSubreddits = Array.from(new Set(data?.map(i => i.subreddit) || []));
   return uniqueSubreddits;
 }
+
+/**
+ * Reddit URL에서 게시물 내용 가져오기 (fallback)
+ */
+export async function fetchRedditPostContent(url: string): Promise<string | null> {
+  try {
+    const apiUrl = `${window.location.origin}/api/fetch-reddit-post`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch Reddit post content:', response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    if (result.success && result.content) {
+      return result.content;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching Reddit post content:', error);
+    return null;
+  }
+}
+
+/**
+ * 아이디어 내용 업데이트
+ */
+export async function updateIdeaContent(ideaId: string, content: string): Promise<Idea | null> {
+  const { data, error } = await supabase
+    .from('ideas')
+    .update({ 
+      content: content,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', ideaId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating idea content:', error);
+    return null;
+  }
+
+  return data;
+}
+
