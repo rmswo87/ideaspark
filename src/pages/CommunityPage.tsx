@@ -24,11 +24,13 @@ import remarkGfm from 'remark-gfm';
 import type { Post } from '@/services/postService';
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge';
 import { MobileMenu } from '@/components/MobileMenu';
+import { PullToRefresh } from '@/components/PullToRefresh';
 
-export function CommunityPage() {
+function CommunityPage() {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
   const navigate = useNavigate();
+  const location = useLocation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [category, setCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,6 +156,15 @@ export function CommunityPage() {
       setLoading(false);
       setLoadingMore(false);
     }
+  }
+
+  // Pull-to-Refresh 핸들러
+  async function handleRefresh() {
+    setPage(0);
+    setPosts([]);
+    setHasMore(true);
+    await fetchPosts(0, true);
+    await fetchAllTags();
   }
 
   async function loadMorePosts() {
@@ -810,8 +821,9 @@ export function CommunityPage() {
             <p className="text-muted-foreground">게시글이 없습니다.</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {posts.map(post => {
+          <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
+            <div className="space-y-4">
+              {posts.map(post => {
               const author = getAuthorDisplay(post);
               const isOwner = user && post.user_id === user.id;
               // 로그인한 상태이며 자신의 게시글이 아닌 경우 상호작용 가능
@@ -1009,7 +1021,8 @@ export function CommunityPage() {
                 <p className="text-muted-foreground">모든 게시글을 불러왔습니다.</p>
               </div>
             )}
-          </div>
+            </div>
+          </PullToRefresh>
         )}
       </div>
 
@@ -1039,3 +1052,5 @@ export function CommunityPage() {
     </div>
   );
 }
+
+export default CommunityPage;

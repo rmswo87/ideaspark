@@ -45,7 +45,11 @@ export class ErrorBoundary extends Component<Props, State> {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                {this.state.error?.message || '알 수 없는 오류가 발생했습니다.'}
+                {this.state.error?.message 
+                  ? String(this.state.error.message)
+                  : this.state.error?.toString 
+                    ? String(this.state.error.toString())
+                    : '알 수 없는 오류가 발생했습니다.'}
               </p>
               <div className="flex gap-2">
                 <Button

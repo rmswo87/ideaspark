@@ -12,7 +12,7 @@ import { IdeaManagement } from '@/components/admin/IdeaManagement';
 import { PostManagement } from '@/components/admin/PostManagement';
 import { ContactManagement } from '@/components/admin/ContactManagement';
 
-export function AdminDashboard() {
+function AdminDashboard() {
   const { isAdmin, loading } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
@@ -146,5 +146,7 @@ export function AdminDashboard() {
     </div>
   );
 }
+
+export default AdminDashboard;
 
 

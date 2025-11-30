@@ -20,7 +20,7 @@ import type { Post } from '@/services/postService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-export function PostDetailPage() {
+function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -519,6 +519,7 @@ export function PostDetailPage() {
                           src={rewritten}
                           className="max-w-full h-auto rounded-md my-2"
                           alt={props.alt || ''}
+                          loading="lazy"
                         />
                       );
                     },
@@ -559,5 +560,7 @@ export function PostDetailPage() {
     </div>
   );
 }
+
+export default PostDetailPage;
 
 

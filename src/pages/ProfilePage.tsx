@@ -26,8 +26,9 @@ import type { Post } from '@/services/postService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-export function ProfilePage() {
-  const { userId: urlUserId } = useParams<{ userId?: string }>();
+function ProfilePage() {
+  const params = useParams<{ userId?: string }>();
+  const urlUserId = params?.userId;
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   // URL에 userId가 있으면 해당 사용자의 프로필, 없으면 로그인한 사용자의 프로필
@@ -1647,5 +1648,7 @@ export function ProfilePage() {
     </div>
   );
 }
+
+export default ProfilePage;
 
 

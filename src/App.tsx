@@ -22,6 +22,7 @@ import { Footer } from '@/components/Footer'
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge'
 import { MobileMenu } from '@/components/MobileMenu'
 import { BottomNavigation } from '@/components/BottomNavigation'
+import { PullToRefresh } from '@/components/PullToRefresh'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
 const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage'))
@@ -122,7 +123,13 @@ function HomePage() {
   useEffect(() => {
     fetchIdeas();
   }, [fetchIdeas])
-  
+
+  // Pull-to-Refresh 핸들러
+  async function handleRefresh() {
+    await fetchIdeas();
+    await fetchStats();
+    await fetchSubreddits();
+  }
 
   // 통계와 서브레딧 목록은 초기 로드 시에만 가져오기
   useEffect(() => {
@@ -514,7 +521,7 @@ function HomePage() {
             </Button>
           </div>
         ) : (
-          <>
+          <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
             <div 
               id="filtered-ideas-grid"
               className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 transition-opacity duration-300 w-full" 
@@ -531,7 +538,7 @@ function HomePage() {
                 />
               ))}
             </div>
-          </>
+          </PullToRefresh>
         )}
       </main>
       

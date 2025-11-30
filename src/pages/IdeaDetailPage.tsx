@@ -19,7 +19,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
-export function IdeaDetailPage() {
+function IdeaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<Idea | null>(null);
@@ -866,4 +866,6 @@ export function IdeaDetailPage() {
     </div>
   );
 }
+
+export default IdeaDetailPage;
 

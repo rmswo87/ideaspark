@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Home } from 'lucide-react';
 
-export function NotFoundPage() {
+function NotFoundPage() {
   const navigate = useNavigate();
 
   return (
@@ -22,4 +22,6 @@ export function NotFoundPage() {
     </div>
   );
 }
+
+export default NotFoundPage;
 
