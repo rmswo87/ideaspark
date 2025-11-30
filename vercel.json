@@ -1,8 +1,10 @@
 {
-  "crons": [{
-    "path": "/api/cron/collect-ideas",
-    "schedule": "0 0 * * *"
-  }],
+  "crons": [
+    {
+      "path": "/api/cron/collect-ideas",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
@@ -10,7 +12,3 @@
     }
   ]
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
