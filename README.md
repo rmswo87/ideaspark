@@ -49,8 +49,24 @@ Vercel 배포 시에는 Vercel 대시보드에서 환경변수를 설정하세�
 
 ## 📚 문서
 
-- [개발 진행 리포트](./DEVELOPMENT_PROGRESS_REPORT.md)
-- [Vercel 배포 가이드](./VERCEL_DEPLOY.md)
-- [환경 변수 설정 가이드](./ENV_SETUP.md)
-- [관리자 가이드](./ADMIN_GUIDE.md)
-- [문제 해결 가이드](./TROUBLESHOOTING.md)
+### 빠른 시작
+- [환경 변수 설정](./docs/setup/ENV_SETUP.md)
+- [로컬 개발 가이드](./docs/development/LOCAL_DEVELOPMENT.md)
+
+### 배포
+- [Vercel 배포 가이드](./docs/deployment/VERCEL_DEPLOY.md)
+- [GitHub Pages 배포](./docs/deployment/GITHUB_PAGES_SETUP.md)
+- [Supabase Edge Functions](./docs/deployment/SUPABASE_EDGE_FUNCTIONS_SETUP.md)
+
+### 설정
+- [OpenRouter API 설정](./docs/setup/OPENROUTER_SETUP.md)
+- [Imgur 설정](./docs/setup/IMGUR_SETUP.md)
+- [관리자 가이드](./docs/setup/ADMIN_GUIDE.md)
+- [문제 해결 가이드](./docs/setup/TROUBLESHOOTING.md)
+
+### 개발 문서
+- [개발 진행 리포트](./docs/development/DEVELOPMENT_PROGRESS_REPORT.md)
+- [세션 연속성 문서](./docs/development/SESSION_CONTINUITY.md)
+- [리팩토링 계획](./docs/development/REFACTORING_PLAN.md)
+
+전체 문서는 `docs/` 폴더를 참고하세요.
