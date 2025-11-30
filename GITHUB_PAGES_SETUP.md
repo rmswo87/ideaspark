@@ -23,8 +23,12 @@ GitHub Pages는 **정적 파일만 제공**하므로 Vercel Edge Functions는 �
 ### 방법 1: GitHub Actions 자동 배포 (권장)
 
 1. **GitHub 저장소 설정**
+   - GitHub 저장소로 이동: https://github.com/rmswo87/ideaspark
    - 저장소 → Settings → Pages
    - Source: "GitHub Actions" 선택
+   - 저장 버튼 클릭
+   
+   **참고**: GitHub Pages는 정적 파일만 호스팅 가능합니다 (Edge Functions 불가). Vercel Functions는 GitHub Pages에서 작동하지 않으므로, Supabase Edge Functions를 사용해야 합니다.
 
 2. **Secrets 설정**
    - 저장소 → Settings → Secrets and variables → Actions
