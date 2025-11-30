@@ -1,23 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
-import { flushSync } from 'react-dom'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, RefreshCw, Sparkles } from "lucide-react"
+import { Search, RefreshCw, Sparkles, Loader2 } from "lucide-react"
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
 import { supabase } from '@/lib/supabase'
 import type { Idea } from '@/services/ideaService'
-import { IdeaDetailPage } from '@/pages/IdeaDetailPage'
 import { AuthPage } from '@/pages/AuthPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { CommunityPage } from '@/pages/CommunityPage'
-import { PostDetailPage } from '@/pages/PostDetailPage'
-import { AdminDashboard } from '@/pages/AdminDashboard'
-import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ContactPage } from '@/pages/ContactPage'
 import { TermsPage } from '@/pages/TermsPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
@@ -27,6 +20,23 @@ import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Footer } from '@/components/Footer'
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge'
+import { MobileMenu } from '@/components/MobileMenu'
+import { BottomNavigation } from '@/components/BottomNavigation'
+
+// 코드 스플리팅: 큰 페이지들을 lazy loading
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage'))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage'))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+
+// 로딩 컴포넌트
+const PageLoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+)
 
 function HomePage() {
   const { user } = useAuth()
@@ -41,7 +51,6 @@ function HomePage() {
   const [sortOption, setSortOption] = useState<'latest' | 'popular' | 'subreddit'>('latest')
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(true)
-  const [renderKey, setRenderKey] = useState(0) // 강제 리렌더링을 위한 키
   const [collecting, setCollecting] = useState(false)
   const [stats, setStats] = useState({ 
     total: 0, 
@@ -97,23 +106,13 @@ function HomePage() {
       // 실제 API 호출
       const data = await getIdeas(filters);
       
-      // 실제 데이터로 새 배열 생성
-      const newIdeas = data.map(idea => ({ ...idea }));
-      
-      // React 18의 자동 배치를 우회하기 위해 flushSync 사용
-      flushSync(() => {
-        setIdeas(() => {
-          return newIdeas;
-        });
-        
-        // 강제 리렌더링 트리거
-        setRenderKey(prev => prev + 1);
-      });
-      
-      // 필터링된 결과로 스크롤 이동은 제거 (사용자 경험 개선)
+      // React 18의 자동 배치가 효율적으로 처리함
+      setIdeas(data);
     } catch (error) {
-      console.error('Error fetching ideas:', error);
-      setIdeas(() => []);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching ideas:', error);
+      }
+      setIdeas([]);
     } finally {
       setLoading(false);
     }
@@ -182,11 +181,26 @@ function HomePage() {
     <div className="min-h-screen bg-background">
       {/* Header - 모바일 최적화 */}
       <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-              <h1 className="text-xl sm:text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>IdeaSpark</h1>
-              <nav className="flex gap-1 sm:gap-2 flex-wrap">
+        <div className="container mx-auto px-2 sm:px-4 py-0 sm:py-1.5">
+          <div className="flex flex-row items-center justify-between gap-1 sm:gap-0 h-10 sm:h-auto">
+            <div className="flex items-center gap-1.5 sm:gap-4 w-full sm:w-auto">
+              {/* 모바일 햄버거 메뉴 */}
+              <div className="md:hidden">
+                <MobileMenu />
+              </div>
+              <h1 
+                className="text-sm sm:text-2xl font-bold cursor-pointer select-none touch-manipulation leading-none" 
+                onClick={() => {
+                  if (location.pathname === '/') {
+                    window.location.reload();
+                  } else {
+                    navigate('/');
+                  }
+                }}
+              >
+                IdeaSpark
+              </h1>
+              <nav className="hidden md:flex gap-1 sm:gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -213,7 +227,7 @@ function HomePage() {
                 </Button>
               </nav>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-0.5 sm:gap-2 w-auto sm:w-auto justify-end">
               {user ? (
                 <>
                   {isAdmin && (
@@ -221,9 +235,9 @@ function HomePage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate('/admin')}
-                      className="text-xs sm:text-sm"
+                      className="text-xs sm:text-sm h-7 sm:h-9 px-1.5 sm:px-3"
                     >
-                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                       <span className="hidden sm:inline">관리자</span>
                     </Button>
                   )}
@@ -231,9 +245,9 @@ function HomePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/profile')}
-                    className="text-xs sm:text-sm relative"
+                    className="text-xs sm:text-sm relative h-7 sm:h-9 px-1.5 sm:px-3"
                   >
-                    <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">프로필</span>
                     <ProfileNotificationBadge />
                   </Button>
@@ -244,9 +258,9 @@ function HomePage() {
                       await supabase.auth.signOut()
                       navigate('/auth')
                     }}
-                    className="text-xs sm:text-sm"
+                    className="text-xs sm:text-sm h-7 sm:h-9 px-1.5 sm:px-3"
                   >
-                    <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <LogOut className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">로그아웃</span>
                   </Button>
                 </>
@@ -255,9 +269,9 @@ function HomePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/auth')}
-                  className="text-xs sm:text-sm"
+                  className="text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                 >
-                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                   로그인
                 </Button>
               )}
@@ -267,7 +281,7 @@ function HomePage() {
       </header>
 
       {/* Main Content - 모바일 최적화 */}
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-20 md:pb-8">
         <div className="mb-6 sm:mb-8 space-y-3 sm:space-y-4">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold mb-2">아이디어 대시보드</h2>
@@ -275,77 +289,81 @@ function HomePage() {
 
           {/* Stats */}
           {stats.total > 0 && (
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
+            <div className="flex flex-col gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
               <span className="font-medium">총 {stats.total}개 아이디어</span>
               {Object.entries(stats.byCategory).length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  <span className="font-medium">카테고리:</span>
-                  {Object.entries(stats.byCategory).map(([cat, count]) => {
-                    const isSelected = selectedCategories.has(cat);
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategories(prev => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(cat)) {
-                              newSet.delete(cat);
-                            } else {
-                              newSet.add(cat);
-                            }
-                            return newSet;
-                          });
-                          // 드롭다운 필터 초기화
-                          setCategoryFilter('all');
-                        }}
-                        className={`px-2 py-0.5 rounded text-xs transition-colors cursor-pointer hover:opacity-80 ${
-                          isSelected 
-                            ? 'bg-primary text-primary-foreground font-semibold' 
-                            : 'bg-secondary'
-                        }`}
-                      >
-                        {cat} ({count})
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {Object.entries(stats.bySubreddit || {}).length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  <span className="font-medium">서브레딧:</span>
-                  {Object.entries(stats.bySubreddit || {})
-                    .sort(([, a], [, b]) => (b as number) - (a as number))
-                    .slice(0, 5)
-                    .map(([sub, count]) => {
-                      const isSelected = selectedSubreddits.has(sub);
+                <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2">
+                  <span className="font-medium whitespace-nowrap">카테고리:</span>
+                  <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                    {Object.entries(stats.byCategory).map(([cat, count]) => {
+                      const isSelected = selectedCategories.has(cat);
                       return (
                         <button
-                          key={sub}
+                          key={cat}
                           type="button"
                           onClick={() => {
-                            setSelectedSubreddits(prev => {
+                            setSelectedCategories(prev => {
                               const newSet = new Set(prev);
-                              if (newSet.has(sub)) {
-                                newSet.delete(sub);
+                              if (newSet.has(cat)) {
+                                newSet.delete(cat);
                               } else {
-                                newSet.add(sub);
+                                newSet.add(cat);
                               }
                               return newSet;
                             });
                             // 드롭다운 필터 초기화
-                            setSubredditFilter('all');
+                            setCategoryFilter('all');
                           }}
-                          className={`px-2 py-0.5 rounded text-xs transition-colors cursor-pointer hover:opacity-80 ${
+                          className={`px-2 py-1 rounded text-xs transition-colors cursor-pointer hover:opacity-80 min-h-[32px] sm:min-h-0 ${
                             isSelected 
                               ? 'bg-primary text-primary-foreground font-semibold' 
                               : 'bg-secondary'
                           }`}
                         >
-                          r/{sub} ({count})
+                          {cat} ({count})
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+              {Object.entries(stats.bySubreddit || {}).length > 0 && (
+                <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2">
+                  <span className="font-medium whitespace-nowrap">서브레딧:</span>
+                  <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                    {Object.entries(stats.bySubreddit || {})
+                      .sort(([, a], [, b]) => (b as number) - (a as number))
+                      .slice(0, 5)
+                      .map(([sub, count]) => {
+                        const isSelected = selectedSubreddits.has(sub);
+                        return (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSubreddits(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(sub)) {
+                                  newSet.delete(sub);
+                                } else {
+                                  newSet.add(sub);
+                                }
+                                return newSet;
+                              });
+                              // 드롭다운 필터 초기화
+                              setSubredditFilter('all');
+                            }}
+                            className={`px-2 py-1 rounded text-xs transition-colors cursor-pointer hover:opacity-80 min-h-[32px] sm:min-h-0 ${
+                              isSelected 
+                                ? 'bg-primary text-primary-foreground font-semibold' 
+                                : 'bg-secondary'
+                            }`}
+                          >
+                            r/{sub} ({count})
+                          </button>
+                        );
+                      })}
+                  </div>
                 </div>
               )}
             </div>
@@ -423,8 +441,8 @@ function HomePage() {
         </div>
 
         {/* 필터링된 결과 헤더 */}
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">
+        <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <h3 className="text-base sm:text-lg font-semibold">
             {loading ? (
               <span className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 animate-spin" />
@@ -499,16 +517,14 @@ function HomePage() {
           <>
             <div 
               id="filtered-ideas-grid"
-              className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 transition-opacity duration-300" 
-              key={`ideas-grid-${renderKey}-${ideas.length}-${categoryFilter}-${subredditFilter}-${sortOption}`}
+              className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 transition-opacity duration-300 w-full" 
               style={{ 
-                opacity: loading ? 0.5 : 1,
-                animation: loading ? 'none' : 'fadeIn 0.3s ease-in'
+                opacity: loading ? 0.5 : 1
               }}
             >
-              {ideas.map((idea, index) => (
+              {ideas.map((idea) => (
                 <IdeaCard
-                  key={`${idea.id}-${renderKey}-${index}-${categoryFilter}-${subredditFilter}-${sortOption}`}
+                  key={idea.id}
                   idea={idea}
                   onCardClick={() => navigate(`/idea/${idea.id}`)}
                   formatDate={formatDate}
@@ -521,6 +537,9 @@ function HomePage() {
       
       {/* Footer */}
       <Footer />
+      
+      {/* 하단 네비게이션 (모바일 전용) */}
+      <BottomNavigation />
     </div>
   )
 }
@@ -535,37 +554,42 @@ function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter basename={basename}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/profile/:userId" element={<ProfilePage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/idea/:id" element={<IdeaDetailPage />} />
-          <Route path="/community" element={<CommunityPage />} />
-          <Route path="/community/:id" element={<PostDetailPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+        <Suspense fallback={<PageLoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/:userId" element={<ProfilePage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/idea/:id" element={<IdeaDetailPage />} />
+            <Route path="/community" element={<CommunityPage />} />
+            <Route path="/community/:id" element={<PostDetailPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
         
-        {/* 전역 스크롤 버튼 - 모든 페이지에서 보임 */}
-        <div className="fixed right-4 bottom-4 flex flex-col gap-2 z-50">
+        {/* 하단 네비게이션 (모바일 전용) - 모든 페이지에서 보임 */}
+        <BottomNavigation />
+        
+        {/* 전역 스크롤 버튼 - 모든 페이지에서 보임 (모바일에서는 하단 네비게이션 위에) */}
+        <div className="fixed right-3 sm:right-4 bottom-20 md:bottom-4 flex flex-col gap-2 z-50">
           <Button
             size="icon"
             variant="outline"
-            className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background"
+            className="rounded-full shadow-lg bg-background/90 backdrop-blur-sm hover:bg-background border-2 min-h-[48px] min-w-[48px] md:min-h-0 md:min-w-0 touch-manipulation"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             aria-label="맨 위로"
             title="맨 위로"
           >
-            ↑
+            <span className="text-lg md:text-base">↑</span>
           </Button>
           <Button
             size="icon"
             variant="outline"
-            className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background"
+            className="rounded-full shadow-lg bg-background/90 backdrop-blur-sm hover:bg-background border-2 min-h-[48px] min-w-[48px] md:min-h-0 md:min-w-0 touch-manipulation"
             onClick={() =>
               window.scrollTo({
                 top: document.documentElement.scrollHeight,
@@ -575,7 +599,7 @@ function App() {
             aria-label="맨 아래로"
             title="맨 아래로"
           >
-            ↓
+            <span className="text-lg md:text-base">↓</span>
           </Button>
         </div>
       </BrowserRouter>

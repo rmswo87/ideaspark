@@ -1,4 +1,5 @@
 // 관리자 대시보드 페이지
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import { ContactManagement } from '@/components/admin/ContactManagement';
 export function AdminDashboard() {
   const { isAdmin, loading } = useAdmin();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
 
   if (loading) {
     return (
@@ -59,17 +61,42 @@ export function AdminDashboard() {
         <p className="text-muted-foreground">시스템 관리 및 모니터링</p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">개요</TabsTrigger>
-          <TabsTrigger value="users">사용자 관리</TabsTrigger>
-          <TabsTrigger value="ideas">아이디어 관리</TabsTrigger>
-          <TabsTrigger value="posts">게시글 관리</TabsTrigger>
-          <TabsTrigger value="contacts">문의 관리</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-4" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-auto sm:h-9 p-0.5 sm:p-[3px] w-full sm:w-fit flex-wrap sm:flex-nowrap gap-0.5 sm:gap-0 overflow-x-auto">
+          <TabsTrigger 
+            value="overview" 
+            className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+          >
+            개요
+          </TabsTrigger>
+          <TabsTrigger 
+            value="users" 
+            className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+          >
+            사용자 관리
+          </TabsTrigger>
+          <TabsTrigger 
+            value="ideas" 
+            className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+          >
+            아이디어 관리
+          </TabsTrigger>
+          <TabsTrigger 
+            value="posts" 
+            className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+          >
+            게시글 관리
+          </TabsTrigger>
+          <TabsTrigger 
+            value="contacts" 
+            className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+          >
+            문의 관리
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <AdminOverview />
+          <AdminOverview onTabChange={setActiveTab} />
         </TabsContent>
 
         <TabsContent value="users">

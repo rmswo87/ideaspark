@@ -32,11 +32,6 @@ export function Footer() {
                   커뮤니티
                 </Link>
               </li>
-              <li>
-                <Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                  문의 / 피드백
-                </Link>
-              </li>
             </ul>
           </div>
 

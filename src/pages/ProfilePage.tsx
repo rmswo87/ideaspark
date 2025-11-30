@@ -5,18 +5,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload } from 'lucide-react';
+import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload, MoreVertical, UserPlus, Ban, Trash2, UserIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest, getBlockedUsers, unblockUser } from '@/services/friendService';
+import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest, getBlockedUsers, unblockUser, sendFriendRequest, getFriendStatus, blockUser } from '@/services/friendService';
 import { getPRDs, deletePRD } from '@/services/prdService';
 import { PRDViewer } from '@/components/PRDViewer';
-import { getConversations, getConversation, sendMessage, markAsRead } from '@/services/messageService';
+import { getConversations, getConversation, sendMessage, markAsRead, deleteMessage } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { uploadAvatar } from '@/services/imageService';
 import type { FriendRequest, Friend } from '@/services/friendService';
@@ -63,6 +64,11 @@ export function ProfilePage() {
   const [donationCopied, setDonationCopied] = useState(false);
   const [donationShowQR, setDonationShowQR] = useState(false);
   const [donationQrError, setDonationQrError] = useState(false);
+  const [previewPosts, setPreviewPosts] = useState<Post[]>([]);
+  const [previewComments, setPreviewComments] = useState<any[]>([]);
+  const [friendStatuses, setFriendStatuses] = useState<Record<string, 'none' | 'pending' | 'accepted' | 'blocked'>>({});
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageDialogUserId, setMessageDialogUserId] = useState<string | null>(null);
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
   const donationAccountNumber = '3333258583773';
@@ -108,12 +114,29 @@ export function ProfilePage() {
         fetchFriendRequests();
         fetchConversations();
         fetchBlockedUsers();
+        fetchPreviewData();
       } else if (user) {
         // 다른 사람의 프로필인 경우 통계만 로드 (공개 정보)
         fetchOtherUserStats();
       }
     }
   }, [user, loading, navigate, targetUserId, urlUserId, isOwnProfile]);
+
+  async function fetchPreviewData() {
+    if (!user) return;
+    
+    try {
+      // 최근 게시글 3개 미리보기
+      const myPosts = await getMyPosts(user.id);
+      setPreviewPosts(myPosts.slice(0, 3));
+
+      // 최근 댓글 3개 미리보기
+      const myComments = await getMyComments(user.id);
+      setPreviewComments(myComments.slice(0, 3));
+    } catch (error) {
+      console.error('Error fetching preview data:', error);
+    }
+  }
 
   async function fetchStats() {
     if (!user) return;
@@ -376,9 +399,45 @@ export function ProfilePage() {
       await fetchConversations();
       // 알림 갱신을 위해 window 이벤트 발생 (ProfileNotificationBadge가 감지)
       window.dispatchEvent(new CustomEvent('notification-updated'));
+      
+      // 친구 상태 확인
+      const status = await getFriendStatus(userId);
+      setFriendStatuses(prev => ({ ...prev, [userId]: status }));
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
+  }
+  
+  async function handleAddFriendFromMessage(userId: string) {
+    if (!user) return;
+    
+    try {
+      await sendFriendRequest(userId);
+      setFriendStatuses(prev => ({ ...prev, [userId]: 'pending' }));
+      alert('친구 요청을 보냈습니다.');
+    } catch (error: any) {
+      console.error('Error sending friend request:', error);
+      alert(error.message || '친구 요청에 실패했습니다.');
+    }
+  }
+  
+  async function handleBlockUserFromMessage(userId: string) {
+    if (!user || !confirm('이 사용자를 차단하시겠습니까?')) return;
+    
+    try {
+      await blockUser(userId);
+      setFriendStatuses(prev => ({ ...prev, [userId]: 'blocked' }));
+      await fetchBlockedUsers();
+      alert('사용자를 차단했습니다.');
+    } catch (error: any) {
+      console.error('Error blocking user:', error);
+      alert(error.message || '차단에 실패했습니다.');
+    }
+  }
+  
+  function handleOpenMessageDialogFromMessage(userId: string) {
+    setMessageDialogUserId(userId);
+    setMessageDialogOpen(true);
   }
 
   async function handleSendMessage(receiverId: string) {
@@ -764,82 +823,163 @@ export function ProfilePage() {
         <TabsContent value="stats">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
               onClick={() => handleOpenPostsDialog('my')}
             >
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   작성한 게시글
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.posts}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold">{stats.posts}</p>
+                  <span className="text-sm text-muted-foreground">개</span>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  {previewPosts.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {previewPosts.map((post) => (
+                        <div key={post.id} className="text-xs">
+                          <p className="font-medium line-clamp-1">{post.title}</p>
+                          <p className="text-muted-foreground text-[10px]">
+                            {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                      ))}
+                      {stats.posts > 3 && (
+                        <p className="text-[10px] text-muted-foreground pt-1">
+                          +{stats.posts - 3}개 더 보기
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {stats.posts > 0 ? '커뮤니티에 작성한 게시글을 확인하세요' : '아직 작성한 게시글이 없습니다'}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
               </CardContent>
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
               onClick={() => handleOpenCommentsDialog()}
             >
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
                   작성한 댓글
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.comments}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold">{stats.comments}</p>
+                  <span className="text-sm text-muted-foreground">개</span>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  {previewComments.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {previewComments.map((comment) => (
+                        <div key={comment.id} className="text-xs">
+                          <p className="font-medium line-clamp-1">
+                            {comment.post?.title || '게시글 제목 없음'}
+                          </p>
+                          <p className="text-muted-foreground text-[10px] line-clamp-1">
+                            {comment.content}
+                          </p>
+                          <p className="text-muted-foreground text-[10px]">
+                            {new Date(comment.created_at).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                      ))}
+                      {stats.comments > 3 && (
+                        <p className="text-[10px] text-muted-foreground pt-1">
+                          +{stats.comments - 3}개 더 보기
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {stats.comments > 0 ? '다른 사용자들과 나눈 댓글을 확인하세요' : '아직 작성한 댓글이 없습니다'}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
               </CardContent>
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
               onClick={() => handleOpenPostsDialog('liked')}
             >
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Heart className="h-5 w-5" />
                   좋아요한 글
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.likes}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold">{stats.likes}</p>
+                  <span className="text-sm text-muted-foreground">개</span>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {stats.likes > 0 ? '마음에 들어 좋아요를 누른 글을 확인하세요' : '아직 좋아요한 글이 없습니다'}
+                  </p>
+                </div>
+                <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
               </CardContent>
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
               onClick={() => handleOpenPostsDialog('bookmarked')}
             >
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Bookmark className="h-5 w-5" />
                   북마크한 글
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.bookmarks}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold">{stats.bookmarks}</p>
+                  <span className="text-sm text-muted-foreground">개</span>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {stats.bookmarks > 0 ? '나중에 다시 보고 싶어 저장한 글을 확인하세요' : '아직 북마크한 글이 없습니다'}
+                  </p>
+                </div>
+                <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
               </CardContent>
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
               onClick={handleOpenPrdsDialog}
             >
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   생성한 PRD
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{stats.prds}</p>
-                <p className="text-sm text-muted-foreground mt-1">클릭하여 확인</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold">{stats.prds}</p>
+                  <span className="text-sm text-muted-foreground">개</span>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {stats.prds > 0 ? '아이디어로부터 생성한 PRD 문서를 확인하세요' : '아직 생성한 PRD가 없습니다'}
+                  </p>
+                </div>
+                <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
               </CardContent>
             </Card>
           </div>
@@ -902,6 +1042,7 @@ export function ProfilePage() {
                                     src={rewritten}
                                     className="max-w-full h-auto rounded-md my-1"
                                     alt={props.alt || ''}
+                                    loading="lazy"
                                   />
                                 );
                               },
@@ -1136,34 +1277,144 @@ export function ProfilePage() {
             </Card>
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle>
+                <div className="flex items-center justify-between">
                   {selectedConversation
                     ? (() => {
                         const conv = conversations.find(c => c.user.id === selectedConversation);
-                        return conv?.user.nickname || conv?.user.email || '대화';
+                        const otherUser = conv?.user;
+                        if (!otherUser) return <CardTitle>대화</CardTitle>;
+                        
+                        return (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                                <CardTitle className="m-0">
+                                  {otherUser.nickname || otherUser.email || '대화'}
+                                </CardTitle>
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem onClick={() => navigate(`/profile/${otherUser.id}`)}>
+                                <UserIcon className="h-4 w-4 mr-2" />
+                                프로필 보기
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {(() => {
+                                const friendStatus = friendStatuses[otherUser.id] || 'none';
+                                return (
+                                  <>
+                                    {friendStatus === 'none' && (
+                                      <DropdownMenuItem onClick={() => handleAddFriendFromMessage(otherUser.id)}>
+                                        <UserPlus className="h-4 w-4 mr-2" />
+                                        친구 추가
+                                      </DropdownMenuItem>
+                                    )}
+                                    {friendStatus === 'pending' && (
+                                      <DropdownMenuItem disabled>
+                                        요청 대기 중
+                                      </DropdownMenuItem>
+                                    )}
+                                    {friendStatus === 'accepted' && (
+                                      <DropdownMenuItem disabled>
+                                        친구
+                                      </DropdownMenuItem>
+                                    )}
+                                    {friendStatus !== 'blocked' && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => handleOpenMessageDialogFromMessage(otherUser.id)}>
+                                          <MessageSquare className="h-4 w-4 mr-2" />
+                                          쪽지 보내기
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                      </>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              {friendStatuses[otherUser.id] !== 'blocked' && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleBlockUserFromMessage(otherUser.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Ban className="h-4 w-4 mr-2" />
+                                  차단하기
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        );
                       })()
-                    : '대화를 선택하세요'}
-                </CardTitle>
+                    : <CardTitle>대화를 선택하세요</CardTitle>}
+                </div>
               </CardHeader>
               <CardContent>
                 {selectedConversation ? (
                   <div className="flex flex-col h-[600px]">
                     <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-                      {messages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className={`p-2 rounded ${
-                            msg.sender_id === user?.id
-                              ? 'bg-primary text-primary-foreground ml-auto max-w-[80%]'
-                              : 'bg-secondary mr-auto max-w-[80%]'
-                          }`}
-                        >
-                          <p className="text-sm">{msg.content}</p>
-                          <p className="text-xs opacity-70 mt-1">
-                            {new Date(msg.created_at).toLocaleString('ko-KR')}
-                          </p>
-                        </div>
-                      ))}
+                      {messages.map((msg) => {
+                        const isOwnMessage = msg.sender_id === user?.id;
+                        const otherUser = isOwnMessage ? msg.receiver : msg.sender;
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`p-2 rounded flex items-start gap-2 ${
+                              isOwnMessage
+                                ? 'bg-primary text-primary-foreground ml-auto max-w-[80%]'
+                                : 'bg-secondary mr-auto max-w-[80%]'
+                            }`}
+                          >
+                            <div className="flex-1">
+                              {!isOwnMessage && otherUser && (
+                                <div className="mb-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/profile/${otherUser.id}`);
+                                    }}
+                                    className="text-xs font-semibold hover:underline"
+                                  >
+                                    {otherUser.nickname || otherUser.email || '익명'}
+                                  </button>
+                                </div>
+                              )}
+                              <p className="text-sm">{msg.content}</p>
+                              <p className="text-xs opacity-70 mt-1">
+                                {new Date(msg.created_at).toLocaleString('ko-KR')}
+                              </p>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="opacity-60 hover:opacity-100 transition-opacity"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    if (confirm('이 쪽지를 삭제하시겠습니까?')) {
+                                      try {
+                                        await deleteMessage(msg.id);
+                                        await fetchMessages(selectedConversation);
+                                      } catch (error) {
+                                        console.error('Error deleting message:', error);
+                                        alert('쪽지 삭제에 실패했습니다.');
+                                      }
+                                    }
+                                  }}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="flex gap-2">
                       <Textarea
@@ -1197,6 +1448,49 @@ export function ProfilePage() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* 쪽지 다이얼로그 */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>쪽지 보내기</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="쪽지 내용을 입력하세요"
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              rows={6}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMessageDialogOpen(false);
+                  setMessageContent('');
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (messageDialogUserId) {
+                    await handleSendMessage(messageDialogUserId);
+                    setMessageDialogOpen(false);
+                    setMessageContent('');
+                    if (selectedConversation === messageDialogUserId) {
+                      await fetchMessages(messageDialogUserId);
+                    }
+                  }
+                }}
+                disabled={sendingMessage || !messageContent.trim()}
+              >
+                {sendingMessage ? '전송 중...' : '보내기'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={prdsDialogOpen} onOpenChange={setPrdsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -1310,12 +1604,22 @@ export function ProfilePage() {
       {/* 도네이션 QR 다이얼로그 (프로필 내 인라인) */}
       {isOwnProfile && (
         <Dialog open={donationShowQR} onOpenChange={setDonationShowQR}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md" showCloseButton={false}>
             <DialogHeader>
-              <DialogTitle>QR 코드로 송금</DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle>QR 코드로 송금</DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDonationShowQR(false)}
+                  className="h-8 w-16 text-sm"
+                >
+                  닫기
+                </Button>
+              </div>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4 py-4">
-              <div className="w-56 h-56 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed overflow-hidden">
+              <div className="w-56 h-56 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed overflow-hidden relative">
                 <img
                   src={donationQrUrl}
                   alt="도네이션 QR 코드"

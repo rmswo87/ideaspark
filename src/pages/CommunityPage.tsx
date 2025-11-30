@@ -23,6 +23,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Post } from '@/services/postService';
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge';
+import { MobileMenu } from '@/components/MobileMenu';
 
 export function CommunityPage() {
   const { user } = useAuth();
@@ -450,16 +451,26 @@ export function CommunityPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="container mx-auto px-2 sm:px-4 py-0 sm:py-1.5">
+          <div className="flex flex-row items-center justify-between gap-1 sm:gap-0 h-10 sm:h-auto">
             <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+              {/* 모바일 햄버거 메뉴 */}
+              <div className="md:hidden">
+                <MobileMenu />
+              </div>
               <h1 
-                className="text-xl sm:text-2xl font-bold cursor-pointer hover:text-primary transition-colors"
-                onClick={() => navigate('/')}
+                className="text-sm sm:text-2xl font-bold cursor-pointer hover:text-primary transition-colors select-none touch-manipulation leading-none"
+                onClick={() => {
+                  if (location.pathname === '/') {
+                    window.location.reload();
+                  } else {
+                    navigate('/');
+                  }
+                }}
               >
                 IdeaSpark
               </h1>
-              <nav className="flex gap-1 sm:gap-2 flex-wrap">
+              <nav className="hidden md:flex gap-1 sm:gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -495,19 +506,20 @@ export function CommunityPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate('/admin')}
+                      className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                     >
-                      <Shield className="h-4 w-4 mr-2" />
-                      관리자
+                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">관리자</span>
                     </Button>
                   )}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/profile')}
-                    className="relative"
+                    className="relative text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                   >
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    프로필
+                    <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">프로필</span>
                     <ProfileNotificationBadge />
                   </Button>
                   <Button
@@ -517,9 +529,10 @@ export function CommunityPage() {
                       await supabase.auth.signOut();
                       navigate('/auth');
                     }}
+                    className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    로그아웃
+                    <LogOut className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">로그아웃</span>
                   </Button>
                 </>
               ) : (
@@ -527,7 +540,9 @@ export function CommunityPage() {
                   variant="default"
                   size="sm"
                   onClick={() => navigate('/auth')}
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                 >
+                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                   로그인
                 </Button>
               )}
@@ -551,10 +566,10 @@ export function CommunityPage() {
           </div>
 
           {/* 필터 그룹 */}
-          <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-center">
             {/* 정렬 옵션 */}
             <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'comments') => setSortOption(value)}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px] min-h-[44px] sm:min-h-0">
                 <SelectValue placeholder="정렬" />
               </SelectTrigger>
               <SelectContent>
@@ -565,12 +580,32 @@ export function CommunityPage() {
             </Select>
 
             {/* 카테고리 탭 */}
-            <Tabs value={category} onValueChange={setCategory} className="flex-1">
-              <TabsList>
-                <TabsTrigger value="all">전체</TabsTrigger>
-                <TabsTrigger value="질문">질문</TabsTrigger>
-                <TabsTrigger value="자유">자유</TabsTrigger>
-                <TabsTrigger value="아이디어 공유">아이디어 공유</TabsTrigger>
+            <Tabs value={category} onValueChange={setCategory} className="flex-1 w-full sm:w-auto">
+              <TabsList className="h-auto sm:h-9 p-0.5 sm:p-[3px] w-full sm:w-fit flex-wrap sm:flex-nowrap gap-0.5 sm:gap-0">
+                <TabsTrigger 
+                  value="all" 
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none"
+                >
+                  전체
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="질문" 
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none"
+                >
+                  질문
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="자유" 
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none"
+                >
+                  자유
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="아이디어 공유" 
+                  className="text-xs sm:text-sm px-1.5 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+                >
+                  아이디어 공유
+                </TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -894,6 +929,7 @@ export function CommunityPage() {
                                   src={rewritten}
                                   className="max-w-full h-auto rounded-md my-2"
                                   alt={props.alt || ''}
+                                  loading="lazy"
                                 />
                               );
                             },

@@ -30,6 +30,9 @@ export default defineConfig({
   },
   // 개발 서버에서도 api 폴더 제외
   server: {
+    host: '0.0.0.0', // 모든 네트워크 인터페이스에서 접속 허용 (모바일 접속 가능)
+    port: 5173,
+    strictPort: false, // 포트가 사용 중이면 다른 포트 자동 선택
     fs: {
       deny: ['**/api/**'],
     },

@@ -81,12 +81,24 @@ export function DonationFooter() {
                   QR 코드로 송금하기
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="sm:max-w-md" showCloseButton={false}>
                 <DialogHeader>
-                  <DialogTitle>QR 코드로 송금</DialogTitle>
-                  <DialogDescription>
-                    QR 코드를 스캔하여 간편하게 송금하실 수 있습니다.
-                  </DialogDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <DialogTitle>QR 코드로 송금</DialogTitle>
+                      <DialogDescription className="mt-1">
+                        QR 코드를 스캔하여 간편하게 송금하실 수 있습니다.
+                      </DialogDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowQR(false)}
+                      className="h-8 w-16 text-sm"
+                    >
+                      닫기
+                    </Button>
+                  </div>
                 </DialogHeader>
                 <div className="flex flex-col items-center gap-4 py-4">
                   <div className="w-64 h-64 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">

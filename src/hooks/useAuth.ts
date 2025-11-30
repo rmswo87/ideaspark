@@ -12,7 +12,8 @@ export function useAuth() {
     
     // 초기 사용자 확인
     supabase.auth.getUser().then(({ data: { user }, error }) => {
-      if (error && import.meta.env.DEV) {
+      // AuthSessionMissingError는 로그인하지 않은 정상적인 상황이므로 에러 로깅하지 않음
+      if (error && error.name !== 'AuthSessionMissingError' && import.meta.env.DEV) {
         console.error('Error getting user:', error);
       }
       if (isMounted) {

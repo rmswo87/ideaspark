@@ -13,6 +13,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import { supabase } from '@/lib/supabase';
 import { Footer } from '@/components/Footer';
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge';
+import { MobileMenu } from '@/components/MobileMenu';
 
 // 이메일 알림 전송 함수 (Supabase Edge Function 호출)
 async function sendEmailNotification(data: {
@@ -117,11 +118,26 @@ export function ContactPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="container mx-auto px-2 sm:px-4 py-0 sm:py-1.5">
+          <div className="flex flex-row items-center justify-between gap-1 sm:gap-0 h-10 sm:h-auto">
             <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-              <h1 className="text-xl sm:text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>IdeaSpark</h1>
-              <nav className="flex gap-1 sm:gap-2 flex-wrap">
+              {/* 모바일 햄버거 메뉴 */}
+              <div className="md:hidden">
+                <MobileMenu />
+              </div>
+              <h1 
+                className="text-sm sm:text-2xl font-bold cursor-pointer select-none touch-manipulation leading-none" 
+                onClick={() => {
+                  if (location.pathname === '/') {
+                    window.location.reload();
+                  } else {
+                    navigate('/');
+                  }
+                }}
+              >
+                IdeaSpark
+              </h1>
+              <nav className="hidden md:flex gap-1 sm:gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -156,9 +172,9 @@ export function ContactPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate('/admin')}
-                      className="text-xs sm:text-sm"
+                      className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                     >
-                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                       <span className="hidden sm:inline">관리자</span>
                     </Button>
                   )}
@@ -166,9 +182,9 @@ export function ContactPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/profile')}
-                    className="text-xs sm:text-sm relative"
+                    className="text-xs sm:text-sm relative h-8 sm:h-9 px-2 sm:px-3"
                   >
-                    <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">프로필</span>
                     <ProfileNotificationBadge />
                   </Button>
@@ -179,9 +195,9 @@ export function ContactPage() {
                       await supabase.auth.signOut()
                       navigate('/auth')
                     }}
-                    className="text-xs sm:text-sm"
+                    className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                   >
-                    <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <LogOut className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">로그아웃</span>
                   </Button>
                 </>
@@ -190,9 +206,9 @@ export function ContactPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/auth')}
-                  className="text-xs sm:text-sm"
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                 >
-                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                   로그인
                 </Button>
               )}
