@@ -436,8 +436,8 @@ function IdeaDetailPage() {
                   💡 Chrome 자동 번역 사용하기
                 </p>
                 <ul className="text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside text-xs">
-                  <li>Reddit 페이지에서 우측 상단 번역 아이콘 클릭</li>
-                  <li>또는 우클릭 → "한국어로 번역" 선택</li>
+                  <li>보시는 페이지에서 우측 상단 번역 아이콘 클릭</li>
+                  <li>또는 마우스 우클릭 → "한국어로 번역" 선택</li>
                   <li>Chrome의 자동 번역 기능이 가장 정확하고 빠릅니다</li>
                 </ul>
               </div>
@@ -868,3 +868,4 @@ function IdeaDetailPage() {
 }
 
 export default IdeaDetailPage;
+
