@@ -38,19 +38,7 @@ VITE_AI_PROVIDER=openrouter
 # VITE_OPENAI_API_KEY=
 # VITE_CLAUDE_API_KEY=
 
-# 번역 API 설정 (선택사항, 없으면 LibreTranslate 무료 버전 사용)
-# Google Translate API (무료 티어: 월 500,000자)
-# https://cloud.google.com/translate/docs/setup
-GOOGLE_TRANSLATE_API_KEY=
-
-# Papago API (무료 티어: 일 10,000자)
-# https://developers.naver.com/apps/#/register
-PAPAGO_CLIENT_ID=
-PAPAGO_CLIENT_SECRET=
-
-# 번역 API Provider 선택 (google, papago, libretranslate)
-# libretranslate는 완전 무료이므로 API 키가 없어도 사용 가능
-TRANSLATION_PROVIDER=libretranslate
+# 번역 기능은 제거되었습니다. Chrome 자동 번역 기능을 사용하세요.
 ```
 
 ## Reddit Secret 확인 방법

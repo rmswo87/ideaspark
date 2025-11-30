@@ -47,10 +47,6 @@ Supabase 대시보드 → Edge Functions → Settings → Secrets에서 다음�
 ```
 REDDIT_CLIENT_ID=your_reddit_client_id
 REDDIT_CLIENT_SECRET=your_reddit_client_secret
-GOOGLE_TRANSLATE_API_KEY=your_google_translate_api_key (선택)
-PAPAGO_CLIENT_ID=your_papago_client_id (선택)
-PAPAGO_CLIENT_SECRET=your_papago_client_secret (선택)
-TRANSLATION_PROVIDER=google|papago|libretranslate (선택, 기본값: google)
 ```
 
 또는 CLI로 설정:
@@ -58,7 +54,6 @@ TRANSLATION_PROVIDER=google|papago|libretranslate (선택, 기본값: google)
 ```bash
 supabase secrets set REDDIT_CLIENT_ID=your_reddit_client_id
 supabase secrets set REDDIT_CLIENT_SECRET=your_reddit_client_secret
-supabase secrets set GOOGLE_TRANSLATE_API_KEY=your_google_translate_api_key
 ```
 
 ### 6. GitHub Pages 환경 변수 설정

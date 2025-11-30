@@ -49,7 +49,7 @@ Vercel 배포 시에는 Vercel 대시보드에서 환경변수를 설정하세�
 
 ## 📚 문서
 
-- [진행 상황 보고서](./PROGRESS_REPORT.md)
+- [개발 진행 리포트](./DEVELOPMENT_PROGRESS_REPORT.md)
 - [Vercel 배포 가이드](./VERCEL_DEPLOY.md)
 - [환경 변수 설정 가이드](./ENV_SETUP.md)
 - [관리자 가이드](./ADMIN_GUIDE.md)
