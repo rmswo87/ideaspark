@@ -1,6 +1,5 @@
 // Footer 컴포넌트
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 
 export function Footer() {
   return (
