@@ -72,7 +72,7 @@ class AIClient {
     const taskMap = new Map<string, { major: number; minor: number; content: string }>();
     
     // 모든 부분에서 Task 추출
-    parts.forEach((part, partIndex) => {
+    parts.forEach((part) => {
       const taskRegex = /## 🎯 \[P\d+\] Task (\d+)\.(\d+):([^\n]+)\n([\s\S]*?)(?=## 🎯|## 📊|## 🗄️|## 📅|## ⚠️|## ✅|$)/g;
       let match;
       while ((match = taskRegex.exec(part)) !== null) {
