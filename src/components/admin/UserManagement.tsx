@@ -24,36 +24,42 @@ export function UserManagement() {
   async function fetchUsers() {
     setLoading(true);
     try {
-      // 현재 사용자 세션 가져오기
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.error('No session found');
+      // profiles 테이블에서 모든 사용자 가져오기
+      // profiles.id는 auth.users.id와 동일합니다
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, created_at, updated_at')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+
+      if (!profilesData || profilesData.length === 0) {
         setUsers([]);
         return;
       }
 
-      // Edge Function을 통해 사용자 목록 가져오기
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://djxiousdavdwwznufpzs.supabase.co';
-      const response = await fetch(`${supabaseUrl}/functions/v1/list-users`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // admins 테이블에서 관리자 목록 가져오기
+      const { data: adminsData, error: adminsError } = await supabase
+        .from('admins')
+        .select('user_id');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch users');
+      if (adminsError) {
+        console.error('Error fetching admins:', adminsError);
+        // admins 조회 실패해도 계속 진행
       }
 
-      const { users: usersList } = await response.json();
+      const adminIds = new Set(adminsData?.map(a => a.user_id) || []);
 
-      if (!usersList || usersList.length === 0) {
-        setUsers([]);
-        return;
-      }
+      // 사용자 목록 포맷팅
+      const usersList: User[] = profilesData.map(profile => ({
+        id: profile.id,
+        email: profile.email || '이메일 없음',
+        created_at: profile.created_at || new Date().toISOString(),
+        isAdmin: adminIds.has(profile.id),
+      }));
 
       setUsers(usersList);
     } catch (error) {

@@ -1,4 +1,5 @@
 // 가상 스크롤 리스트 컴포넌트 (간단한 버전)
+// @ts-ignore - react-window 타입 정의 문제 임시 해결
 import { FixedSizeList as List } from 'react-window';
 import { ReactNode } from 'react';
 
