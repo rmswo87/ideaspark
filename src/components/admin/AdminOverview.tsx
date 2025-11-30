@@ -19,7 +19,6 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
   });
   const [recentPosts, setRecentPosts] = useState<any[]>([]);
   const [recentIdeas, setRecentIdeas] = useState<any[]>([]);
-  const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -92,32 +91,6 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
 
       if (ideas) {
         setRecentIdeas(ideas);
-      }
-
-      // 최근 사용자 5명 가져오기 (posts에서 추출)
-      if (posts && posts.length > 0) {
-        const uniqueUserIds = new Set(posts.map(p => p.user_id).filter(Boolean));
-        const usersList = Array.from(uniqueUserIds).slice(0, 5);
-        
-        const usersWithInfo = await Promise.all(
-          usersList.map(async (userId) => {
-            try {
-              const { data: { user } } = await supabase.auth.admin.getUserById(userId);
-              return {
-                id: userId,
-                email: user?.email || '익명',
-                createdAt: posts.find(p => p.user_id === userId)?.created_at || new Date().toISOString(),
-              };
-            } catch {
-              return {
-                id: userId,
-                email: '익명',
-                createdAt: posts.find(p => p.user_id === userId)?.created_at || new Date().toISOString(),
-              };
-            }
-          })
-        );
-        setRecentUsers(usersWithInfo);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
