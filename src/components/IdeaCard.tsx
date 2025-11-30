@@ -53,7 +53,7 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
               <span>Chrome 자동 번역 사용하기</span>
             </p>
             <p className="text-muted-foreground text-[10px] sm:text-xs leading-relaxed">
-              Reddit 페이지에서 우측 상단 번역 아이콘을 클릭하거나 우클릭 → "한국어로 번역"을 선택하세요.
+              우측 상단 번역 아이콘을 클릭하거나 우클릭 → "한국어로 번역"을 선택하세요.
             </p>
           </div>
         </div>

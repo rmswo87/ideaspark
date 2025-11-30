@@ -74,6 +74,44 @@ export default async function handler(
 
     console.log('Reddit access token obtained successfully');
 
+    // HTML에서 텍스트 추출 헬퍼 함수
+    function extractTextFromHtml(html: string): string {
+      if (!html) return '';
+      // HTML 태그 제거
+      return html
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    // 게시물 내용 추출 함수 (selftext, selftext_html 모두 확인)
+    function extractPostContent(postData: any): string {
+      // 1. selftext가 있고 유효한 경우 (비어있지 않고 [removed], [deleted]가 아닌 경우)
+      if (postData.selftext && 
+          postData.selftext.trim() !== '' && 
+          postData.selftext !== '[removed]' && 
+          postData.selftext !== '[deleted]') {
+        return postData.selftext;
+      }
+      
+      // 2. selftext_html이 있는 경우 HTML에서 텍스트 추출
+      if (postData.selftext_html) {
+        const extracted = extractTextFromHtml(postData.selftext_html);
+        if (extracted && extracted.trim() !== '') {
+          return extracted;
+        }
+      }
+      
+      // 3. 둘 다 없는 경우 빈 문자열 반환
+      return '';
+    }
+
     // 수집 대상 서브레딧 (webdev는 403 에러가 발생하므로 제외)
     const subreddits = ['SomebodyMakeThis', 'AppIdeas', 'Startup_Ideas', 'Entrepreneur'];
     const allPosts: any[] = [];
@@ -110,17 +148,30 @@ export default async function handler(
               if (publicData?.data?.children && publicData.data.children.length > 0) {
                 const posts = publicData.data.children
                   .filter((child: { data?: any }) => child.data)
-            .map((child: { data: any }) => ({
-              redditId: child.data.id,
-              title: child.data.title,
-              content: child.data.selftext || '',
-              subreddit: child.data.subreddit,
-              author: child.data.author,
-              upvotes: child.data.ups || 0,
-              numComments: child.data.num_comments || 0,
-              url: `https://www.reddit.com${child.data.permalink}`,
-              createdAt: new Date(child.data.created_utc * 1000).toISOString(),
-            }));
+            .map((child: { data: any }) => {
+              const content = extractPostContent(child.data);
+              // 내용이 없는 게시물에 대한 로깅
+              if (!content || content.trim() === '') {
+                console.warn(`Post with empty content from r/${subreddit}:`, {
+                  id: child.data.id,
+                  title: child.data.title?.substring(0, 50),
+                  hasSelftext: !!child.data.selftext,
+                  hasSelftextHtml: !!child.data.selftext_html,
+                  selftextLength: child.data.selftext?.length || 0,
+                });
+              }
+              return {
+                redditId: child.data.id,
+                title: child.data.title,
+                content: content,
+                subreddit: child.data.subreddit,
+                author: child.data.author,
+                upvotes: child.data.ups || 0,
+                numComments: child.data.num_comments || 0,
+                url: `https://www.reddit.com${child.data.permalink}`,
+                createdAt: new Date(child.data.created_utc * 1000).toISOString(),
+              };
+            });
                 console.log(`Collected ${posts.length} posts from r/${subreddit} (public access)`);
                 allPosts.push(...posts);
               }
@@ -151,19 +202,32 @@ export default async function handler(
               }
               return true;
             })
-            .map((child: { data: any }) => ({
-              redditId: child.data.id,
-              title: child.data.title,
-              content: child.data.selftext || '',
-              subreddit: child.data.subreddit,
-              author: child.data.author,
-              upvotes: child.data.ups || 0,
-              numComments: child.data.num_comments || 0,
-              // permalink는 이미 /r/subreddit/comments/post_id/slug/ 형식으로 제공됨
-              // www.reddit.com과 결합하여 완전한 URL 생성
-              url: `https://www.reddit.com${child.data.permalink}`,
-              createdAt: new Date(child.data.created_utc * 1000).toISOString(),
-            }));
+            .map((child: { data: any }) => {
+              const content = extractPostContent(child.data);
+              // 내용이 없는 게시물에 대한 로깅
+              if (!content || content.trim() === '') {
+                console.warn(`Post with empty content from r/${subreddit}:`, {
+                  id: child.data.id,
+                  title: child.data.title?.substring(0, 50),
+                  hasSelftext: !!child.data.selftext,
+                  hasSelftextHtml: !!child.data.selftext_html,
+                  selftextLength: child.data.selftext?.length || 0,
+                });
+              }
+              return {
+                redditId: child.data.id,
+                title: child.data.title,
+                content: content,
+                subreddit: child.data.subreddit,
+                author: child.data.author,
+                upvotes: child.data.ups || 0,
+                numComments: child.data.num_comments || 0,
+                // permalink는 이미 /r/subreddit/comments/post_id/slug/ 형식으로 제공됨
+                // www.reddit.com과 결합하여 완전한 URL 생성
+                url: `https://www.reddit.com${child.data.permalink}`,
+                createdAt: new Date(child.data.created_utc * 1000).toISOString(),
+              };
+            });
           
           console.log(`Collected ${posts.length} posts from r/${subreddit}`);
           if (posts.length > 0) {

@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { PRDViewer } from '@/components/PRDViewer';
 import { generatePRD, generateDevelopmentPlan, getPRD, getPRDs } from '@/services/prdService';
 import { generateProposal, getProposals, type Proposal } from '@/services/proposalService';
-import { getIdea } from '@/services/ideaService';
+import { getIdea, fetchRedditPostContent, updateIdeaContent } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
 import { trackIdeaView, trackUserBehavior } from '@/services/recommendationService';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,32 @@ function IdeaDetailPage() {
     setLoading(true);
     try {
       const ideaData = await getIdea(id);
-      setIdea(ideaData);
+      if (ideaData) {
+        setIdea(ideaData);
+        
+        // 내용이 비어있고 Reddit URL이 있는 경우, Reddit에서 직접 가져오기 시도
+        if ((!ideaData.content || ideaData.content.trim() === '') && ideaData.url) {
+          console.log('Content is empty, fetching from Reddit URL:', ideaData.url);
+          try {
+            const fetchedContent = await fetchRedditPostContent(ideaData.url);
+            if (fetchedContent && fetchedContent.trim() !== '') {
+              // 데이터베이스 업데이트
+              const updatedIdea = await updateIdeaContent(id, fetchedContent);
+              if (updatedIdea && isMountedRef.current) {
+                setIdea(updatedIdea);
+                console.log('Successfully fetched and updated content from Reddit');
+              }
+            } else {
+              console.warn('Failed to fetch content from Reddit URL');
+            }
+          } catch (fetchError) {
+            console.error('Error fetching content from Reddit:', fetchError);
+            // 에러가 발생해도 기존 아이디어는 표시
+          }
+        }
+      } else {
+        setIdea(null);
+      }
     } catch (error) {
       console.error('Error fetching idea:', error);
       setIdea(null);
@@ -436,8 +461,8 @@ function IdeaDetailPage() {
                   💡 Chrome 자동 번역 사용하기
                 </p>
                 <ul className="text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside text-xs">
-                  <li>Reddit 페이지에서 우측 상단 번역 아이콘 클릭</li>
-                  <li>또는 우클릭 → "한국어로 번역" 선택</li>
+                  <li>보시는 페이지에서 우측 상단 번역 아이콘 클릭</li>
+                  <li>또는 마우스 우클릭 → "한국어로 번역" 선택</li>
                   <li>Chrome의 자동 번역 기능이 가장 정확하고 빠릅니다</li>
                 </ul>
               </div>

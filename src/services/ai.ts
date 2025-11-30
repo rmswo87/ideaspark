@@ -68,6 +68,26 @@ class AIClient {
     // 첫 번째 부분의 헤더와 개요 유지
     let merged = parts[0];
     
+    // Task 번호 추출 및 재정렬을 위한 맵
+    const taskMap = new Map<string, { major: number; minor: number; content: string }>();
+    
+    // 모든 부분에서 Task 추출
+    parts.forEach((part, partIndex) => {
+      const taskRegex = /## 🎯 \[P\d+\] Task (\d+)\.(\d+):([^\n]+)\n([\s\S]*?)(?=## 🎯|## 📊|## 🗄️|## 📅|## ⚠️|## ✅|$)/g;
+      let match;
+      while ((match = taskRegex.exec(part)) !== null) {
+        const major = parseInt(match[1]);
+        const minor = parseInt(match[2]);
+        const taskKey = `${major}.${minor}`;
+        const taskContent = match[0];
+        
+        // 중복된 Task가 있으면 첫 번째 것만 유지
+        if (!taskMap.has(taskKey)) {
+          taskMap.set(taskKey, { major, minor, content: taskContent });
+        }
+      }
+    });
+    
     // 나머지 부분들을 순차적으로 추가
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i];
@@ -87,13 +107,28 @@ class AIClient {
         .replace(/^---\s*$/m, '')
         // 부분 작성 가이드 제거
         .replace(/\*\*⚠️ 부분 작성 가이드.*?\n\n/gs, '')
+        // 이전 부분 참고 내용 제거
+        .replace(/\*\*⚠️ CRITICAL: 이전 부분 전체 내용.*?⚠️ 중요 지시사항:.*?\n\n/gs, '')
         .trim();
       
-      // 첫 번째 부분에 이미 있는 섹션 제거 (Part 2의 경우)
+      // 첫 번째 부분에 이미 있는 섹션 제거
       if (i === 1) {
         // Part 2에서는 Epic 개요 섹션 제거
         cleanedPart = cleanedPart
-          .replace(/^## 📋 Epic 1 개요.*?(?=## 🎯)/s, '')
+          .replace(/^## 📋 Epic 1 개요.*?(?=## 🎯|## 📊|## 🗄️|## 📅|## ⚠️|## ✅)/s, '')
+          .trim();
+      }
+      
+      // 중복된 다이어그램 제거 (시스템 아키텍처, ERD)
+      if (i > 1) {
+        // 시스템 아키텍처 섹션 중복 제거
+        cleanedPart = cleanedPart
+          .replace(/^## 📊 시스템 아키텍처.*?(?=## 🗄️|## 📅|## 🎯|## ⚠️|## ✅)/s, '')
+          .trim();
+        
+        // 데이터베이스 설계 섹션 중복 제거
+        cleanedPart = cleanedPart
+          .replace(/^## 🗄️ 데이터베이스 설계.*?(?=## 📅|## 🎯|## ⚠️|## ✅)/s, '')
           .trim();
       }
       
@@ -108,7 +143,17 @@ class AIClient {
       .replace(/\n{4,}/g, '\n\n\n') // 연속된 줄바꿈 정리
       .replace(/^---\s*$/gm, '---') // 구분선 정리
       .replace(/\*\*⚠️ 중요:.*?\n\n/gs, '') // 부분 작성 가이드 완전 제거
+      .replace(/\*\*⚠️ CRITICAL:.*?\n\n/gs, '') // CRITICAL 메시지 제거
+      // 중복된 Mermaid 다이어그램 제거 (같은 내용의 다이어그램이 여러 번 나타나면 첫 번째 것만 유지)
+      .replace(/(```mermaid[\s\S]*?```)([\s\S]*?)\1/g, '$1$2')
       .trim();
+    
+    // 문서가 중간에 끊겼는지 확인 (마지막 줄이 "## 🎯 [P1] Task"로 끝나면 불완전)
+    const lastLines = merged.split('\n').slice(-5).join('\n');
+    if (lastLines.match(/^## 🎯 \[P\d+\] Task \d+\.\d+:$/m)) {
+      // 불완전한 Task 제거
+      merged = merged.replace(/\n## 🎯 \[P\d+\] Task \d+\.\d+:.*$/s, '');
+    }
     
     return merged;
   }
@@ -117,14 +162,39 @@ class AIClient {
    * 아이디어를 기반으로 개선된 제안서 생성
    */
   async generateProposal(idea: Idea): Promise<string> {
-    const prompt = this.buildProposalPrompt(idea);
+    try {
+      const prompt = this.buildProposalPrompt(idea);
 
-    if (this.config.provider === 'openrouter') {
-      return this.callOpenRouter(prompt);
-    } else if (this.config.provider === 'openai') {
-      return this.callOpenAI(prompt);
-    } else {
-      return this.callClaude(prompt);
+      let result: string;
+      if (this.config.provider === 'openrouter') {
+        result = await this.callOpenRouter(prompt);
+      } else if (this.config.provider === 'openai') {
+        result = await this.callOpenAI(prompt);
+      } else {
+        result = await this.callClaude(prompt);
+      }
+
+      // 결과가 비어있거나 너무 짧으면 에러
+      if (!result || result.trim().length < 100) {
+        throw new Error('제안서 생성 결과가 비어있거나 너무 짧습니다. API 응답을 확인해주세요.');
+      }
+
+      return result;
+    } catch (error) {
+      // 더 명확한 에러 메시지 제공
+      if (error instanceof Error) {
+        if (error.message.includes('API key')) {
+          throw new Error(`AI API 키가 설정되지 않았습니다. 환경 변수를 확인해주세요. (${this.config.provider})`);
+        }
+        if (error.message.includes('401') || error.message.includes('403')) {
+          throw new Error(`AI API 인증에 실패했습니다. API 키를 확인해주세요. (${this.config.provider})`);
+        }
+        if (error.message.includes('429')) {
+          throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+        }
+        throw new Error(`제안서 생성 실패: ${error.message}`);
+      }
+      throw new Error('제안서 생성 중 알 수 없는 오류가 발생했습니다.');
     }
   }
 
@@ -507,7 +577,40 @@ ${this.buildPRDPrompt(idea).split('## PRD 작성 요구사항')[1]}`;
   private buildDevelopmentPlanPrompt(idea: Idea, prdContent?: string, partNumber?: number, previousParts?: string[]): string {
     const isMultiPart = partNumber !== undefined && partNumber > 1;
     const totalParts = 5;
-    const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 개발 계획서의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**\n${previousParts && previousParts.length > 0 ? `이전 부분 요약:\n${previousParts.map((p, i) => `### Part ${i + 1} 요약\n${p.split('\n').slice(0, 15).join('\n')}...`).join('\n\n')}\n\n` : ''}이전 부분들과 자연스럽게 연결되도록 작성하되, 중복되지 않도록 주의하세요.\n` : '';
+    
+    // 이전 부분에서 생성된 Task 번호 추출
+    let lastTaskNumber = 0;
+    let taskNumbers: number[] = [];
+    if (previousParts && previousParts.length > 0) {
+      previousParts.forEach(part => {
+        const taskMatches = part.match(/## 🎯 \[P\d+\] Task (\d+)\.(\d+):/g);
+        if (taskMatches) {
+          taskMatches.forEach(match => {
+            const numbers = match.match(/Task (\d+)\.(\d+):/);
+            if (numbers) {
+              const major = parseInt(numbers[1]);
+              const minor = parseInt(numbers[2]);
+              taskNumbers.push(major * 100 + minor);
+            }
+          });
+        }
+      });
+      if (taskNumbers.length > 0) {
+        lastTaskNumber = Math.max(...taskNumbers);
+      }
+    }
+    
+    // 다음 Task 번호 계산
+    const nextTaskMajor = Math.floor(lastTaskNumber / 100);
+    const nextTaskMinor = (lastTaskNumber % 100) + 1;
+    const nextTaskNumber = `${nextTaskMajor}.${nextTaskMinor}`;
+    
+    // 이전 부분의 전체 내용 (중복 체크용)
+    const previousContent = previousParts && previousParts.length > 0 
+      ? `\n\n**⚠️ CRITICAL: 이전 부분 전체 내용 (중복 방지 필수):**\n${previousParts.map((p, i) => `\n### Part ${i + 1} 전체 내용\n${p.substring(0, 5000)}${p.length > 5000 ? '\n\n...(이전 부분이 길어 일부만 표시했습니다. 전체 내용을 참고하여 중복되지 않도록 작성하세요.)' : ''}`).join('\n\n---\n\n')}\n\n**⚠️ 중요 지시사항:**\n- 위 이전 부분의 내용과 **절대 중복되지 않도록** 작성하세요.\n- 이전 부분에 이미 작성된 Task 번호는 사용하지 마세요. 다음 Task 번호는 **Task ${nextTaskNumber}**부터 시작하세요.\n- 이전 부분에 이미 작성된 섹션(예: Epic 개요, 시스템 아키텍처, 데이터베이스 설계 등)은 다시 작성하지 마세요.\n- 이전 부분에 이미 작성된 다이어그램은 다시 작성하지 마세요.\n- 이전 부분과 자연스럽게 연결되도록 작성하되, 내용은 완전히 새로운 것이어야 합니다.\n`
+      : '';
+    
+    const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 개발 계획서의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**${previousContent}` : '';
     return `당신은 Planning Expert v6.1입니다. 다음 아이디어와 PRD를 기반으로 **실제 개발자가 바로 착수할 수 있는 수준의 상세한 EPIC 문서**를 한국어로 작성해주세요.
 
 **⚠️ CRITICAL: 이 문서는 실제 개발에 사용될 것입니다. 플레이스홀더나 추상적인 설명이 아닌, 구체적이고 실행 가능한 내용만 작성하세요.**
@@ -522,13 +625,22 @@ ${prdContent ? `## PRD 내용\n${prdContent.substring(0, 8000)}${prdContent.leng
 당신은 Planning Expert로서 다음 원칙을 **엄격히** 준수해야 합니다:
 
 ### 핵심 원칙 (절대 준수)
-1. **TCREI 방법론**: 모든 Task는 Task, Context, Role, Expected Output, Iteration 5단계로 **구체적으로** 정의
+1. **TCREI 방법론**: 모든 Task는 Task, Context, Role, Expected Output, Iteration 5단계로 **구체적으로** 정의 (T, C, R만 작성하고 E, I를 생략하면 안 됩니다)
 2. **8 Expert System**: DevOps, Database, API, UI, Security, QA, Analytics, AI 전문가 핸드오프 체계 - **실제 전문가 이름과 역할을 명시**
 3. **우선순위 분류**: 모든 Task에 [P0/P1/P2/P3] 표시 필수
 4. **Mock-Free 원칙**: MVP 10% 이하, Full Product 1% 이하 Mock 허용
 5. **분량 제한**: Full 모드 1,000-1,500줄 (상세한 내용 포함)
 6. **실제 코드 포함**: 각 SubTask마다 핵심 코드 예시 20-50줄 포함 (실제 구현 가능한 수준)
 7. **구체적 수치**: 모든 목표, 완료 조건, 성능 기준에 정량적 수치 포함
+8. **마크다운 스타일 일관성**: 제목 크기와 진하기를 일관되게 유지하세요
+   - 1단계 제목: `#` (문서 제목만)
+   - 2단계 제목: `##` (주요 섹션)
+   - 3단계 제목: `###` (하위 섹션)
+   - 4단계 제목: `####` (세부 항목)
+   - 강조: `**텍스트**` (볼드)는 섹션 제목과 중요 내용에만 사용
+   - 일반 텍스트는 볼드 없이 작성
+9. **Task 번호 연속성**: 여러 부분으로 나눠서 작성할 때, 이전 부분의 Task 번호를 확인하고 연속된 번호를 사용하세요 (예: Part 1에서 Task 1.1, 1.2를 작성했다면, Part 2에서는 Task 1.3부터 시작)
+10. **문서 완성도**: 문서가 중간에 끊기지 않도록 마지막까지 완전히 작성하세요. 마지막 부분에서는 "다음 단계", "완료 조건" 등으로 문서를 자연스럽게 마무리하세요.
 
 ### 모드 선택
 이 프로젝트는 **Full 모드**로 작성하세요 (확장 가능한 설계, 운영 환경 고려, 완전한 제품).
@@ -546,7 +658,7 @@ ${prdContent ? `## PRD 내용\n${prdContent.substring(0, 8000)}${prdContent.leng
 
 다음 구조를 **정확히** 따라 마크다운 형식으로 작성해주세요. **Full 모드 (1,000-1,500줄)**로 상세하게 작성하세요.
 
-${isMultiPart ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${partNumber === 1 ? '- **Part 1 작성 내용**: Epic 개요, Task 1.1, Task 1.2를 상세히 작성하세요.\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 전문가 핸드오프 체계를 텍스트 형식으로 작성 (Mermaid 금지)' : partNumber === 2 ? '- **Part 2 작성 내용**: Task 1.3, Task 1.4, 시스템 아키텍처를 상세히 작성하세요.\n- Epic 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함' : partNumber === 3 ? '- **Part 3 작성 내용**: 데이터베이스 설계, Task 1.5를 상세히 작성하세요.\n- 데이터베이스 스키마는 실제 SQL 코드 포함 (100줄 이상)\n- 각 테이블의 CREATE TABLE 문 포함' : partNumber === 4 ? '- **Part 4 작성 내용**: 개발 일정 (WBS 텍스트 형식), 리스크 관리를 상세히 작성하세요.\n- WBS는 텍스트 형식으로만 작성 (Mermaid Gantt 차트 금지)\n- 각 리스크마다 구체적인 검증 방법과 Plan B 포함' : partNumber === 5 ? '- **Part 5 작성 내용**: 완료 조건, 성능 메트릭, 다음 단계를 상세히 작성하세요.\n- 각 전문가별 구체적인 완료 조건과 수치 포함\n- 성능 메트릭은 정량적 수치로 명시' : ''}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n` : ''}
+${isMultiPart ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${partNumber === 1 ? '- **Part 1 작성 내용**: Epic 개요, Task 1.1, Task 1.2를 상세히 작성하세요.\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 전문가 핸드오프 체계를 텍스트 형식으로 작성 (Mermaid 금지)\n- **Task 번호는 1.1, 1.2부터 시작하세요**' : partNumber === 2 ? `- **Part 2 작성 내용**: Task ${nextTaskNumber}, Task ${nextTaskNumber.split('.')[0]}.${parseInt(nextTaskNumber.split('.')[1]) + 1}, 시스템 아키텍처를 상세히 작성하세요.\n- Epic 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 시스템 아키텍처 다이어그램은 이전 부분에 없을 때만 작성하세요` : partNumber === 3 ? `- **Part 3 작성 내용**: 데이터베이스 설계, Task ${nextTaskNumber}를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 데이터베이스 스키마는 실제 SQL 코드 포함 (100줄 이상)\n- 각 테이블의 CREATE TABLE 문 포함\n- 데이터베이스 설계 섹션은 이전 부분에 없을 때만 작성하세요` : partNumber === 4 ? `- **Part 4 작성 내용**: 개발 일정 (WBS 텍스트 형식), 리스크 관리를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- WBS는 텍스트 형식으로만 작성 (Mermaid Gantt 차트 금지)\n- 각 리스크마다 구체적인 검증 방법과 Plan B 포함\n- 개발 일정 섹션은 이전 부분에 없을 때만 작성하세요` : partNumber === 5 ? `- **Part 5 작성 내용**: 완료 조건, 성능 메트릭, 다음 단계를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 전문가별 구체적인 완료 조건과 수치 포함\n- 성능 메트릭은 정량적 수치로 명시\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- 문서 마지막에 "## 다음 단계" 또는 "## 완료 조건" 섹션으로 자연스럽게 마무리하세요.` : ''}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n- **⚠️ TCREI 정의는 반드시 5단계 모두 완전히 작성하세요 (T, C, R, E, I).**\n` : ''}
 ### EPIC 문서 구조
 
 \`\`\`markdown
@@ -625,6 +737,8 @@ I - Iteration: 실시간 모니터링 → 자동 에러 수정 → 성능 최적
 ### **목표**: [아이디어와 PRD에서 추출한 구체적인 목표를 측정 가능한 수치와 함께 제시, 예: "14일 안에 10명의 Opinions을 수집하여 최초의 이메일 뉴스레터를 공개"]
 
 #### **TCREI 정의**
+**⚠️ CRITICAL: TCREI 정의는 반드시 5단계 모두 완전히 작성해야 합니다. T, C, R만 작성하고 E, I를 생략하면 안 됩니다.**
+
 \`\`\`yaml
 T - Task: [아이디어와 PRD에서 추출한 구체적인 작업 정의 - 측정 가능한 결과]
 C - Context: [프로젝트 배경, 실제 수치, 제약사항, 목표 수치를 구체적으로 제시]
@@ -632,6 +746,8 @@ R - Role: [실제 Expert 이름] (핵심 역할) + [실제 Expert 이름] (협�
 E - Expected Output: Mock-free 99% [구체적 결과물], [성능 목표 예: "API 응답시간 < 2초"], [품질 기준 예: "테스트 커버리지 > 80%"]
 I - Iteration: [실시간 모니터링 방법] → [자동 에러 수정 방법] → [성능 최적화 방법]
 \`\`\`
+
+**⚠️ 검증: 위 TCREI 정의에 T, C, R, E, I 5단계가 모두 포함되어 있는지 확인하세요.**
 
 #### **SubTask 1.1.1: [아이디어와 PRD에서 추출한 실제 작업명] (2시간)**
 \`\`\`yaml
@@ -740,8 +856,10 @@ graph TB
     D --> F[캐시 레이어]
 \`\`\`
 
-**중요**: 
-- 다이어그램은 간결하게 작성하여 화면에 잘 맞도록 하세요. 노드 텍스트는 짧고 명확하게 작성하세요.
+**⚠️ CRITICAL: 다이어그램 작성 규칙 (절대 준수):**
+- **노드 텍스트 길이 제한**: 각 노드의 텍스트는 **최대 15자 이하**로 작성하세요. 긴 텍스트는 잘립니다.
+- **노드 텍스트 예시**: "클라이언트", "API", "DB" (좋음) / "프리랜서로 전향하기 위한 자격증 및 교육 제공" (나쁨 - 너무 김)
+- 다이어그램은 간결하게 작성하여 화면에 잘 맞도록 하세요.
 - 모든 노드(박스)는 아이디어와 PRD에서 실제로 필요한 시스템 컴포넌트를 반영해야 합니다.
 - 다이어그램이 너무 크거나 복잡하지 않도록 주의하세요. 최대 8-10개 노드 이하로 작성하세요.
 
@@ -774,7 +892,9 @@ erDiagram
     POSTS ||--o{ COMMENTS : has
 \`\`\`
 
-**중요**: 
+**⚠️ CRITICAL: ERD 작성 규칙 (절대 준수):**
+- **엔티티 이름 길이 제한**: 각 엔티티 이름은 **최대 10자 이하**로 작성하세요. 긴 이름은 잘립니다.
+- **엔티티 이름 예시**: "USERS", "IDEAS", "PRDS" (좋음) / "프리랜서자격증교육" (나쁨 - 너무 김)
 - ERD는 간결하게 작성하여 화면에 잘 맞도록 하세요. 핵심 엔티티만 포함하세요.
 - 모든 엔티티와 관계는 아이디어와 PRD에서 실제로 필요한 것만 반영해야 합니다.
 - 다이어그램이 너무 크거나 복잡하지 않도록 주의하세요. 최대 5-7개 엔티티 이하로 작성하세요.
@@ -952,10 +1072,15 @@ Risk #3: 세 번째 위험을 구체적으로 명시
       const data = await response.json();
       
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid response from OpenAI API');
+        throw new Error('Invalid response from OpenAI API: missing choices or message');
       }
 
-      return data.choices[0].message.content;
+      const content = data.choices[0].message.content;
+      if (!content || content.trim().length === 0) {
+        throw new Error('OpenAI API returned empty content');
+      }
+
+      return content;
     } catch (error) {
       // 프로덕션 환경이 아닐 때만 에러 로그 출력
       if (import.meta.env.DEV) {
@@ -1098,10 +1223,15 @@ Risk #3: 세 번째 위험을 구체적으로 명시
       const data = await response.json();
       
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid response from OpenRouter API');
+        throw new Error('Invalid response from OpenRouter API: missing choices or message');
       }
 
-      return data.choices[0].message.content;
+      const content = data.choices[0].message.content;
+      if (!content || content.trim().length === 0) {
+        throw new Error('OpenRouter API returned empty content');
+      }
+
+      return content;
     } catch (error) {
       // 에러 발생 시에만 상세 로그 출력
       if (import.meta.env.DEV) {
