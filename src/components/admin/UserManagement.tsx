@@ -24,30 +24,38 @@ export function UserManagement() {
   async function fetchUsers() {
     setLoading(true);
     try {
-      // 모든 사용자 가져오기
-      const { data: { users: authUsers }, error: usersError } = await supabase.auth.admin.listUsers();
-
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
+      // 현재 사용자 세션 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('No session found');
         setUsers([]);
         return;
       }
 
-      // 관리자 정보 가져오기
-      const { data: admins } = await supabase
-        .from('admins')
-        .select('user_id');
+      // Edge Function을 통해 사용자 목록 가져오기
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://djxiousdavdwwznufpzs.supabase.co';
+      const response = await fetch(`${supabaseUrl}/functions/v1/list-users`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      const adminIds = new Set(admins?.map(a => a.user_id) || []);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
+      }
 
-      const usersWithAdmin = (authUsers || []).map(user => ({
-        id: user.id,
-        email: user.email || '이메일 없음',
-        created_at: user.created_at,
-        isAdmin: adminIds.has(user.id),
-      }));
+      const { users: usersList } = await response.json();
 
-      setUsers(usersWithAdmin);
+      if (!usersList || usersList.length === 0) {
+        setUsers([]);
+        return;
+      }
+
+      setUsers(usersList);
     } catch (error) {
       console.error('Error fetching users:', error);
       setUsers([]);
@@ -97,49 +105,65 @@ export function UserManagement() {
     );
   }
 
+  if (users.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground mb-4">등록된 사용자가 없습니다.</p>
+        <Button onClick={fetchUsers} variant="outline" size="sm">
+          새로고침
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>이메일</TableHead>
-            <TableHead>가입일</TableHead>
-            <TableHead>역할</TableHead>
-            <TableHead>작업</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map(user => (
-            <TableRow key={user.id}>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>
-                {new Date(user.created_at).toLocaleDateString('ko-KR')}
-              </TableCell>
-              <TableCell>
-                <span className={`px-2 py-1 rounded-md text-xs ${
-                  user.isAdmin ? 'bg-primary text-primary-foreground' : 'bg-secondary'
-                }`}>
-                  {user.isAdmin ? '관리자' : '사용자'}
-                </span>
-              </TableCell>
-              <TableCell>
-                <Button
-                  size="sm"
-                  variant={user.isAdmin ? 'destructive' : 'default'}
-                  onClick={() => toggleAdmin(user.id)}
-                  disabled={updating === user.id}
-                >
-                  {updating === user.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    user.isAdmin ? '관리자 해제' : '관리자 지정'
-                  )}
-                </Button>
-              </TableCell>
+      <div className="mb-4 text-sm text-muted-foreground">
+        총 {users.length}명의 사용자가 등록되어 있습니다.
+      </div>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>이메일</TableHead>
+              <TableHead>가입일</TableHead>
+              <TableHead>역할</TableHead>
+              <TableHead>작업</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {users.map(user => (
+              <TableRow key={user.id}>
+                <TableCell className="font-medium">{user.email}</TableCell>
+                <TableCell>
+                  {new Date(user.created_at).toLocaleDateString('ko-KR')}
+                </TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-md text-xs ${
+                    user.isAdmin ? 'bg-primary text-primary-foreground' : 'bg-secondary'
+                  }`}>
+                    {user.isAdmin ? '관리자' : '사용자'}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant={user.isAdmin ? 'destructive' : 'default'}
+                    onClick={() => toggleAdmin(user.id)}
+                    disabled={updating === user.id}
+                  >
+                    {updating === user.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      user.isAdmin ? '관리자 해제' : '관리자 지정'
+                    )}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
