@@ -1,6 +1,18 @@
-// 로컬 개발용 간단한 서버 (Node.js)
-// 이 파일은 로컬 개발 환경에서만 사용됩니다
-// 실행: npx tsx api/collect-ideas-local.ts
+/**
+ * 로컬 개발용 간단한 서버 (Node.js)
+ * 
+ * ⚠️ 주의: 이 파일은 로컬 개발 환경에서만 사용됩니다.
+ * Vercel 배포 시에는 api/collect-ideas.ts가 사용됩니다.
+ * 
+ * 사용 방법:
+ * 1. 터미널에서 실행: npx tsx api/collect-ideas-local.ts
+ * 2. 서버가 http://localhost:3000 에서 실행됩니다
+ * 3. 프론트엔드에서 http://localhost:3000/api/collect-ideas 로 요청
+ * 
+ * 환경 변수 필요:
+ * - REDDIT_CLIENT_ID
+ * - REDDIT_CLIENT_SECRET
+ */
 
 import * as http from 'http';
 
