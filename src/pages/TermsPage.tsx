@@ -158,3 +158,4 @@ export function TermsPage() {  const navigate = useNavigate();
 }
 
 export default TermsPage;
+

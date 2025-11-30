@@ -893,3 +893,4 @@ function IdeaDetailPage() {
 }
 
 export default IdeaDetailPage;
+

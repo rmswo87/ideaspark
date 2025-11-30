@@ -41,8 +41,6 @@ async function sendEmailNotification(data: {
     if (!response.ok) {
       const error = await response.text();
       console.error('Failed to send email notification:', error);
-    } else {
-      console.log('Email notification sent successfully');
     }
   } catch (error) {
     console.error('Error sending email notification:', error);

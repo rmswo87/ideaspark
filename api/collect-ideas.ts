@@ -235,6 +235,7 @@ export default async function handler(
               redditId: posts[0].redditId,
               title: posts[0].title.substring(0, 50),
               subreddit: posts[0].subreddit,
+              contentLength: posts[0].content?.length || 0,
             });
           }
           allPosts.push(...posts);
@@ -272,4 +273,3 @@ export default async function handler(
     });
   }
 }
-
