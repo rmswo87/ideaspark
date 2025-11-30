@@ -176,3 +176,4 @@ export function PrivacyPage() {  const navigate = useNavigate();
 }
 
 export default PrivacyPage;
+
