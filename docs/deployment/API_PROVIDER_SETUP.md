@@ -21,7 +21,6 @@ VITE_API_PROVIDER=vercel
 
 **API 엔드포인트:**
 - `/api/collect-ideas`
-- `/api/translate-text`
 
 ### 2. Supabase Edge Functions
 
@@ -34,7 +33,6 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 
 **API 엔드포인트:**
 - `https://[project].supabase.co/functions/v1/collect-ideas`
-- `https://[project].supabase.co/functions/v1/translate-text`
 
 **Supabase Edge Functions 배포:**
 ```bash
@@ -46,11 +44,9 @@ supabase login
 
 # Edge Function 생성
 supabase functions new collect-ideas
-supabase functions new translate-text
 
 # 배포
 supabase functions deploy collect-ideas
-supabase functions deploy translate-text
 ```
 
 ### 3. Cloudflare Workers
@@ -63,7 +59,6 @@ VITE_CLOUDFLARE_WORKER_URL=https://[worker].workers.dev
 
 **API 엔드포인트:**
 - `https://[worker].workers.dev/api/collect-ideas`
-- `https://[worker].workers.dev/api/translate-text`
 
 ## 🔄 Vercel 복귀
 
@@ -79,7 +74,6 @@ Vercel로 복귀하려면:
 ## 📝 현재 사용 중인 API
 
 1. **`/api/collect-ideas`**: Reddit 아이디어 수집
-2. **`/api/translate-text`**: 텍스트 번역
 
 ## ⚠️ 주의사항
 

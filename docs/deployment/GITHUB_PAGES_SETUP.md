@@ -42,7 +42,7 @@ GitHub Pages는 **정적 파일만 제공**하므로 Vercel Edge Functions는 �
 
 3. **Supabase Edge Functions 설정** (필수)
    - [SUPABASE_EDGE_FUNCTIONS_SETUP.md](./SUPABASE_EDGE_FUNCTIONS_SETUP.md) 참고
-   - `collect-ideas` 및 `translate-text` 함수 배포 필요
+   - `collect-ideas` 함수 배포 필요
 
 3. **자동 배포**
    - `main` 브랜치에 푸시하면 자동으로 배포됩니다

@@ -35,9 +35,6 @@ supabase link --project-ref [YOUR_PROJECT_REF]
 ```bash
 # collect-ideas 함수 배포
 supabase functions deploy collect-ideas --no-verify-jwt
-
-# translate-text 함수 배포
-supabase functions deploy translate-text --no-verify-jwt
 ```
 
 ### 5. 환경 변수 설정 (Secrets)
@@ -71,7 +68,6 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 배포 후 다음 URL로 접근:
 
 - `https://[YOUR_PROJECT_REF].supabase.co/functions/v1/collect-ideas`
-- `https://[YOUR_PROJECT_REF].supabase.co/functions/v1/translate-text`
 
 ## 🔄 Vercel 복귀
 
