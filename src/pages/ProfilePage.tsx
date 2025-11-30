@@ -83,7 +83,8 @@ function ProfilePage() {
   const donationAccountHolder = '자취만렙';
   // QR 코드 이미지는 public 폴더에 있으므로 루트 경로로 접근
   // Vite와 Vercel 모두에서 동작하도록 BASE_URL 활용
-  const donationQrUrl = `${import.meta.env.BASE_URL || ''}QR.png`.replace(/\/\//g, '/');
+  const baseUrl = import.meta.env.BASE_URL || '';
+  const donationQrUrl = `${baseUrl}QR.png`.replace(/\/\//g, '/').replace(/^\/+/, '/');
 
   function getImageProxyBase() {
     return (
