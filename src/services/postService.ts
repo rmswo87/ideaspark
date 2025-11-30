@@ -68,13 +68,13 @@ export async function createPost(
 }
 
 /**
- * 게시글 목록 조회 (필터링, 정렬, 검색 지원)
+ * 게시글 목록 가져오기
  */
 export async function getPosts(filters?: {
   category?: string;
-  userId?: string;
   limit?: number;
   offset?: number;
+  userId?: string;
   search?: string;
   tags?: string[];
   sort?: 'latest' | 'popular' | 'comments';
@@ -86,17 +86,15 @@ export async function getPosts(filters?: {
       user:profiles(id, email)
     `);
 
-  // 카테고리 필터
-  if (filters?.category) {
+  if (filters?.category && filters.category !== 'all') {
     query = query.eq('category', filters.category);
   }
 
-  // 사용자 필터
   if (filters?.userId) {
     query = query.eq('user_id', filters.userId);
   }
 
-  // 태그 필터 (PostgreSQL 배열 연산자 사용)
+  // 태그 필터링
   if (filters?.tags && filters.tags.length > 0) {
     query = query.contains('tags', filters.tags);
   }
@@ -157,7 +155,7 @@ export async function getPost(postId: string): Promise<Post | null> {
     return null;
   }
 
-  return data as unknown as Post;
+  return data as unknown as Post | null;
 }
 
 /**
@@ -170,6 +168,7 @@ export async function updatePost(
     content?: string;
     category?: string;
     tags?: string[];
+    isAnonymous?: boolean;
   }
 ): Promise<Post> {
   const updateData: any = {
@@ -180,6 +179,25 @@ export async function updatePost(
   // tags가 undefined가 아닌 경우에만 포함 (빈 배열은 null로 저장)
   if (updates.tags !== undefined) {
     updateData.tags = updates.tags.length > 0 ? updates.tags : null;
+  }
+
+  // 익명 여부 처리
+  if (updates.isAnonymous !== undefined) {
+    if (updates.isAnonymous) {
+      // 익명으로 변경: anonymous_id 생성 (기존 것이 없으면 새로 생성)
+      const { data: existingPost } = await supabase
+        .from('posts')
+        .select('anonymous_id')
+        .eq('id', postId)
+        .single();
+      
+      updateData.anonymous_id = existingPost?.anonymous_id || generateAnonymousId();
+    } else {
+      // 익명 해제: anonymous_id를 null로 설정
+      updateData.anonymous_id = null;
+    }
+    // isAnonymous는 데이터베이스에 저장하지 않으므로 제거
+    delete updateData.isAnonymous;
   }
 
   const { data, error } = await supabase
@@ -258,6 +276,25 @@ export async function toggleLike(postId: string, userId: string): Promise<boolea
 }
 
 /**
+ * 좋아요 상태 확인
+ */
+export async function isLiked(postId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('likes')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking like:', error);
+    return false;
+  }
+
+  return !!data;
+}
+
+/**
  * 북마크 토글
  */
 export async function toggleBookmark(postId: string, userId: string): Promise<boolean> {
@@ -303,35 +340,84 @@ export async function toggleBookmark(postId: string, userId: string): Promise<bo
 }
 
 /**
- * 좋아요 여부 확인
- */
-export async function isLiked(postId: string, userId: string): Promise<boolean> {
-  const { data } = await supabase
-    .from('likes')
-    .select('id')
-    .eq('post_id', postId)
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  return !!data;
-}
-
-/**
- * 북마크 여부 확인
+ * 북마크 상태 확인
  */
 export async function isBookmarked(postId: string, userId: string): Promise<boolean> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('bookmarks')
     .select('id')
     .eq('post_id', postId)
     .eq('user_id', userId)
     .maybeSingle();
 
+  if (error) {
+    console.error('Error checking bookmark:', error);
+    return false;
+  }
+
   return !!data;
 }
 
 /**
- * 내가 작성한 게시글 조회
+ * 북마크한 게시글 목록 가져오기
+ */
+export async function getBookmarkedPosts(userId: string): Promise<Post[]> {
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .select(`
+      created_at,
+      post:posts(
+        *,
+        user:profiles(id, email)
+      )
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching bookmarked posts:', error);
+    throw error;
+  }
+
+  return (data || [])
+    .filter((item: any) => item.post)
+    .map((item: any) => ({
+      ...item.post,
+      bookmarked_at: item.created_at,
+    })) as Post[];
+}
+
+/**
+ * 좋아요한 게시글 목록 가져오기
+ */
+export async function getLikedPosts(userId: string): Promise<Post[]> {
+  const { data, error } = await supabase
+    .from('likes')
+    .select(`
+      created_at,
+      post:posts(
+        *,
+        user:profiles(id, email)
+      )
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching liked posts:', error);
+    throw error;
+  }
+
+  return (data || [])
+    .filter((item: any) => item.post)
+    .map((item: any) => ({
+      ...item.post,
+      liked_at: item.created_at,
+    })) as Post[];
+}
+
+/**
+ * 내가 작성한 게시글 목록 가져오기
  */
 export async function getMyPosts(userId: string): Promise<Post[]> {
   const { data, error } = await supabase
@@ -349,64 +435,4 @@ export async function getMyPosts(userId: string): Promise<Post[]> {
   }
 
   return (data || []) as unknown as Post[];
-}
-
-/**
- * 내가 좋아요한 게시글 조회
- */
-export async function getLikedPosts(userId: string): Promise<Post[]> {
-  const { data, error } = await supabase
-    .from('likes')
-    .select(`
-      post:posts!inner(
-        *,
-        user:profiles(id, email)
-      ),
-      created_at
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching liked posts:', error);
-    throw error;
-  }
-
-  // 데이터 구조 변환
-  const posts = (data || []).map((item: any) => ({
-    ...item.post,
-    liked_at: item.created_at,
-  }));
-
-  return posts as unknown as Post[];
-}
-
-/**
- * 내가 북마크한 게시글 조회
- */
-export async function getBookmarkedPosts(userId: string): Promise<Post[]> {
-  const { data, error } = await supabase
-    .from('bookmarks')
-    .select(`
-      post:posts!inner(
-        *,
-        user:profiles(id, email)
-      ),
-      created_at
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching bookmarked posts:', error);
-    throw error;
-  }
-
-  // 데이터 구조 변환
-  const posts = (data || []).map((item: any) => ({
-    ...item.post,
-    bookmarked_at: item.created_at,
-  }));
-
-  return posts as unknown as Post[];
 }
