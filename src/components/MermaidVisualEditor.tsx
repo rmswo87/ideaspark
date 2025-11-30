@@ -440,7 +440,7 @@ export function MermaidVisualEditor({
                     <SelectItem value="diamond">
                       <div className="flex items-center gap-2">
                         <Diamond className="h-4 w-4" />
-                        다이아몬드 {'{'}라벨{'}'} (조건)
+                        다이아몬드 {`{라벨}`} (조건)
                       </div>
                     </SelectItem>
                     <SelectItem value="circle">
@@ -476,7 +476,7 @@ export function MermaidVisualEditor({
                     <SelectItem value="hexagon">
                       <div className="flex items-center gap-2">
                         <Hexagon className="h-4 w-4" />
-                        육각형 {'{'}{'{'}라벨{'}'}{'}'}
+                        육각형 {`{{라벨}}`}
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -510,4 +510,3 @@ export function MermaidVisualEditor({
     </Dialog>
   );
 }
-
