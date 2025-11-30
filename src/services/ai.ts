@@ -26,17 +26,91 @@ class AIClient {
 
   /**
    * 아이디어와 PRD를 기반으로 개발 계획서 생성
+   * 여러 번에 나누어서 생성하여 완전한 문서를 만듭니다.
    */
   async generateDevelopmentPlan(idea: Idea, prdContent?: string): Promise<string> {
-    const prompt = this.buildDevelopmentPlanPrompt(idea, prdContent);
-
-    if (this.config.provider === 'openrouter') {
-      return this.callOpenRouter(prompt);
-    } else if (this.config.provider === 'openai') {
-      return this.callOpenAI(prompt);
-    } else {
-      return this.callClaude(prompt);
+    // 개발 계획서를 5개 부분으로 나누어서 더 상세하게 생성
+    const parts: string[] = [];
+    const totalParts = 5;
+    
+    for (let partNum = 1; partNum <= totalParts; partNum++) {
+      const prompt = this.buildDevelopmentPlanPrompt(idea, prdContent, partNum, parts);
+      
+      let partContent: string;
+      if (this.config.provider === 'openrouter') {
+        partContent = await this.callOpenRouter(prompt);
+      } else if (this.config.provider === 'openai') {
+        partContent = await this.callOpenAI(prompt);
+      } else {
+        partContent = await this.callClaude(prompt);
+      }
+      
+      parts.push(partContent);
+      
+      // 마지막 부분이 아니면 잠시 대기 (API rate limit 방지)
+      if (partNum < totalParts) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
     }
+    
+    // 모든 부분을 합쳐서 하나의 문서로 만들기
+    const fullDocument = this.mergeDevelopmentPlanParts(parts);
+    return fullDocument;
+  }
+
+  /**
+   * 개발 계획서 부분들을 합치기
+   */
+  private mergeDevelopmentPlanParts(parts: string[]): string {
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0];
+    
+    // 첫 번째 부분의 헤더와 개요 유지
+    let merged = parts[0];
+    
+    // 나머지 부분들을 순차적으로 추가
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      
+      // 중복되는 헤더나 메타 정보 제거
+      let cleanedPart = part
+        // Epic 헤더 제거
+        .replace(/^#\s*Epic\s+1:.*$/m, '')
+        // Planning Expert 인용구 제거
+        .replace(/^>.*Planning Expert.*$/m, '')
+        // 메타 정보 제거
+        .replace(/^\*\*기간\*\*:.*$/m, '')
+        .replace(/^\*\*목표\*\*:.*$/m, '')
+        .replace(/^\*\*전문가\*\*:.*$/m, '')
+        .replace(/^\*\*복잡도\*\*:.*$/m, '')
+        // 빈 구분선 제거
+        .replace(/^---\s*$/m, '')
+        // 부분 작성 가이드 제거
+        .replace(/\*\*⚠️ 부분 작성 가이드.*?\n\n/gs, '')
+        .trim();
+      
+      // 첫 번째 부분에 이미 있는 섹션 제거 (Part 2의 경우)
+      if (i === 1) {
+        // Part 2에서는 Epic 개요 섹션 제거
+        cleanedPart = cleanedPart
+          .replace(/^## 📋 Epic 1 개요.*?(?=## 🎯)/s, '')
+          .trim();
+      }
+      
+      // 자연스럽게 연결
+      if (cleanedPart) {
+        merged += '\n\n' + cleanedPart;
+      }
+    }
+    
+    // 중복 제거 및 정리
+    merged = merged
+      .replace(/\n{4,}/g, '\n\n\n') // 연속된 줄바꿈 정리
+      .replace(/^---\s*$/gm, '---') // 구분선 정리
+      .replace(/\*\*⚠️ 중요:.*?\n\n/gs, '') // 부분 작성 가이드 완전 제거
+      .trim();
+    
+    return merged;
   }
 
   /**
@@ -261,7 +335,7 @@ PRD를 작성할 때 다음 사항을 고려하여 아이디어를 다듬고 구
 #### 보안 고려사항
 - 아이디어 특성에 맞는 보안 고려사항을 최소 2개 이상 구체적으로 제시하세요.
 
-### 6. 프로젝트 구조 및 WBS
+### 6. 프로젝트 구조
 
 #### 프로젝트 구조 다이어그램
 아이디어에서 제시된 기능을 기반으로 실제 프로젝트 구조를 Mermaid 다이어그램으로 작성하세요. 다음 구조를 기본으로 하되, 아이디어의 실제 기능명을 사용하세요:
@@ -284,25 +358,7 @@ graph TB
 - 다이어그램의 모든 노드(박스)는 아이디어에서 언급된 실제 기능명을 사용해야 합니다. 예시 텍스트를 그대로 사용하지 마세요.
 - 다이어그램은 간결하게 작성하여 화면에 잘 맞도록 하세요. 너무 많은 노드를 한 번에 표시하지 마세요.
 
-#### WBS (Work Breakdown Structure)
-아이디어에서 제시된 기능과 개발 우선순위를 기반으로 실제 일정을 Mermaid Gantt 형식으로 작성하세요. 다음 형식을 정확히 따라 작성하세요:
-
-\`\`\`mermaid
-gantt
-    title 프로젝트 일정
-    dateFormat YYYY-MM-DD
-    section Phase 1: MVP
-    아이디어 기능 1 개발    :a1, 2024-01-01, 7d
-    아이디어 기능 2 개발    :a2, after a1, 5d
-    아이디어 기능 3 개발    :a3, after a2, 7d
-    테스트 및 배포          :a4, after a3, 3d
-\`\`\`
-
-**중요**: 
-- Gantt 차트의 모든 작업명은 아이디어에서 언급된 실제 기능명을 사용해야 합니다. "아이디어 기능 1 개발" 같은 예시 텍스트를 그대로 사용하지 마세요.
-- Gantt 차트는 프로젝트 구조 다이어그램과 동일한 폰트 크기(13px)로 렌더링되도록 간결하게 작성하세요.
-
-### 7. 성공 지표
+### 6. 성공 지표
 
 #### KPI 정의
 아이디어에서 제시된 문제 해결 효과를 측정할 수 있는 구체적인 KPI를 작성하세요. 최소 3개 이상의 KPI를 목표값과 함께 제시하세요.
@@ -445,40 +501,52 @@ ${this.buildPRDPrompt(idea).split('## PRD 작성 요구사항')[1]}`;
 
   /**
    * 개발 계획서 생성 프롬프트 작성 (Planning Expert v6.1 기준)
+   * @param partNumber 부분 번호 (1, 2, 3 등) - 여러 번에 나누어서 생성할 때 사용
+   * @param previousParts 이전에 생성된 부분들
    */
-  private buildDevelopmentPlanPrompt(idea: Idea, prdContent?: string): string {
-    return `당신은 Planning Expert v6.1입니다. 다음 아이디어와 PRD를 기반으로 EPIC 문서를 한국어로 작성해주세요.
+  private buildDevelopmentPlanPrompt(idea: Idea, prdContent?: string, partNumber?: number, previousParts?: string[]): string {
+    const isMultiPart = partNumber !== undefined && partNumber > 1;
+    const totalParts = 5;
+    const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 개발 계획서의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**\n${previousParts && previousParts.length > 0 ? `이전 부분 요약:\n${previousParts.map((p, i) => `### Part ${i + 1} 요약\n${p.split('\n').slice(0, 15).join('\n')}...`).join('\n\n')}\n\n` : ''}이전 부분들과 자연스럽게 연결되도록 작성하되, 중복되지 않도록 주의하세요.\n` : '';
+    return `당신은 Planning Expert v6.1입니다. 다음 아이디어와 PRD를 기반으로 **실제 개발자가 바로 착수할 수 있는 수준의 상세한 EPIC 문서**를 한국어로 작성해주세요.
 
+**⚠️ CRITICAL: 이 문서는 실제 개발에 사용될 것입니다. 플레이스홀더나 추상적인 설명이 아닌, 구체적이고 실행 가능한 내용만 작성하세요.**
+${partInfo}
 ## 아이디어 정보
 - **제목**: ${idea.title}
 - **내용**: ${idea.content}
 - **서브레딧**: r/${idea.subreddit}
 
-${prdContent ? `## PRD 내용\n${prdContent}\n\n` : ''}## Planning Expert v6.1 작성 가이드라인
+${prdContent ? `## PRD 내용\n${prdContent.substring(0, 8000)}${prdContent.length > 8000 ? '\n\n(PRD 내용이 길어 일부만 표시했습니다. 전체 내용을 참고하여 작성하세요.)' : ''}\n\n` : ''}## Planning Expert v6.1 작성 가이드라인
 
-당신은 Planning Expert로서 다음 원칙을 엄격히 준수해야 합니다:
+당신은 Planning Expert로서 다음 원칙을 **엄격히** 준수해야 합니다:
 
-### 핵심 원칙
-1. **TCREI 방법론**: 모든 Task는 Task, Context, Role, Expected Output, Iteration 5단계로 정의
-2. **8 Expert System**: DevOps, Database, API, UI, Security, QA, Analytics, AI 전문가 핸드오프 체계
+### 핵심 원칙 (절대 준수)
+1. **TCREI 방법론**: 모든 Task는 Task, Context, Role, Expected Output, Iteration 5단계로 **구체적으로** 정의
+2. **8 Expert System**: DevOps, Database, API, UI, Security, QA, Analytics, AI 전문가 핸드오프 체계 - **실제 전문가 이름과 역할을 명시**
 3. **우선순위 분류**: 모든 Task에 [P0/P1/P2/P3] 표시 필수
 4. **Mock-Free 원칙**: MVP 10% 이하, Full Product 1% 이하 Mock 허용
-5. **분량 제한**: MVP 모드 400-600줄, Full 모드 700-1,000줄 엄수
+5. **분량 제한**: Full 모드 1,000-1,500줄 (상세한 내용 포함)
+6. **실제 코드 포함**: 각 SubTask마다 핵심 코드 예시 20-50줄 포함 (실제 구현 가능한 수준)
+7. **구체적 수치**: 모든 목표, 완료 조건, 성능 기준에 정량적 수치 포함
 
-### 모드 자동 감지
-프로젝트 특성에 따라 MVP 모드 또는 Full 모드를 선택하세요:
-- **MVP 모드**: 빠른 검증, 4주 이내, 기술 위험 검증 중심
-- **Full 모드**: 확장 가능한 설계, 운영 환경 고려, 완전한 제품
+### 모드 선택
+이 프로젝트는 **Full 모드**로 작성하세요 (확장 가능한 설계, 운영 환경 고려, 완전한 제품).
 
 ## EPIC 문서 작성 요구사항
 
 **⚠️ 절대적으로 준수해야 할 규칙:**
 1. **반드시 아래 구조를 정확히 따라 작성하세요.** 섹션 순서, 제목, 형식을 절대 변경하지 마세요.
 2. **모든 섹션을 박스 단위로 작성하세요.** 각 섹션은 명확한 제목과 내용으로 구분되어야 합니다.
-3. **플레이스홀더([...])를 절대 사용하지 마세요.** 모든 내용은 아이디어와 PRD에서 추출한 실제 내용이어야 합니다.
+3. **플레이스홀더([...], "구체적으로 명시", "실제 사용할 기술" 등)를 절대 사용하지 마세요.** 모든 내용은 아이디어와 PRD에서 추출한 실제 내용이어야 합니다.
 4. **아이디어마다 형식이 달라지면 안 됩니다.** 모든 아이디어에 대해 동일한 구조와 형식을 사용하세요.
+5. **각 Task는 최소 3-5개 SubTask로 세분화하세요.** 각 SubTask는 2-4시간 단위로 작성하세요.
+6. **각 SubTask마다 실제 코드 예시를 포함하세요.** 파일명, 클래스명, 함수명을 구체적으로 명시하세요.
+7. **전문가 이름은 실제 Expert 이름을 사용하세요.** "Expert 이름", "주도 Expert" 같은 플레이스홀더 금지.
 
-다음 구조를 **정확히** 따라 마크다운 형식으로 작성해주세요. MVP 모드(400-600줄) 또는 Full 모드(700-1,000줄)를 선택하세요.
+다음 구조를 **정확히** 따라 마크다운 형식으로 작성해주세요. **Full 모드 (1,000-1,500줄)**로 상세하게 작성하세요.
+
+${isMultiPart ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${partNumber === 1 ? '- **Part 1 작성 내용**: Epic 개요, Task 1.1, Task 1.2를 상세히 작성하세요.\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 전문가 핸드오프 체계를 텍스트 형식으로만 작성 (Mermaid 금지)' : partNumber === 2 ? '- **Part 2 작성 내용**: Task 1.3, Task 1.4, 시스템 아키텍처를 상세히 작성하세요.\n- Epic 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함' : partNumber === 3 ? '- **Part 3 작성 내용**: 데이터베이스 설계, Task 1.5를 상세히 작성하세요.\n- 데이터베이스 스키마는 실제 SQL 코드 포함 (100줄 이상)\n- 각 테이블의 CREATE TABLE 문 포함' : partNumber === 4 ? '- **Part 4 작성 내용**: 개발 일정 (WBS 텍스트 형식), 리스크 관리를 상세히 작성하세요.\n- WBS는 텍스트 형식으로만 작성 (Mermaid Gantt 차트 금지)\n- 각 리스크마다 구체적인 검증 방법과 Plan B 포함' : partNumber === 5 ? '- **Part 5 작성 내용**: 완료 조건, 성능 메트릭, 다음 단계를 상세히 작성하세요.\n- 각 전문가별 구체적인 완료 조건과 수치 포함\n- 성능 메트릭은 정량적 수치로 명시' : ''}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n` : ''}
 
 ### EPIC 문서 구조
 
@@ -513,74 +581,149 @@ I - Iteration: 실시간 모니터링 → 자동 에러 수정 → 성능 최적
 \`\`\`
 
 ### **전문가 핸드오프 체계**
-아이디어와 PRD를 분석하여 실제 필요한 전문가들을 명시하고, 간결한 Mermaid 다이어그램으로 작성하세요:
+아이디어와 PRD를 분석하여 실제 필요한 전문가들을 명시하고, **텍스트 형식으로만** 작성하세요 (Mermaid 다이어그램 사용 금지):
 
-\`\`\`mermaid
-graph TB
-    A[Planning Expert: 요구사항 분석] --> B[[주도 Expert]: 핵심 시스템]
-    B --> C[[협력 Expert1]: 데이터 계층]
-    C --> D[[협력 Expert2]: UI 계층]
-    D --> E[QA Expert: Mock-free 검증]
-    E --> F[Analytics Expert: 성능 모니터링]
-\`\`\`
+**핸드오프 순서:**
+1. **Planning Expert** (요구사항 분석)
+   - 역할: 아이디어와 PRD 분석, 전체 계획 수립
+   - 전달 사항: [아이디어와 PRD에서 추출한 구체적인 요구사항]
+   - 다음 단계: [주도 Expert]에게 핸드오프
 
-**중요**: 
-- 다이어그램은 간결하게 작성하여 화면에 잘 맞도록 하세요. 노드 텍스트는 짧고 명확하게 작성하세요.
-- 모든 노드(박스)는 아이디어와 PRD에서 실제로 필요한 전문가와 역할을 반영해야 합니다.
-- 다이어그램이 너무 크거나 복잡하지 않도록 주의하세요.
+2. **[주도 Expert 이름]** (핵심 시스템)
+   - 역할: [아이디어와 PRD에서 추출한 핵심 역할]
+   - 전달 사항: [구체적인 전달 내용]
+   - 다음 단계: [협력 Expert1]에게 핸드오프
+
+3. **[협력 Expert1 이름]** (데이터 계층)
+   - 역할: [아이디어와 PRD에서 추출한 역할]
+   - 전달 사항: [구체적인 전달 내용]
+   - 다음 단계: [협력 Expert2]에게 핸드오프
+
+4. **[협력 Expert2 이름]** (UI 계층)
+   - 역할: [아이디어와 PRD에서 추출한 역할]
+   - 전달 사항: [구체적인 전달 내용]
+   - 다음 단계: QA Expert에게 핸드오프
+
+5. **QA Expert** (Mock-free 검증)
+   - 역할: 실제 구현 검증, Mock 데이터 최소화
+   - 전달 사항: 테스트 결과 및 검증 완료 보고
+   - 다음 단계: Analytics Expert에게 핸드오프
+
+6. **Analytics Expert** (성능 모니터링)
+   - 역할: 성능 지표 추적, 시스템 안정성 모니터링
+   - 전달 사항: 모니터링 대시보드 및 성능 리포트
+
+**⚠️ 중요**: 
+- 모든 전문가 이름과 역할은 아이디어와 PRD에서 실제로 필요한 것을 반영해야 합니다.
+- "주도 Expert", "협력 Expert1" 같은 플레이스홀더를 절대 사용하지 마세요.
+- 각 전문가의 역할과 전달 사항을 구체적으로 명시하세요.
 
 ---
 
-## 🎯 [P0] Task 1.1: [핵심 기능] (Day 1-2)
+## 🎯 [P0] Task 1.1: [아이디어와 PRD에서 추출한 실제 핵심 기능명] (Day 1-2)
 
-### **담당**: Expert 이름 (주도) + Expert 2 (협력)
-### **목표**: 구체적인 목표를 측정 가능한 수치와 함께 제시
+### **담당**: [실제 Expert 이름, 예: API Expert (Marcus)] (주도) + [실제 Expert 이름, 예: Database Expert (Sarah)] (협력)
+### **목표**: [아이디어와 PRD에서 추출한 구체적인 목표를 측정 가능한 수치와 함께 제시, 예: "14일 안에 10명의 Opinions을 수집하여 최초의 이메일 뉴스레터를 공개"]
 
-#### **SubTask 1.1.1: 작업명 (2시간)**
+#### **TCREI 정의**
 \`\`\`yaml
-# Expert 자동 실행
+T - Task: [아이디어와 PRD에서 추출한 구체적인 작업 정의 - 측정 가능한 결과]
+C - Context: [프로젝트 배경, 실제 수치, 제약사항, 목표 수치를 구체적으로 제시]
+R - Role: [실제 Expert 이름] (핵심 역할) + [실제 Expert 이름] (협력 역할)
+E - Expected Output: Mock-free 99% [구체적 결과물], [성능 목표 예: "API 응답시간 < 2초"], [품질 기준 예: "테스트 커버리지 > 80%"]
+I - Iteration: [실시간 모니터링 방법] → [자동 에러 수정 방법] → [성능 최적화 방법]
+\`\`\`
+
+#### **SubTask 1.1.1: [아이디어와 PRD에서 추출한 실제 작업명] (2시간)**
+\`\`\`yaml
+# [실제 Expert 이름] 자동 실행
 기존 자산 활용:
-  - 프로젝트/modules/module/ → 용도
-  - 이전 프로젝트 컴포넌트 참조 → UI 재사용
+  - [실제 프로젝트 경로]/modules/[실제 모듈명]/ → [실제 용도]
+  - [실제 컴포넌트 경로] → [실제 UI 재사용 목적]
 
 표준 프로젝트 구조 생성:
-ProjectName/
+[실제 프로젝트명]/
 ├── modules/
-│   ├── module1/  [[Expert1]]  # 설명
-│   └── module2/  [[Expert2]]  # 설명
+│   ├── [실제 모듈1]/  [[실제 Expert 이름]]  # [아이디어와 PRD에서 추출한 실제 설명]
+│   └── [실제 모듈2]/  [[실제 Expert 이름]]  # [아이디어와 PRD에서 추출한 실제 설명]
 ├── shared/         [All Experts]
 ├── tests/          [QA Expert]
 └── docs/          [모든 전문가]
 \`\`\`
 
-**중요**: 위의 예시 구조를 그대로 사용하지 말고, 아이디어와 PRD에 맞는 실제 프로젝트 구조를 작성하세요.
+**구현 코드 예시:**
+\`\`\`typescript
+// [실제 파일 경로, 예: src/services/opinionService.ts]
+import { supabase } from '@/lib/supabase';
+import type { Opinion } from '@/types/opinion';
+
+export class OpinionService {
+  /**
+   * [실제 Expert 이름] 설계: Reddit에서 Opinions 수집
+   */
+  async collectOpinions(subreddit: string, limit: number = 10): Promise<Opinion[]> {
+    // [아이디어와 PRD에서 추출한 실제 구현 로직]
+    const { data, error } = await supabase
+      .from('opinions')
+      .select('*')
+      .eq('subreddit', subreddit)
+      .limit(limit);
+    
+    if (error) throw new Error(\`Opinions 수집 실패: \${error.message}\`);
+    return data || [];
+  }
+  
+  // [추가 실제 메서드들...]
+}
+\`\`\`
+
+**중요**: 위의 예시 구조를 그대로 사용하지 말고, 아이디어와 PRD에 맞는 실제 프로젝트 구조와 코드를 작성하세요.
 
 #### **SubTask 1.1.2: 기술 스택 선정 (1시간)**
 \`\`\`yaml
-Backend: 실제 사용할 기술을 구체적으로 명시
-Database: 실제 사용할 DB와 확장 방안을 구체적으로 명시
-Cache: 실제 사용할 캐시 시스템을 구체적으로 명시 (API 응답 캐싱)
-Security: 실제 사용할 보안 기술과 환경변수 암호화 방안을 구체적으로 명시
-Testing: 실제 사용할 테스트 도구와 Mock-free 99% 실제 검증 방안을 구체적으로 명시
+Backend: [아이디어와 PRD에서 추출한 실제 기술, 예: "Supabase (PostgreSQL) + Vercel Functions"]
+Database: [아이디어와 PRD에서 추출한 실제 DB, 예: "Supabase PostgreSQL (실시간 데이터 최적화)"]
+Cache: [아이디어와 PRD에서 추출한 실제 캐시 시스템, 예: "Supabase Realtime (실시간 업데이트)"]
+Security: [아이디어와 PRD에서 추출한 실제 보안 기술, 예: "Supabase Auth (JWT 토큰 관리)"]
+Testing: [아이디어와 PRD에서 추출한 실제 테스트 도구, 예: "Vitest + React Testing Library (Mock-free 99% 실제 검증)"]
 \`\`\`
 
 ---
 
-## 🎯 [P1] Task 1.2: [중요 기능] (Day 3-4)
+## 🎯 [P1] Task 1.2: [아이디어와 PRD에서 추출한 실제 중요 기능명] (Day 3-4)
 
-### **담당**: Expert 이름 (주도) + Expert 2 (협력)
-### **목표**: 구체적인 목표를 측정 가능한 수치와 함께 제시
+### **담당**: [실제 Expert 이름] (주도) + [실제 Expert 이름] (협력)
+### **목표**: [아이디어와 PRD에서 추출한 구체적인 목표를 측정 가능한 수치와 함께 제시]
 
-TCREI 방법론으로 상세히 작성하세요. Task 1.1과 동일한 형식으로 SubTask를 포함하여 작성하세요.
+#### **TCREI 정의**
+\`\`\`yaml
+T - Task: [아이디어와 PRD에서 추출한 구체적인 작업 정의]
+C - Context: [프로젝트 배경, 실제 수치, 제약사항]
+R - Role: [실제 Expert 이름] (주도) + [실제 Expert 이름] (협력)
+E - Expected Output: [구체적 결과물과 성능 목표]
+I - Iteration: [개선 프로세스]
+\`\`\`
+
+#### **SubTask 1.2.1: [아이디어와 PRD에서 추출한 실제 작업명] (2시간)**
+[Task 1.1과 동일한 형식으로 상세히 작성하세요. 실제 코드 예시 포함 필수]
+
+#### **SubTask 1.2.2: [아이디어와 PRD에서 추출한 실제 작업명] (3시간)**
+[Task 1.1과 동일한 형식으로 상세히 작성하세요. 실제 코드 예시 포함 필수]
+
+#### **SubTask 1.2.3: [아이디어와 PRD에서 추출한 실제 작업명] (2시간)**
+[Task 1.1과 동일한 형식으로 상세히 작성하세요. 실제 코드 예시 포함 필수]
 
 ---
 
-## 🎯 [P2] Task 1.3: [개선 기능] (Day 5-6)
+## 🎯 [P2] Task 1.3: [아이디어와 PRD에서 추출한 실제 개선 기능명] (Day 5-6)
 
-### **담당**: Expert 이름 (주도) + Expert 2 (협력)
-### **목표**: 구체적인 목표를 측정 가능한 수치와 함께 제시
+### **담당**: [실제 Expert 이름] (주도) + [실제 Expert 이름] (협력)
+### **목표**: [아이디어와 PRD에서 추출한 구체적인 목표]
 
-간략하게 작성하되, Phase 2로 미룰 수 있음을 명시하세요.
+**참고**: 이 Task는 Phase 2로 미룰 수 있으나, MVP에서 포함할 경우의 계획을 작성하세요.
+
+#### **SubTask 1.3.1: [아이디어와 PRD에서 추출한 실제 작업명] (2시간)**
+[간략하지만 구체적으로 작성하세요. 플레이스홀더 금지]
 
 ---
 
@@ -642,25 +785,62 @@ erDiagram
 
 ---
 
-## 📅 개발 일정 (WBS Gantt Chart)
-아이디어와 PRD를 분석하여 실제 개발 일정을 간결한 Mermaid Gantt 차트로 작성하세요:
+## 📅 개발 일정 (WBS - Work Breakdown Structure)
+아이디어와 PRD를 분석하여 실제 개발 일정을 **텍스트 형식으로만** 작성하세요 (Mermaid Gantt 차트 사용 금지):
 
-\`\`\`mermaid
-gantt
-    title 개발 일정
-    dateFormat YYYY-MM-DD
-    section Phase 1: MVP
-    [P0] Task 1.1    :a1, 2024-01-01, 2d
-    [P0] Task 1.2    :a2, after a1, 2d
-    [P1] Task 1.3    :a3, after a2, 3d
-    section Phase 2: 확장
-    [P2] Task 2.1    :b1, after a3, 7d
-\`\`\`
+### **Phase 1: MVP (Week 1-2)**
 
-**중요**: 
-- Gantt 차트의 모든 작업명은 아이디어와 PRD에서 언급된 실제 기능명을 사용해야 합니다. "Task 1.1" 같은 예시 텍스트를 그대로 사용하지 마세요.
-- Gantt 차트는 프로젝트 구조 다이어그램과 동일한 폰트 크기(13px)로 렌더링되도록 간결하게 작성하세요.
-- 작업 수는 최대 10-12개 이하로 제한하여 화면에 잘 맞도록 하세요.
+**Week 1:**
+- **Day 1-2**: [P0] [아이디어와 PRD에서 추출한 실제 Task 1 이름]
+  - 담당: [전문가 이름]
+  - 예상 시간: [N]시간
+  - 완료 조건: [구체적인 완료 조건]
+  
+- **Day 3-4**: [P0] [아이디어와 PRD에서 추출한 실제 Task 2 이름]
+  - 담당: [전문가 이름]
+  - 예상 시간: [N]시간
+  - 완료 조건: [구체적인 완료 조건]
+  - 의존성: Task 1 완료 후 시작
+
+- **Day 5**: [P1] [아이디어와 PRD에서 추출한 실제 Task 3 이름]
+  - 담당: [전문가 이름]
+  - 예상 시간: [N]시간
+  - 완료 조건: [구체적인 완료 조건]
+  - 의존성: Task 2 완료 후 시작
+
+**Week 2:**
+- **Day 6-7**: [P1] [아이디어와 PRD에서 추출한 실제 Task 4 이름]
+  - 담당: [전문가 이름]
+  - 예상 시간: [N]시간
+  - 완료 조건: [구체적인 완료 조건]
+  
+- **Day 8-9**: [P1] [아이디어와 PRD에서 추출한 실제 Task 5 이름]
+  - 담당: [전문가 이름]
+  - 예상 시간: [N]시간
+  - 완료 조건: [구체적인 완료 조건]
+
+- **Day 10**: 통합 테스트 및 버그 수정
+  - 담당: QA Expert
+  - 완료 조건: 모든 P0, P1 Task 통합 테스트 통과
+
+### **Phase 2: 확장 (Week 3-4)**
+
+**Week 3:**
+- **Day 11-13**: [P2] [아이디어와 PRD에서 추출한 실제 Task 6 이름]
+  - 담당: [전문가 이름]
+  - 예상 시간: [N]시간
+  - 완료 조건: [구체적인 완료 조건]
+
+**Week 4:**
+- **Day 14**: 최종 검증 및 배포 준비
+  - 담당: DevOps Expert + QA Expert
+  - 완료 조건: 프로덕션 배포 준비 완료
+
+**⚠️ 중요**: 
+- 모든 작업명은 아이디어와 PRD에서 언급된 실제 기능명을 사용해야 합니다.
+- "Task 1.1", "아이디어 기능 1" 같은 예시 텍스트를 절대 사용하지 마세요.
+- 각 작업의 담당 전문가, 예상 시간, 완료 조건을 구체적으로 명시하세요.
+- 작업 간 의존성을 명확히 표시하세요.
 
 ---
 
@@ -690,10 +870,11 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 ## ✅ 완료 조건
 
 \`\`\`yaml
-✅ Expert 1: 구체적 완료 조건을 수치와 함께 제시
-✅ Expert 2: 구체적 완료 조건을 수치와 함께 제시
-✅ QA Expert: Mock-free 99% 검증, API 에러율 < 1%
-✅ Integration Expert: 24시간 연속 운영 안정성 확인
+✅ [실제 Expert 이름, 예: API Expert (Marcus)]: [아이디어와 PRD에서 추출한 구체적 완료 조건 + 수치, 예: "Opinions 수집 API 구현 완료, 응답 시간 < 2초, 성공률 > 99%"]
+✅ [실제 Expert 이름, 예: Database Expert (Sarah)]: [아이디어와 PRD에서 추출한 구체적 완료 조건 + 수치, 예: "데이터베이스 스키마 구축 완료, 쿼리 응답 시간 < 500ms"]
+✅ [실제 Expert 이름, 예: UI Expert (Elena)]: [아이디어와 PRD에서 추출한 구체적 완료 조건 + 수치, 예: "뉴스레터 작성 UI 구현 완료, 사용자 만족도 > 4.5/5"]
+✅ QA Expert (Nina): Mock-free 99% 검증, API 에러율 < 1%, 가동률 > 99%
+✅ Analytics Expert (Ryan): 24시간 연속 운영 안정성 확인, 성능 메트릭 대시보드 구축 완료
 \`\`\`
 
 ---
@@ -706,7 +887,7 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 5. 분량 제한 엄수 (MVP 400-600줄, Full 700-1,000줄)
 6. 중복 방지: 동일 내용 2회 이상 금지, Cross-Reference 활용
 7. 코드 예시는 핵심만 (파일당 20-30줄)
-8. Mermaid 다이어그램 적극 활용 (시스템 구조, ERD, Gantt)
+8. Mermaid 다이어그램: 시스템 구조, ERD만 사용 (전문가 핸드오프, WBS는 텍스트만)
 9. **플레이스홀더([...])를 절대 사용하지 마세요.** 모든 내용은 아이디어와 PRD에서 추출한 실제 내용이어야 합니다.
 10. **모든 섹션을 박스 단위로 작성하세요.** 각 섹션은 명확한 제목과 내용으로 구분되어야 합니다.
 11. **아이디어마다 형식이 달라지면 안 됩니다.** 모든 아이디어에 대해 동일한 구조와 형식을 사용하세요.
@@ -715,12 +896,18 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 ---
 
 **⚠️ 최종 확인 사항 (반드시 체크하세요)**: 
-- ✅ 모든 플레이스홀더([...])를 실제 내용으로 대체했는지 확인
+- ✅ 모든 플레이스홀더([...], "구체적으로 명시", "실제 사용할 기술" 등)를 실제 내용으로 대체했는지 확인
 - ✅ 아이디어와 PRD를 분석하여 구체적인 내용을 작성했는지 확인
 - ✅ 예시 템플릿이 아닌 실제 프로젝트 기획서를 작성했는지 확인
-- ✅ 각 섹션을 매우 상세하고 구체적으로 작성했는지 확인
+- ✅ 각 섹션을 매우 상세하고 구체적으로 작성했는지 확인 (최소 1,000줄 이상)
 - ✅ 실제 개발자가 바로 착수할 수 있을 정도로 구체적인 내용을 포함했는지 확인
-- ✅ Mermaid 다이어그램에 실제 기능명을 사용했는지 확인 (예시 텍스트 사용 금지)
+- ✅ 각 Task마다 최소 3-5개 SubTask를 포함했는지 확인
+- ✅ 각 SubTask마다 실제 코드 예시 20-50줄을 포함했는지 확인
+- ✅ 전문가 이름을 실제 Expert 이름으로 작성했는지 확인 (플레이스홀더 금지)
+- ✅ 모든 목표, 완료 조건, 성능 기준에 정량적 수치를 포함했는지 확인
+- ✅ 전문가 핸드오프 체계를 텍스트 형식으로만 작성했는지 확인 (Mermaid 다이어그램 금지)
+- ✅ WBS 개발 일정을 텍스트 형식으로만 작성했는지 확인 (Mermaid Gantt 차트 금지)
+- ✅ Mermaid 다이어그램(시스템 구조, ERD)에 실제 기능명을 사용했는지 확인 (예시 텍스트 사용 금지)
 - ✅ 마크다운 형식을 정확히 지켰는지 확인
 - ✅ 모든 아이디어에 대해 동일한 구조와 형식을 사용했는지 확인
 - ✅ 각 섹션이 박스 단위로 명확히 구분되어 있는지 확인
@@ -771,7 +958,10 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 
       return data.choices[0].message.content;
     } catch (error) {
-      console.error('OpenAI API call error:', error);
+      // 프로덕션 환경이 아닐 때만 에러 로그 출력
+      if (import.meta.env.DEV) {
+        console.error('OpenAI API call error:', error);
+      }
       throw error;
     }
   }
@@ -821,7 +1011,10 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 
       return data.content[0].text;
     } catch (error) {
-      console.error('Claude API call error:', error);
+      // 프로덕션 환경이 아닐 때만 에러 로그 출력
+      if (import.meta.env.DEV) {
+        console.error('Claude API call error:', error);
+      }
       throw error;
     }
   }
@@ -832,24 +1025,32 @@ Risk #3: 세 번째 위험을 구체적으로 명시
   private async callOpenRouter(prompt: string): Promise<string> {
     const apiKey = this.config.apiKey;
     
-    if (!apiKey) {
-      throw new Error('OpenRouter API key is not configured');
+    if (!apiKey || apiKey.trim() === '') {
+      throw new Error('OpenRouter API key is not configured. Please set VITE_OPENROUTER_API_KEY in your .env.local file. Get your API key from https://openrouter.ai/keys');
     }
 
-    // 무료 모델 선택 (하루 할당량 제공)
-    // meta-llama/llama-3.1-8b-instruct: 안정적인 무료 모델 (권장)
+    // 무료 모델 선택
+    // meta-llama/llama-3.1-8b-instruct: 안정적인 무료 모델 (권장, 제한이 비교적 관대함)
     // mistralai/mistral-7b-instruct: 무료 모델
-    // google/gemini-flash-1.5-8b: 구버전 (사용 가능 여부 확인 필요)
+    // google/gemini-flash-1.5: Gemini Flash 모델 (무료 모델, 정확한 제한은 OpenRouter 사이트에서 확인)
     // google/gemini-2.0-flash-exp: 실험적 모델 (사용 불가)
+    // 참고: 무료 모델의 정확한 제한 사항은 https://openrouter.ai/models 에서 확인 가능
     const model = this.config.model || 'meta-llama/llama-3.1-8b-instruct';
+    
+    // API 키 확인 (에러가 있을 때만 로그 출력)
+    if (import.meta.env.DEV && (!apiKey || apiKey.trim() === '')) {
+      console.error('❌ OpenRouter API key is empty! Check VITE_OPENROUTER_API_KEY in .env.local file');
+    }
 
     try {
+      // 개발 환경에서 요청 정보 로깅 제거 (성공 시에는 로그 없음)
+      
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': window.location.origin, // OpenRouter 요구사항
+          'HTTP-Referer': window.location.origin || 'http://localhost:5173', // OpenRouter 요구사항
           'X-Title': 'IdeaSpark', // OpenRouter 요구사항
         },
         body: JSON.stringify({
@@ -868,7 +1069,31 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`OpenRouter API error: ${response.status} ${errorData.error?.message || response.statusText}`);
+        const errorMessage = errorData.error?.message || response.statusText;
+        
+        // 개발 환경에서 상세 에러 정보 출력
+        if (import.meta.env.DEV) {
+          console.error('❌ OpenRouter API Error:');
+          console.error('  Status:', response.status);
+          console.error('  Message:', errorMessage);
+          console.error('  Full error data:', errorData);
+          console.error('  API Key used:', apiKey ? `${apiKey.substring(0, 15)}...` : 'MISSING');
+          console.error('  Model:', model);
+        }
+        
+        // 401 에러인 경우 더 자세한 정보 제공
+        if (response.status === 401) {
+          const detailedError = `OpenRouter API 인증 실패 (401): ${errorMessage}\n` +
+            `모델: ${model}\n` +
+            `API 키: ${apiKey ? `${apiKey.substring(0, 10)}... (${apiKey.length}자)` : 'NOT FOUND'}\n` +
+            `해결 방법:\n` +
+            `1. .env.local 파일에 VITE_OPENROUTER_API_KEY가 올바르게 설정되어 있는지 확인\n` +
+            `2. 개발 서버를 재시작했는지 확인 (npm run dev)\n` +
+            `3. OpenRouter 대시보드에서 API 키가 활성화되어 있는지 확인`;
+          throw new Error(detailedError);
+        }
+        
+        throw new Error(`OpenRouter API error: ${response.status} ${errorMessage}`);
       }
 
       const data = await response.json();
@@ -879,7 +1104,10 @@ Risk #3: 세 번째 위험을 구체적으로 명시
 
       return data.choices[0].message.content;
     } catch (error) {
-      console.error('OpenRouter API call error:', error);
+      // 에러 발생 시에만 상세 로그 출력
+      if (import.meta.env.DEV) {
+        console.error('❌ OpenRouter API call failed:', error);
+      }
       throw error;
     }
   }
@@ -894,9 +1122,13 @@ const apiKey = provider === 'openrouter'
   ? (import.meta.env.VITE_OPENAI_API_KEY || '')
   : (import.meta.env.VITE_CLAUDE_API_KEY || '');
 
+// 개발 환경에서 환경 변수 로드 확인 (에러가 있을 때만 출력)
+if (import.meta.env.DEV && !apiKey) {
+  console.error('⚠️  WARNING: OpenRouter API key is missing! Check your .env.local file.');
+}
+
 export const aiClient = new AIClient({
   provider,
   apiKey,
   model: import.meta.env.VITE_OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct', // OpenRouter 무료 모델
 });
-
