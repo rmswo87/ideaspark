@@ -11,7 +11,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { supabase } from '@/lib/supabase'
 import { ProfileNotificationBadge } from './ProfileNotificationBadge'
-import { cn } from '@/lib/utils'
 
 export function MobileMenu() {
   const [open, setOpen] = useState(false)
