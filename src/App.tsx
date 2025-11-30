@@ -27,12 +27,12 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage'))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage'))
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(m => ({ default: m.default })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.default })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(m => ({ default: m.default })))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(m => ({ default: m.default })))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(m => ({ default: m.default })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.default })))
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
