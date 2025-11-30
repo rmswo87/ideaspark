@@ -1,0 +1,14 @@
+# Supabase 프로젝트 설정
+# 이 파일은 Supabase CLI가 사용합니다
+
+[project]
+# 프로젝트 ID는 `supabase link` 명령으로 자동 설정됩니다
+
+[functions.collect-ideas]
+# JWT 검증 비활성화 (공개 API)
+verify_jwt = false
+
+[functions.translate-text]
+# JWT 검증 비활성화 (공개 API)
+verify_jwt = false
+
