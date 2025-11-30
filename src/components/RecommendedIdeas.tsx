@@ -47,15 +47,15 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
 
   if (loading) {
     return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            이런 아이디어는 어때요?
+      <Card className="w-full max-w-full overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+        <CardHeader className="px-3 sm:px-6 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+            <span className="min-w-0">이런 아이디어는 어때요?</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">추천 아이디어를 불러오는 중...</div>
+        <CardContent className="px-3 sm:px-6">
+          <div className="text-center py-6 sm:py-8 text-sm sm:text-base text-muted-foreground">추천 아이디어를 불러오는 중...</div>
         </CardContent>
       </Card>
     );
@@ -66,39 +66,40 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          이런 아이디어는 어때요?
+    <Card className="w-full max-w-full overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+      <CardHeader className="px-3 sm:px-6 pb-3 sm:pb-4">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0">
+          <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+          <span className="min-w-0 break-words">이런 아이디어는 어때요?</span>
         </CardTitle>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2 min-w-0 break-words">
           당신의 관심사와 비슷한 아이디어를 추천해드립니다
         </p>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 w-full max-w-full overflow-x-hidden">
           {recommendedIdeas.map((idea) => {
             const ideaId = idea.id; // TypeScript를 위한 명시적 변수 할당
             return (
-              <IdeaCard
-                key={ideaId || 'unknown'}
-                idea={idea}
-                recommendationReason={idea.recommendation_reason}
-                onCardClick={() => {
-                  if (ideaId) {
-                    onGeneratePRD?.(ideaId);
-                  }
-                }}
-                formatDate={(dateString) => {
-                  const date = new Date(dateString);
-                  return date.toLocaleDateString('ko-KR', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  });
-                }}
-              />
+              <div key={ideaId || 'unknown'} className="w-full min-w-0 max-w-full" style={{ boxSizing: 'border-box' }}>
+                <IdeaCard
+                  idea={idea}
+                  recommendationReason={idea.recommendation_reason}
+                  onCardClick={() => {
+                    if (ideaId) {
+                      onGeneratePRD?.(ideaId);
+                    }
+                  }}
+                  formatDate={(dateString) => {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  }}
+                />
+              </div>
             );
           })}
         </div>

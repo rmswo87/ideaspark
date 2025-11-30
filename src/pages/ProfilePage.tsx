@@ -1,11 +1,11 @@
 // 프로필 페이지
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload, MoreVertical, UserPlus, Ban, Trash2, UserIcon } from 'lucide-react';
+import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload, MoreVertical, UserPlus, Ban, Trash2, UserIcon, CheckSquare, Square } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest, getBlockedUsers, unblockUser, sendFriendRequest, getFriendStatus, blockUser } from '@/services/friendService';
 import { getPRDs, deletePRD } from '@/services/prdService';
 import { PRDViewer } from '@/components/PRDViewer';
-import { getConversations, getConversation, sendMessage, markAsRead, deleteMessage } from '@/services/messageService';
+import { getConversations, getConversation, sendMessage, markAsRead, deleteMessage, deleteConversation } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -25,15 +25,19 @@ import type { Conversation, Message } from '@/services/messageService';
 import type { Post } from '@/services/postService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useToast } from '@/components/ui/toast';
 
 function ProfilePage() {
   const params = useParams<{ userId?: string }>();
   const urlUserId = params?.userId;
   const { user, loading } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   // URL에 userId가 있으면 해당 사용자의 프로필, 없으면 로그인한 사용자의 프로필
   const targetUserId = urlUserId || user?.id;
   const isOwnProfile = user?.id === targetUserId;
+  const [activeTab, setActiveTab] = useState('stats');
+  const scrollPositionRef = useRef<{ [key: string]: number }>({});
   const [stats, setStats] = useState({
     posts: 0,
     comments: 0,
@@ -70,6 +74,8 @@ function ProfilePage() {
   const [friendStatuses, setFriendStatuses] = useState<Record<string, 'none' | 'pending' | 'accepted' | 'blocked'>>({});
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [messageDialogUserId, setMessageDialogUserId] = useState<string | null>(null);
+  const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
   const donationAccountNumber = '3333258583773';
@@ -122,6 +128,69 @@ function ProfilePage() {
       }
     }
   }, [user, loading, navigate, targetUserId, urlUserId, isOwnProfile]);
+
+  // 탭 전환 시 스크롤 위치 저장 및 복원
+  useEffect(() => {
+    const handleScroll = () => {
+      scrollPositionRef.current[activeTab] = window.scrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeTab]);
+
+  // 부드러운 스크롤 함수 (커스텀 속도 조절)
+  const smoothScrollTo = (targetPosition: number, duration: number = 500) => {
+    const startPosition = window.scrollY;
+    const distance = targetPosition - startPosition;
+    
+    // 거리가 매우 작으면 즉시 이동
+    if (Math.abs(distance) < 10) {
+      window.scrollTo(0, targetPosition);
+      return;
+    }
+    
+    let startTime: number | null = null;
+
+    const animation = (currentTime: number) => {
+      if (startTime === null) startTime = currentTime;
+      const timeElapsed = currentTime - startTime;
+      const progress = Math.min(timeElapsed / duration, 1);
+      
+      // Easing function (ease-in-out)
+      const ease = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+      window.scrollTo(0, startPosition + distance * ease);
+
+      if (timeElapsed < duration) {
+        requestAnimationFrame(animation);
+      }
+    };
+
+    requestAnimationFrame(animation);
+  };
+
+  // 탭 변경 시 스크롤 위치 복원 (부드러운 애니메이션)
+  useEffect(() => {
+    // 약간의 지연을 두어 DOM 업데이트 후 스크롤 복원
+    const timer = setTimeout(() => {
+      const savedPosition = scrollPositionRef.current[activeTab];
+      const currentScrollY = window.scrollY;
+      
+      if (savedPosition !== undefined && savedPosition > 0) {
+        // 저장된 위치가 있으면 그 위치로 부드럽게 이동
+        smoothScrollTo(savedPosition, 500);
+      } else {
+        // 저장된 위치가 없으면 현재 위치에서 최상단으로 부드럽게 이동
+        // (친구 탭처럼 스크롤이 없는 경우에도 부드럽게 전환)
+        smoothScrollTo(0, 500);
+      }
+    }, 100); // DOM 업데이트를 위한 약간의 지연
+
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   async function fetchPreviewData() {
     if (!user) return;
@@ -295,12 +364,20 @@ function ProfilePage() {
 
     // 파일 유효성 검사
     if (!file.type.startsWith('image/')) {
-      alert('이미지 파일만 업로드 가능합니다.');
+      addToast({
+        title: '파일 형식 오류',
+        description: '이미지 파일만 업로드 가능합니다.',
+        variant: 'warning',
+      });
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('파일 크기는 5MB를 초과할 수 없습니다.');
+      addToast({
+        title: '파일 크기 오류',
+        description: '파일 크기는 5MB를 초과할 수 없습니다.',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -312,7 +389,11 @@ function ProfilePage() {
       await fetchProfile();
     } catch (error: any) {
       console.error('프로필 사진 업로드 오류:', error);
-      alert('프로필 사진 업로드에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+      addToast({
+        title: '업로드 실패',
+        description: '프로필 사진 업로드에 실패했습니다: ' + (error.message || '알 수 없는 오류'),
+        variant: 'destructive',
+      });
     } finally {
       setUploadingAvatar(false);
       // 파일 입력 초기화
@@ -352,7 +433,11 @@ function ProfilePage() {
       // 알림 갱신을 위해 window 이벤트 발생 (ProfileNotificationBadge가 감지)
       window.dispatchEvent(new CustomEvent('notification-updated'));
     } catch (error: any) {
-      alert(error.message || '친구 요청 수락에 실패했습니다.');
+      addToast({
+        title: '친구 요청 수락 실패',
+        description: error.message || '친구 요청 수락에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -363,7 +448,11 @@ function ProfilePage() {
       // 알림 갱신을 위해 window 이벤트 발생 (ProfileNotificationBadge가 감지)
       window.dispatchEvent(new CustomEvent('notification-updated'));
     } catch (error: any) {
-      alert(error.message || '친구 요청 거절에 실패했습니다.');
+      addToast({
+        title: '친구 요청 거절 실패',
+        description: error.message || '친구 요청 거절에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -415,10 +504,18 @@ function ProfilePage() {
     try {
       await sendFriendRequest(userId);
       setFriendStatuses(prev => ({ ...prev, [userId]: 'pending' }));
-      alert('친구 요청을 보냈습니다.');
+      addToast({
+        title: '친구 요청 전송',
+        description: '친구 요청을 보냈습니다.',
+        variant: 'success',
+      });
     } catch (error: any) {
       console.error('Error sending friend request:', error);
-      alert(error.message || '친구 요청에 실패했습니다.');
+      addToast({
+        title: '친구 요청 실패',
+        description: error.message || '친구 요청에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
   
@@ -429,16 +526,73 @@ function ProfilePage() {
       await blockUser(userId);
       setFriendStatuses(prev => ({ ...prev, [userId]: 'blocked' }));
       await fetchBlockedUsers();
-      alert('사용자를 차단했습니다.');
+      addToast({
+        title: '사용자 차단',
+        description: '사용자를 차단했습니다.',
+        variant: 'success',
+      });
     } catch (error: any) {
       console.error('Error blocking user:', error);
-      alert(error.message || '차단에 실패했습니다.');
+      addToast({
+        title: '차단 실패',
+        description: error.message || '차단에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
   
   function handleOpenMessageDialogFromMessage(userId: string) {
     setMessageDialogUserId(userId);
     setMessageDialogOpen(true);
+  }
+
+  async function handleDeleteConversation(userId: string) {
+    if (!user || !confirm('이 대화를 삭제하시겠습니까?')) return;
+
+    try {
+      await deleteConversation(userId);
+      await fetchConversations();
+      if (selectedConversation === userId) {
+        setSelectedConversation(null);
+        setMessages([]);
+      }
+      // 알림 갱신
+      window.dispatchEvent(new CustomEvent('notification-updated'));
+      addToast({
+        title: '대화 삭제',
+        description: '대화가 삭제되었습니다.',
+        variant: 'success',
+      });
+    } catch (error: any) {
+      addToast({
+        title: '대화 삭제 실패',
+        description: error.message || '대화 삭제에 실패했습니다.',
+        variant: 'destructive',
+      });
+    }
+  }
+
+  async function handleDeleteSelectedConversations() {
+    if (!user || selectedConversations.size === 0) return;
+    
+    if (!confirm(`선택한 ${selectedConversations.size}개의 대화를 삭제하시겠습니까?`)) return;
+
+    try {
+      for (const userId of selectedConversations) {
+        await deleteConversation(userId);
+      }
+      setSelectedConversations(new Set());
+      setIsSelectMode(false);
+      await fetchConversations();
+      if (selectedConversation && selectedConversations.has(selectedConversation)) {
+        setSelectedConversation(null);
+        setMessages([]);
+      }
+      // 알림 갱신
+      window.dispatchEvent(new CustomEvent('notification-updated'));
+    } catch (error: any) {
+      alert(error.message || '대화 삭제에 실패했습니다.');
+    }
   }
 
   async function handleSendMessage(receiverId: string) {
@@ -479,7 +633,11 @@ function ProfilePage() {
       setPostsList(posts);
     } catch (error) {
       console.error('Error fetching posts:', error);
-      alert('글 목록을 불러오는데 실패했습니다.');
+      addToast({
+        title: '로딩 실패',
+        description: '글 목록을 불러오는데 실패했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingPosts(false);
     }
@@ -500,7 +658,11 @@ function ProfilePage() {
       setCommentsList(comments);
     } catch (error) {
       console.error('Error fetching comments:', error);
-      alert('댓글 목록을 불러오는데 실패했습니다.');
+      addToast({
+        title: '로딩 실패',
+        description: '댓글 목록을 불러오는데 실패했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingComments(false);
     }
@@ -526,9 +688,17 @@ function ProfilePage() {
     try {
       await unblockUser(userId);
       await fetchBlockedUsers();
-      alert('차단을 해제했습니다.');
+      addToast({
+        title: '차단 해제',
+        description: '차단을 해제했습니다.',
+        variant: 'success',
+      });
     } catch (error: any) {
-      alert(error.message || '차단 해제에 실패했습니다.');
+      addToast({
+        title: '차단 해제 실패',
+        description: error.message || '차단 해제에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -541,7 +711,11 @@ function ProfilePage() {
       setPrdsList(prds);
     } catch (error) {
       console.error('Error fetching PRDs:', error);
-      alert('PRD 목록을 불러오는데 실패했습니다.');
+      addToast({
+        title: '로딩 실패',
+        description: 'PRD 목록을 불러오는데 실패했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingPrds(false);
     }
@@ -559,7 +733,11 @@ function ProfilePage() {
       await deletePRD(prdId);
       await fetchPrdsList();
     } catch (error: any) {
-      alert(error.message || 'PRD 삭제에 실패했습니다.');
+      addToast({
+        title: 'PRD 삭제 실패',
+        description: error.message || 'PRD 삭제에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -584,11 +762,11 @@ function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6">
       <Button
         variant="ghost"
         onClick={() => navigate('/')}
-        className="mb-4"
+        className="mb-4 hover:bg-primary/5 transition-colors duration-300"
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
         홈으로
@@ -597,18 +775,18 @@ function ProfilePage() {
       <div className="mb-6">
         <div className="grid gap-4 md:grid-cols-2">
           {/* 왼쪽: 프로필 기본 정보 */}
-          <Card>
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:shadow-lg transition-all duration-300">
             <CardHeader>
               <div className="flex items-center gap-4">
-                <div className="relative">
+                <div className="relative group">
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
                       alt="프로필 사진"
-                      className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-primary/30 shadow-md group-hover:border-primary/50 transition-all duration-300"
                     />
                   ) : (
-                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20 group-hover:bg-primary/15 transition-colors duration-300">
                       <User className="h-10 w-10 text-primary" />
                     </div>
                   )}
@@ -616,7 +794,7 @@ function ProfilePage() {
                     <>
                       <label
                         htmlFor="avatar-upload"
-                        className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                        className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 hover:scale-110 transition-all duration-300 shadow-md"
                         title="프로필 사진 변경"
                       >
                         <Camera className="h-4 w-4" />
@@ -633,16 +811,16 @@ function ProfilePage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-xl mb-2">
+                  <CardTitle className="text-xl mb-2 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                     {profile?.nickname || (isOwnProfile ? user?.email : '사용자')}
                   </CardTitle>
                   {isOwnProfile && user && (
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-sm text-muted-foreground/80 mb-2">
                       {user.email} · 가입일: {new Date(user.created_at).toLocaleDateString('ko-KR')}
                     </p>
                   )}
                   {profile?.bio && (
-                    <p className="text-sm text-muted-foreground break-words">
+                    <p className="text-sm text-muted-foreground/80 break-words leading-relaxed">
                       {profile.bio}
                     </p>
                   )}
@@ -670,7 +848,11 @@ function ProfilePage() {
                           setProfile({ ...profile, is_public: checked === true });
                         } catch (error: any) {
                           console.error('프로필 업데이트 오류:', error);
-                          alert('설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+                          addToast({
+                            title: '설정 저장 실패',
+                            description: '설정 저장에 실패했습니다: ' + (error.message || '알 수 없는 오류'),
+                            variant: 'destructive',
+                          });
                         }
                       }}
                     />
@@ -693,7 +875,11 @@ function ProfilePage() {
                           try {
                             await updateProfile({ nickname: profile.nickname });
                           } catch (error) {
-                            alert('닉네임 저장에 실패했습니다.');
+                            addToast({
+                              title: '닉네임 저장 실패',
+                              description: '닉네임 저장에 실패했습니다.',
+                              variant: 'destructive',
+                            });
                           }
                         }
                       }}
@@ -714,7 +900,11 @@ function ProfilePage() {
                           try {
                             await updateProfile({ bio: profile.bio });
                           } catch (error) {
-                            alert('소개 저장에 실패했습니다.');
+                            addToast({
+                              title: '소개 저장 실패',
+                              description: '소개 저장에 실패했습니다.',
+                              variant: 'destructive',
+                            });
                           }
                         }
                       }}
@@ -764,7 +954,11 @@ function ProfilePage() {
                               setTimeout(() => setDonationCopied(false), 2000);
                             })
                             .catch(() => {
-                              alert('계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.');
+                              addToast({
+                                title: '복사 실패',
+                                description: '계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.',
+                                variant: 'destructive',
+                              });
                             });
                         }}
                       >
@@ -806,37 +1000,68 @@ function ProfilePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="stats" className="mb-6">
-        <TabsList>
-          <TabsTrigger value="stats">통계</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => {
+        // 현재 탭의 스크롤 위치 저장
+        const currentScrollY = window.scrollY;
+        scrollPositionRef.current[activeTab] = currentScrollY;
+        
+        // 새 탭으로 전환
+        setActiveTab(value);
+        
+        // 탭 전환 시 부드러운 스크롤 효과를 위해 약간의 지연
+        // 저장된 위치가 있으면 그 위치로, 없으면 현재 위치에서 최상단으로 부드럽게 이동
+        setTimeout(() => {
+          const savedPosition = scrollPositionRef.current[value];
+          if (savedPosition !== undefined && savedPosition > 0) {
+            // 저장된 위치가 있으면 그 위치로 부드럽게 이동
+            smoothScrollTo(savedPosition, 500);
+          } else {
+            // 새 탭이거나 저장된 위치가 없으면 현재 위치에서 최상단으로 부드럽게 이동
+            // (친구 탭처럼 스크롤이 없는 경우에도 부드럽게 전환)
+            smoothScrollTo(0, 500);
+          }
+        }, 50);
+      }} className="mb-6">
+        <TabsList className="bg-muted/50 border-border/50 sticky top-16 z-10 bg-background/95 backdrop-blur-md shadow-sm">
+          <TabsTrigger value="stats" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">
+            통계
+          </TabsTrigger>
           {isOwnProfile && (
             <>
-              <TabsTrigger value="friends">
-                친구 {friendRequests.length > 0 && `(${friendRequests.length})`}
+              <TabsTrigger value="friends" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">
+                친구 {friendRequests.length > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 bg-primary/20 text-primary rounded-full text-xs font-medium">
+                    {friendRequests.length}
+                  </span>
+                )}
               </TabsTrigger>
-              <TabsTrigger value="messages">
-                쪽지 {conversations.filter(c => c.unreadCount > 0).length > 0 && `(${conversations.filter(c => c.unreadCount > 0).length})`}
+              <TabsTrigger value="messages" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">
+                쪽지 {conversations.filter(c => c.unreadCount > 0).length > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 bg-primary/20 text-primary rounded-full text-xs font-medium">
+                    {conversations.filter(c => c.unreadCount > 0).length}
+                  </span>
+                )}
               </TabsTrigger>
             </>
           )}
         </TabsList>
 
-        <TabsContent value="stats">
+        <TabsContent value="stats" className="mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+              className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
               onClick={() => handleOpenPostsDialog('my')}
             >
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
+                  <FileText className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors duration-300" />
                   작성한 게시글
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-bold">{stats.posts}</p>
-                  <span className="text-sm text-muted-foreground">개</span>
+                  <p className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{stats.posts}</p>
+                  <span className="text-sm text-muted-foreground/80">개</span>
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   {previewPosts.length > 0 ? (
@@ -866,19 +1091,19 @@ function ProfilePage() {
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+              className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
               onClick={() => handleOpenCommentsDialog()}
             >
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
+                <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
+                  <MessageSquare className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors duration-300" />
                   작성한 댓글
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-bold">{stats.comments}</p>
-                  <span className="text-sm text-muted-foreground">개</span>
+                  <p className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{stats.comments}</p>
+                  <span className="text-sm text-muted-foreground/80">개</span>
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   {previewComments.length > 0 ? (
@@ -913,19 +1138,19 @@ function ProfilePage() {
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+              className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
               onClick={() => handleOpenPostsDialog('liked')}
             >
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Heart className="h-5 w-5" />
+                <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
+                  <Heart className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors duration-300" />
                   좋아요한 글
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-bold">{stats.likes}</p>
-                  <span className="text-sm text-muted-foreground">개</span>
+                  <p className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{stats.likes}</p>
+                  <span className="text-sm text-muted-foreground/80">개</span>
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground line-clamp-2">
@@ -937,19 +1162,19 @@ function ProfilePage() {
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+              className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
               onClick={() => handleOpenPostsDialog('bookmarked')}
             >
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Bookmark className="h-5 w-5" />
+                <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
+                  <Bookmark className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors duration-300" />
                   북마크한 글
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-bold">{stats.bookmarks}</p>
-                  <span className="text-sm text-muted-foreground">개</span>
+                  <p className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{stats.bookmarks}</p>
+                  <span className="text-sm text-muted-foreground/80">개</span>
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground line-clamp-2">
@@ -961,19 +1186,19 @@ function ProfilePage() {
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+              className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
               onClick={handleOpenPrdsDialog}
             >
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
+                  <FileText className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors duration-300" />
                   생성한 PRD
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-4xl font-bold">{stats.prds}</p>
-                  <span className="text-sm text-muted-foreground">개</span>
+                  <p className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{stats.prds}</p>
+                  <span className="text-sm text-muted-foreground/80">개</span>
                 </div>
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground line-clamp-2">
@@ -1242,7 +1467,55 @@ function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="md:col-span-1">
               <CardHeader>
-                <CardTitle>대화 목록</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>대화 목록</CardTitle>
+                  <div className="flex gap-2">
+                    {isSelectMode ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (selectedConversations.size === conversations.length) {
+                              setSelectedConversations(new Set());
+                            } else {
+                              setSelectedConversations(new Set(conversations.map(c => c.user.id)));
+                            }
+                          }}
+                        >
+                          {selectedConversations.size === conversations.length ? '전체 해제' : '전체 선택'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={handleDeleteSelectedConversations}
+                          disabled={selectedConversations.size === 0}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          삭제 ({selectedConversations.size})
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setIsSelectMode(false);
+                            setSelectedConversations(new Set());
+                          }}
+                        >
+                          취소
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsSelectMode(true)}
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-2 max-h-[600px] overflow-y-auto">
                 {conversations.length === 0 ? (
@@ -1251,20 +1524,64 @@ function ProfilePage() {
                   conversations.map((conv) => (
                     <div
                       key={conv.user.id}
-                      className={`p-3 border rounded cursor-pointer hover:bg-accent ${
+                      className={`p-3 border rounded ${
+                        isSelectMode ? '' : 'cursor-pointer hover:bg-accent'
+                      } ${
                         selectedConversation === conv.user.id ? 'bg-accent' : ''
-                      }`}
-                      onClick={() => fetchMessages(conv.user.id)}
+                      } ${
+                        selectedConversations.has(conv.user.id) ? 'bg-primary/10 border-primary' : ''
+                      } transition-colors duration-200`}
+                      onClick={() => {
+                        if (!isSelectMode) {
+                          fetchMessages(conv.user.id);
+                        } else {
+                          setSelectedConversations(prev => {
+                            const newSet = new Set(prev);
+                            if (newSet.has(conv.user.id)) {
+                              newSet.delete(conv.user.id);
+                            } else {
+                              newSet.add(conv.user.id);
+                            }
+                            return newSet;
+                          });
+                        }
+                      }}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">
-                          {conv.user.nickname || conv.user.email}
-                        </span>
-                        {conv.unreadCount > 0 && (
-                          <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
-                            {conv.unreadCount}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {isSelectMode && (
+                            <div className="flex-shrink-0">
+                              {selectedConversations.has(conv.user.id) ? (
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Square className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </div>
+                          )}
+                          <span className="font-medium truncate">
+                            {conv.user.nickname || conv.user.email}
                           </span>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {conv.unreadCount > 0 && (
+                            <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                          {!isSelectMode && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteConversation(conv.user.id);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {conv.lastMessage && (
                         <p className="text-sm text-muted-foreground truncate mt-1">
@@ -1402,7 +1719,11 @@ function ProfilePage() {
                                         await fetchMessages(selectedConversation);
                                       } catch (error) {
                                         console.error('Error deleting message:', error);
-                                        alert('쪽지 삭제에 실패했습니다.');
+                                        addToast({
+                                          title: '쪽지 삭제 실패',
+                                          description: '쪽지 삭제에 실패했습니다.',
+                                          variant: 'destructive',
+                                        });
                                       }
                                     }
                                   }}
@@ -1528,7 +1849,11 @@ function ProfilePage() {
                         await fetchPrdsList();
                         await fetchStats();
                       } catch (error) {
-                        alert('PRD 삭제에 실패했습니다.');
+                        addToast({
+                          title: 'PRD 삭제 실패',
+                          description: 'PRD 삭제에 실패했습니다.',
+                          variant: 'destructive',
+                        });
                       }
                     }
                   }}
@@ -1576,7 +1901,11 @@ function ProfilePage() {
                               await fetchPrdsList();
                               await fetchStats();
                             } catch (error) {
-                              alert('PRD 삭제에 실패했습니다.');
+                              addToast({
+                          title: 'PRD 삭제 실패',
+                          description: 'PRD 삭제에 실패했습니다.',
+                          variant: 'destructive',
+                        });
                             }
                           }
                         }}
@@ -1605,19 +1934,9 @@ function ProfilePage() {
       {/* 도네이션 QR 다이얼로그 (프로필 내 인라인) */}
       {isOwnProfile && (
         <Dialog open={donationShowQR} onOpenChange={setDonationShowQR}>
-          <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogContent className="sm:max-w-md" showCloseButton={true}>
             <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle>QR 코드로 송금</DialogTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDonationShowQR(false)}
-                  className="h-8 w-16 text-sm"
-                >
-                  닫기
-                </Button>
-              </div>
+              <DialogTitle>QR 코드로 송금</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4 py-4">
               <div className="w-56 h-56 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed overflow-hidden relative">

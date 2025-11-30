@@ -25,9 +25,12 @@ import type { Post } from '@/services/postService';
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge';
 import { MobileMenu } from '@/components/MobileMenu';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { PostCardSkeleton } from '@/components/PostCardSkeleton';
+import { useToast } from '@/components/ui/toast';
 
 function CommunityPage() {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
@@ -257,9 +260,17 @@ function CommunityPage() {
     try {
       await sendFriendRequest(userId);
       setFriendStatuses(prev => ({ ...prev, [userId]: 'pending' }));
-      alert('친구 요청을 보냈습니다.');
+      addToast({
+        title: '친구 요청 전송',
+        description: '친구 요청을 보냈습니다.',
+        variant: 'success',
+      });
     } catch (error: any) {
-      alert(error.message || '친구 요청에 실패했습니다.');
+      addToast({
+        title: '친구 요청 실패',
+        description: error.message || '친구 요청에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -269,9 +280,17 @@ function CommunityPage() {
     try {
       await blockUser(userId);
       setFriendStatuses(prev => ({ ...prev, [userId]: 'blocked' }));
-      alert('사용자를 차단했습니다.');
+      addToast({
+        title: '사용자 차단',
+        description: '사용자를 차단했습니다.',
+        variant: 'success',
+      });
     } catch (error: any) {
-      alert(error.message || '차단에 실패했습니다.');
+      addToast({
+        title: '차단 실패',
+        description: error.message || '차단에 실패했습니다.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -288,9 +307,17 @@ function CommunityPage() {
       await sendMessage(messageTargetUserId, messageContent);
       setMessageContent('');
       setMessageDialogOpen(false);
-      alert('쪽지를 보냈습니다.');
+      addToast({
+        title: '쪽지 전송',
+        description: '쪽지를 보냈습니다.',
+        variant: 'success',
+      });
     } catch (error: any) {
-      alert(error.message || '쪽지 전송에 실패했습니다.');
+      addToast({
+        title: '쪽지 전송 실패',
+        description: error.message || '쪽지 전송에 실패했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setSendingMessage(false);
     }
@@ -298,13 +325,21 @@ function CommunityPage() {
 
   async function handleCreatePost() {
     if (!user) {
-      alert('로그인이 필요합니다.');
+      addToast({
+        title: '로그인 필요',
+        description: '로그인이 필요합니다.',
+        variant: 'warning',
+      });
       navigate('/auth');
       return;
     }
 
     if (!newPost.title || !newPost.content) {
-      alert('제목과 내용을 입력해주세요.');
+      addToast({
+        title: '입력 오류',
+        description: '제목과 내용을 입력해주세요.',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -367,7 +402,11 @@ function CommunityPage() {
       }
     } catch (error: any) {
       console.error('이미지 업로드 오류:', error);
-      alert(error.message || '이미지 업로드에 실패했습니다.');
+      addToast({
+        title: '이미지 업로드 실패',
+        description: error.message || '이미지 업로드에 실패했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setUploadingImage(false);
       if (imageInputRef.current) {
@@ -461,7 +500,7 @@ function CommunityPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b border-border/50 sticky top-0 z-50 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 shadow-sm">
         <div className="container mx-auto px-2 sm:px-4 py-0 sm:py-1.5">
           <div className="flex flex-row items-center justify-between gap-1 sm:gap-0 h-10 sm:h-auto">
             <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
@@ -486,16 +525,23 @@ function CommunityPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
-                  className={`text-xs sm:text-sm ${location.pathname === '/' ? 'font-semibold bg-secondary text-foreground' : ''}`}
+                  className={`text-xs sm:text-sm transition-all duration-300 ${
+                    location.pathname === '/' 
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                      : 'hover:bg-primary/5 hover:text-primary'
+                  }`}
                 >
                   아이디어
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`text-xs sm:text-sm ${location.pathname.includes('/community') ? 'font-semibold bg-secondary text-foreground hover:text-foreground' : ''}`}
+                  className={`text-xs sm:text-sm transition-all duration-300 ${
+                    location.pathname.includes('/community') 
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                      : 'hover:bg-primary/5 hover:text-primary'
+                  }`}
                   disabled
-                  style={location.pathname.includes('/community') ? { color: 'hsl(var(--foreground))' } : undefined}
                 >
                   커뮤니티
                 </Button>
@@ -503,7 +549,11 @@ function CommunityPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/contact')}
-                  className={`text-xs sm:text-sm ${location.pathname.includes('/contact') ? 'font-semibold bg-secondary text-foreground' : ''}`}
+                  className={`text-xs sm:text-sm transition-all duration-300 ${
+                    location.pathname.includes('/contact') 
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                      : 'hover:bg-primary/5 hover:text-primary'
+                  }`}
                 >
                   문의 / 피드백
                 </Button>
@@ -517,7 +567,7 @@ function CommunityPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate('/admin')}
-                      className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
+                      className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 hover:bg-primary/5 hover:text-primary transition-all duration-300 border-border/50"
                     >
                       <Shield className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                       <span className="hidden sm:inline">관리자</span>
@@ -527,7 +577,7 @@ function CommunityPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/profile')}
-                    className="relative text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
+                    className="relative text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 hover:bg-primary/5 hover:text-primary transition-all duration-300 border-border/50"
                   >
                     <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">프로필</span>
@@ -540,7 +590,7 @@ function CommunityPage() {
                       await supabase.auth.signOut();
                       navigate('/auth');
                     }}
-                    className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
+                    className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 hover:bg-destructive/10 hover:text-destructive transition-all duration-300 border-border/50"
                   >
                     <LogOut className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">로그아웃</span>
@@ -548,10 +598,10 @@ function CommunityPage() {
                 </>
               ) : (
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
                   onClick={() => navigate('/auth')}
-                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
+                  className="text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 hover:bg-primary hover:text-primary-foreground transition-all duration-300 border-border/50 hover:border-primary/50"
                 >
                   <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                   로그인
@@ -813,8 +863,10 @@ function CommunityPage() {
 
         {/* 게시글 목록 (SNS 스타일) */}
         {loading && posts.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">로딩 중...</p>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <PostCardSkeleton key={`skeleton-${index}`} />
+            ))}
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-12">
@@ -833,11 +885,11 @@ function CommunityPage() {
               return (
                 <Card 
                   key={post.id} 
-                  className="hover:shadow-lg transition-shadow"
+                  className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm"
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-4 sm:p-5">
                     {/* 작성자 정보 */}
-                    <div className="flex items-start gap-3 mb-3">
+                    <div className="flex items-start gap-3 mb-3 sm:mb-4">
                       <div className="flex-shrink-0">
                         {author.avatarUrl ? (
                           <img
@@ -913,7 +965,7 @@ function CommunityPage() {
                           )}
                           <span className="text-xs text-muted-foreground">·</span>
                           <span className="text-xs text-muted-foreground">{formatDate(post.created_at)}</span>
-                          <span className="px-2 py-0.5 bg-secondary rounded-md text-xs ml-auto">
+                          <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs ml-auto font-medium border border-primary/20">
                             {post.category}
                           </span>
                         </div>
@@ -925,7 +977,7 @@ function CommunityPage() {
                       className="cursor-pointer mb-3"
                       onClick={() => navigate(`/community/${post.id}`)}
                     >
-                      <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-primary transition-colors">
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors duration-300">
                         {post.title}
                       </h3>
                       <div className="text-sm text-muted-foreground mb-3 prose prose-sm dark:prose-invert max-w-none line-clamp-3">
@@ -967,7 +1019,7 @@ function CommunityPage() {
                                 setSelectedTags([...selectedTags, tag]);
                               }
                             }}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-xs hover:bg-primary/20 transition-colors"
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs hover:bg-primary/20 transition-all duration-300 font-medium border border-primary/20 hover:scale-105"
                           >
                             <Tag className="h-3 w-3" />
                             {tag}
@@ -977,24 +1029,24 @@ function CommunityPage() {
                     )}
 
                     {/* 액션 버튼 */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border/50">
                       <button
                         onClick={() => navigate(`/community/${post.id}`)}
-                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors duration-300 px-2 py-1 rounded-md hover:bg-primary/5"
                       >
                         <MessageSquare className="h-4 w-4" />
-                        {post.comment_count}
+                        <span className="font-medium">{post.comment_count}</span>
                       </button>
                       <button
                         onClick={() => navigate(`/community/${post.id}`)}
-                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors duration-300 px-2 py-1 rounded-md hover:bg-primary/5"
                       >
                         <Heart className="h-4 w-4" />
-                        {post.like_count}
+                        <span className="font-medium">{post.like_count}</span>
                       </button>
                       <button
                         onClick={() => navigate(`/community/${post.id}`)}
-                        className="flex items-center gap-1 hover:text-foreground transition-colors"
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors duration-300 px-2 py-1 rounded-md hover:bg-primary/5"
                       >
                         <Bookmark className="h-4 w-4" />
                         {post.bookmark_count}

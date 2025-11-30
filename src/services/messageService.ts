@@ -255,3 +255,22 @@ export async function deleteMessage(messageId: string): Promise<void> {
   }
 }
 
+/**
+ * 특정 사용자와의 대화 전체 삭제
+ */
+export async function deleteConversation(userId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  // 자신이 보낸 쪽지 또는 받은 쪽지만 삭제 가능
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .or(`and(sender_id.eq.${user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${user.id})`);
+
+  if (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+}
+

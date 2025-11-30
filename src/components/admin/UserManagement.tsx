@@ -24,98 +24,36 @@ export function UserManagement() {
   async function fetchUsers() {
     setLoading(true);
     try {
-      // posts 테이블에서 user 정보 가져오기 (게시글 관리와 동일한 방식)
-      const { data: posts } = await supabase
-        .from('posts')
-        .select(`
-          user_id,
-          created_at,
-          user:profiles(id, email)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(1000);
-
-      if (!posts || posts.length === 0) {
-        // posts가 없으면 auth.admin.listUsers() 시도
-        try {
-          const { data: { users } } = await supabase.auth.admin.listUsers();
-          if (users && users.length > 0) {
-            const { data: admins } = await supabase
-              .from('admins')
-              .select('user_id');
-            const adminIds = new Set(admins?.map(a => a.user_id) || []);
-
-            const usersList = users.map(user => ({
-              id: user.id,
-              email: user.email || '이메일 없음',
-              created_at: user.created_at,
-              isAdmin: adminIds.has(user.id),
-            }));
-
-            setUsers(usersList);
-            return;
-          }
-        } catch (authError) {
-          console.warn('auth.admin.listUsers() failed:', authError);
-        }
+      // 현재 사용자 세션 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('No session found');
         setUsers([]);
         return;
       }
 
-      // 고유한 user_id 추출
-      const uniqueUsers = new Map<string, { id: string; email: string; created_at: string }>();
-      
-      posts.forEach((post: any) => {
-        if (post.user_id && !uniqueUsers.has(post.user_id)) {
-          uniqueUsers.set(post.user_id, {
-            id: post.user_id,
-            email: post.user?.email || '이메일 없음',
-            created_at: post.created_at || new Date().toISOString(),
-          });
-        }
+      // Edge Function을 통해 사용자 목록 가져오기
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://djxiousdavdwwznufpzs.supabase.co';
+      const response = await fetch(`${supabaseUrl}/functions/v1/list-users`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      // auth.admin.listUsers()로 추가 사용자 정보 가져오기 시도
-      try {
-        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
-        if (authUsers) {
-          authUsers.forEach((authUser) => {
-            if (!uniqueUsers.has(authUser.id)) {
-              uniqueUsers.set(authUser.id, {
-                id: authUser.id,
-                email: authUser.email || '이메일 없음',
-                created_at: authUser.created_at,
-              });
-            } else {
-              // 이메일이 없는 경우 업데이트
-              const existing = uniqueUsers.get(authUser.id);
-              if (existing && (!existing.email || existing.email === '이메일 없음')) {
-                uniqueUsers.set(authUser.id, {
-                  ...existing,
-                  email: authUser.email || '이메일 없음',
-                });
-              }
-            }
-          });
-        }
-      } catch (authError) {
-        console.warn('auth.admin.listUsers() failed, using posts data only:', authError);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
       }
 
-      // 관리자 정보 가져오기
-      const { data: admins } = await supabase
-        .from('admins')
-        .select('user_id');
+      const { users: usersList } = await response.json();
 
-      const adminIds = new Set(admins?.map(a => a.user_id) || []);
-
-      const usersList = Array.from(uniqueUsers.values()).map(user => ({
-        ...user,
-        isAdmin: adminIds.has(user.id),
-      }));
-
-      // 가입일 순으로 정렬
-      usersList.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      if (!usersList || usersList.length === 0) {
+        setUsers([]);
+        return;
+      }
 
       setUsers(usersList);
     } catch (error) {
