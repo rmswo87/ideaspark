@@ -4,7 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Coffee, Copy, Check, QrCode, Heart } from 'lucide-react';
+<<<<<<< HEAD
 // Toast는 간단한 alert로 대체 (sonner 설치 시 변경 가능)
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 
 export function DonationFooter() {
   const [copied, setCopied] = useState(false);
@@ -16,8 +19,13 @@ export function DonationFooter() {
   const bankName = '카카오뱅크';
   const accountHolder = '자취만렙';
 
+<<<<<<< HEAD
   // QR 코드 이미지 URL (실제 QR 코드 이미지로 교체 필요)
   const qrCodeUrl = '/qr-code-donation.png'; // public 폴더에 QR 코드 이미지 추가 필요
+=======
+  // QR 코드 이미지 URL
+  const qrCodeUrl = '/qr-code-donation.png';
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 
   const handleCopyAccount = () => {
     navigator.clipboard.writeText(accountNumber).then(() => {
@@ -81,6 +89,7 @@ export function DonationFooter() {
                   QR 코드로 송금하기
                 </Button>
               </DialogTrigger>
+<<<<<<< HEAD
               <DialogContent className="sm:max-w-md" showCloseButton={false}>
                 <DialogHeader>
                   <div className="flex items-center justify-between">
@@ -99,6 +108,14 @@ export function DonationFooter() {
                       닫기
                     </Button>
                   </div>
+=======
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>QR 코드로 송금</DialogTitle>
+                  <DialogDescription>
+                    QR 코드를 스캔하여 간편하게 송금하실 수 있습니다.
+                  </DialogDescription>
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                 </DialogHeader>
                 <div className="flex flex-col items-center gap-4 py-4">
                   <div className="w-64 h-64 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
@@ -140,4 +157,7 @@ export function DonationFooter() {
     </footer>
   );
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

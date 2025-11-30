@@ -17,7 +17,11 @@ import { getConversations, getConversation, sendMessage, markAsRead, deleteMessa
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+<<<<<<< HEAD
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+=======
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 import { Textarea } from '@/components/ui/textarea';
 import { uploadAvatar } from '@/services/imageService';
 import type { FriendRequest, Friend } from '@/services/friendService';
@@ -104,6 +108,7 @@ function ProfilePage() {
     const path = pathParts.join('/');
     const base = getImageProxyBase();
     return `${base}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
+<<<<<<< HEAD
   }
 
   useEffect(() => {
@@ -1958,3 +1963,6 @@ function ProfilePage() {
 export default ProfilePage;
 
 
+=======
+  }
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

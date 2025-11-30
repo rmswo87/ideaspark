@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * 로컬 개발용 간단한 서버 (Node.js)
  * 
@@ -13,6 +14,11 @@
  * - REDDIT_CLIENT_ID
  * - REDDIT_CLIENT_SECRET
  */
+=======
+// 로컬 개발용 간단한 서버 (Node.js)
+// 이 파일은 로컬 개발 환경에서만 사용됩니다
+// 실행: npx tsx api/collect-ideas-local.ts
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 
 import * as http from 'http';
 

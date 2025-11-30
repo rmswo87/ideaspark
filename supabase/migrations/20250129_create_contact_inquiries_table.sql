@@ -66,4 +66,7 @@ CREATE TRIGGER contact_inquiries_updated_at
   BEFORE UPDATE ON contact_inquiries
   FOR EACH ROW
   EXECUTE FUNCTION update_contact_inquiries_updated_at();
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

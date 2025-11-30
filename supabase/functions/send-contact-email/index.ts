@@ -2,7 +2,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const ADMIN_EMAIL = "bzjay53@gmail.com";
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 const ALLOWED_ORIGINS = [
   "https://ideaspark-pi.vercel.app",
   "https://ideaspark.vercel.app",
@@ -113,4 +116,7 @@ IdeaSpark 문의 시스템
     )
   }
 })
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

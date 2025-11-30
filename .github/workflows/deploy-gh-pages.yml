@@ -6,7 +6,11 @@ on:
       - main
   workflow_dispatch:
 
+<<<<<<< HEAD
 # Trigger workflow for TypeScript fixes and deployment
+=======
+# Use npm install since package-lock.json is empty in repo
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 
 permissions:
   contents: read
@@ -62,4 +66,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

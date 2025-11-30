@@ -22,6 +22,7 @@ export default async function handler(
     const clientId = process.env.REDDIT_CLIENT_ID;
     const clientSecret = process.env.REDDIT_CLIENT_SECRET;
 
+<<<<<<< HEAD
     // 환경 변수 디버깅 (민감한 정보는 마스킹)
     console.log('Reddit API credentials check:', {
       hasClientId: !!clientId,
@@ -40,6 +41,12 @@ export default async function handler(
       return res.status(500).json({ 
         error: 'Reddit API credentials not configured',
         message: 'REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set in Vercel environment variables (without VITE_ prefix for server-side)'
+=======
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ 
+        error: 'Reddit API credentials not configured',
+        message: 'REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set in Vercel environment variables'
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
       });
     }
 
@@ -209,4 +216,7 @@ export default async function handler(
     });
   }
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

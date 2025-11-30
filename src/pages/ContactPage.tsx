@@ -41,6 +41,11 @@ async function sendEmailNotification(data: {
     if (!response.ok) {
       const error = await response.text();
       console.error('Failed to send email notification:', error);
+<<<<<<< HEAD
+=======
+    } else {
+      console.log('Email notification sent successfully');
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
     }
   } catch (error) {
     console.error('Error sending email notification:', error);
@@ -448,5 +453,9 @@ export function ContactPage() {
       </div>
     </div>
   );
+<<<<<<< HEAD
 }
 
+=======
+}
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

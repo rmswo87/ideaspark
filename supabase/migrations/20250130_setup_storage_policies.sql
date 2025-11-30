@@ -53,4 +53,7 @@ create policy "Users can delete their storage objects" on storage.objects
     and auth.uid() = owner
     and bucket_id in ('avatars', 'post-images')
   );
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

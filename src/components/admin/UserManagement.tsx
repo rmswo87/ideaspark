@@ -24,6 +24,7 @@ export function UserManagement() {
   async function fetchUsers() {
     setLoading(true);
     try {
+<<<<<<< HEAD
       // profiles 테이블에서 모든 사용자 가져오기
       // profiles.id는 auth.users.id와 동일합니다
       const { data: profilesData, error: profilesError } = await supabase
@@ -37,10 +38,18 @@ export function UserManagement() {
       }
 
       if (!profilesData || profilesData.length === 0) {
+=======
+      // 현재 사용자 세션 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('No session found');
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
         setUsers([]);
         return;
       }
 
+<<<<<<< HEAD
       // admins 테이블에서 관리자 목록 가져오기
       const { data: adminsData, error: adminsError } = await supabase
         .from('admins')
@@ -60,6 +69,29 @@ export function UserManagement() {
         created_at: profile.created_at || new Date().toISOString(),
         isAdmin: adminIds.has(profile.id),
       }));
+=======
+      // Edge Function을 통해 사용자 목록 가져오기
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://djxiousdavdwwznufpzs.supabase.co';
+      const response = await fetch(`${supabaseUrl}/functions/v1/list-users`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
+      }
+
+      const { users: usersList } = await response.json();
+
+      if (!usersList || usersList.length === 0) {
+        setUsers([]);
+        return;
+      }
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
 
       setUsers(usersList);
     } catch (error) {

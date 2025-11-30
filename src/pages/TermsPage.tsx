@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+<<<<<<< HEAD
 export function TermsPage() {
+=======
+function TermsPage() {
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
   const navigate = useNavigate();
 
   return (
@@ -158,3 +162,7 @@ export function TermsPage() {
   );
 }
 
+<<<<<<< HEAD
+=======
+export default TermsPage;
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

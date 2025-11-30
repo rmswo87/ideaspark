@@ -10,5 +10,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       eventsPerSecond: 10,
     },
   },
+<<<<<<< HEAD
 })
 
+=======
+})
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

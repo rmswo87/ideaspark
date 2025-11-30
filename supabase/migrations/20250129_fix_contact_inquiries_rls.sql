@@ -28,4 +28,7 @@ CREATE POLICY "Admins can view all contact inquiries" ON contact_inquiries
 CREATE POLICY "Admins can update contact inquiries" ON contact_inquiries
   FOR UPDATE USING (is_admin_user(auth.uid()))
   WITH CHECK (is_admin_user(auth.uid()));
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

@@ -101,6 +101,10 @@ export function BusinessFooter() {
       setTimeout(() => {
         setShowContactDialog(false);
         setSubmitted(false);
+<<<<<<< HEAD
+=======
+        setMode('business');
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
       }, 2000);
     } catch (error: any) {
       console.error('Error submitting contact form:', error);
@@ -128,12 +132,20 @@ export function BusinessFooter() {
             <CardContent>
               <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
                 <DialogTrigger asChild>
+<<<<<<< HEAD
                   <Button className="w-full" size="lg">
+=======
+                  <Button className="w-full" size="lg" onClick={() => setMode('business')}>
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                     <Mail className="h-4 w-4 mr-2" />
                     문의하기
                   </Button>
                 </DialogTrigger>
+<<<<<<< HEAD
               <DialogContent className="sm:max-w-lg">
+=======
+                <DialogContent className="sm:max-w-lg">
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                   <DialogHeader>
                     <DialogTitle>{mode === 'business' ? '비즈니스 문의' : '피드백 보내기'}</DialogTitle>
                     <DialogDescription>
@@ -197,6 +209,7 @@ export function BusinessFooter() {
                         />
                       </div>
                       <div>
+<<<<<<< HEAD
                         <Label htmlFor="contact-subject">문의 제목 *</Label>
                         <Input
                           id="contact-subject"
@@ -208,13 +221,30 @@ export function BusinessFooter() {
                       </div>
                       <div>
                         <Label htmlFor="contact-message">문의 내용 *</Label>
+=======
+                        <Label htmlFor="contact-subject">{mode === 'business' ? '문의 제목 *' : '피드백 제목 (선택)'}</Label>
+                        <Input
+                          id="contact-subject"
+                          required={mode === 'business'}
+                          value={formData.subject}
+                          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                          placeholder={mode === 'business' ? '문의 제목을 입력하세요' : '예: UX 개선 제안'}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="contact-message">{mode === 'business' ? '문의 내용 *' : '피드백 내용 *'}</Label>
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                         <Textarea
                           id="contact-message"
                           required
                           rows={5}
                           value={formData.message}
                           onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+<<<<<<< HEAD
                           placeholder="문의 내용을 상세히 입력해주세요"
+=======
+                          placeholder={mode === 'business' ? '문의 내용을 상세히 입력해주세요' : '아이디어, 개선 요청, 칭찬/불편 사항 등을 자유롭게 적어주세요'}
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                         />
                       </div>
                       <Button type="submit" className="w-full" disabled={submitting}>
@@ -226,7 +256,11 @@ export function BusinessFooter() {
                         ) : (
                           <>
                             <Send className="h-4 w-4 mr-2" />
+<<<<<<< HEAD
                             문의 제출
+=======
+                            {mode === 'business' ? '문의 제출' : '피드백 제출'}
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                           </>
                         )}
                       </Button>
@@ -256,7 +290,11 @@ export function BusinessFooter() {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
+<<<<<<< HEAD
                   // 피드백도 동일한 폼을 사용하지만 모드를 구분
+=======
+                  // 피드백 모드로 전환하여 동일한 폼 재사용
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
                   setMode('feedback');
                   setFormData({
                     ...formData,
@@ -298,4 +336,7 @@ export function BusinessFooter() {
     </footer>
   );
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

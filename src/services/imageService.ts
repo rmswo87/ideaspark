@@ -1,4 +1,5 @@
 // 이미지 업로드 서비스
+<<<<<<< HEAD
 // Supabase Storage 대신 Imgur API 사용 (무료, 공개 URL 즉시 제공)
 import { uploadPostImage as uploadToImgur } from './imgurService';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +36,14 @@ export async function uploadPostImage(file: File, userId: string): Promise<strin
  * Supabase Storage에 이미지 업로드 (기존 방식, 선택적 사용)
  */
 async function uploadPostImageToSupabase(file: File, userId: string): Promise<string> {
+=======
+import { supabase } from '@/lib/supabase';
+
+/**
+ * 이미지 업로드 (게시글용)
+ */
+export async function uploadPostImage(file: File, userId: string): Promise<string> {
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
   // 파일 유효성 검사
   if (!file.type.startsWith('image/')) {
     throw new Error('이미지 파일만 업로드 가능합니다.');
@@ -111,6 +120,7 @@ async function uploadPostImageToSupabase(file: File, userId: string): Promise<st
 
 /**
  * 프로필 사진 업로드
+<<<<<<< HEAD
  * Imgur API를 기본으로 사용하며, 환경 변수로 변경 가능
  */
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
@@ -140,6 +150,10 @@ export async function uploadAvatar(file: File, userId: string): Promise<string> 
  * Supabase Storage에 프로필 사진 업로드 (기존 방식, 선택적 사용)
  */
 async function uploadAvatarToSupabase(file: File, userId: string): Promise<string> {
+=======
+ */
+export async function uploadAvatar(file: File, userId: string): Promise<string> {
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
   // 파일 유효성 검사
   if (!file.type.startsWith('image/')) {
     throw new Error('이미지 파일만 업로드 가능합니다.');
@@ -206,4 +220,7 @@ async function uploadAvatarToSupabase(file: File, userId: string): Promise<strin
 
   return publicUrl;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

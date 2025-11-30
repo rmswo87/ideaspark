@@ -244,5 +244,8 @@ export async function getMyComments(userId: string): Promise<(Comment & { post: 
 
   return (data || []) as unknown as (Comment & { post: { id: string; title: string } })[];
 }
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

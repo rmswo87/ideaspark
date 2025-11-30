@@ -867,5 +867,9 @@ function IdeaDetailPage() {
   );
 }
 
+<<<<<<< HEAD
 export default IdeaDetailPage;
 
+=======
+export default IdeaDetailPage;
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

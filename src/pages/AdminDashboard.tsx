@@ -147,6 +147,10 @@ function AdminDashboard() {
   );
 }
 
+<<<<<<< HEAD
 export default AdminDashboard;
 
 
+=======
+export default AdminDashboard;
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568

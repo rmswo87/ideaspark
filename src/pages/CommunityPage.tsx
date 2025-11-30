@@ -624,6 +624,7 @@ function CommunityPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="!pl-10 !pr-4"
             />
+<<<<<<< HEAD
           </div>
 
           {/* 필터 그룹 */}
@@ -1106,3 +1107,6 @@ function CommunityPage() {
 }
 
 export default CommunityPage;
+=======
+          </div>
+>>>>>>> f2d051063a1deac18577154ea77dd273f0920568
