@@ -1,18 +1,19 @@
-// 아이디어 저장 및 관리 서비스
-import { supabase } from '@/lib/supabase';
-import type { RedditPost } from '@/types/reddit';
+import { supabase } from '@/lib/supabase'
+
+export type SortOption = 'latest' | 'popular' | 'subreddit'
 
 export interface Idea {
-  id?: string;
-  reddit_id: string;
-  title: string;
-  content: string;
-  subreddit: string;
-  author: string;
-  upvotes: number;
-  num_comments?: number;
-  url: string;
-  category: string;
+  id: string
+  reddit_id?: string
+  title: string
+  content: string
+  subreddit: string
+  author: string
+  upvotes: number
+  num_comments?: number
+  url: string
+  category: string
+
   collected_at?: string;
   created_at?: string;
   updated_at?: string;
@@ -36,7 +37,7 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
     subreddit: idea.subreddit,
     author: idea.author,
     upvotes: idea.upvotes,
-    num_comments: idea.numComments || 0,
+    // num_comments 컬럼은 ideas 테이블에 없으므로 제거
     url: idea.url,
     category: categorizeIdea(idea),
   }));
@@ -77,17 +78,18 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
  */
 function categorizeIdea(idea: RedditPost): string {
   const keywords = {
-    'development': ['dev', 'coding', 'programming', 'tech', 'software', 'app', 'website'],
-    'design': ['design', 'ui', 'ux', 'interface', 'graphic', 'visual'],
-    'business': ['startup', 'business', 'entrepreneur', 'company', 'market'],
-    'product': ['product', 'app', 'service', 'tool', 'platform'],
-    'education': ['learn', 'education', 'course', 'tutorial', 'study'],
+    'development': ['code', 'programming', 'developer', 'app', 'software', 'api', 'framework', 'library', 'github', 'stack', 'tech', 'coding', 'algorithm', 'database', 'backend', 'frontend', 'react', 'javascript', 'python', 'node', 'web', 'mobile', 'ios', 'android'],
+    'design': ['design', 'ui', 'ux', 'figma', 'sketch', 'prototype', 'wireframe', 'mockup', 'brand', 'logo', 'graphic', 'visual', 'aesthetic', 'layout'],
+    'business': ['business', 'startup', 'revenue', 'profit', 'market', 'sales', 'customer', 'client', 'funding', 'investor', 'vc', 'angel', 'equity', 'valuation', 'mrr', 'arr', 'saas', 'b2b', 'b2c', 'pricing', 'strategy', 'growth', 'marketing'],
+    'product': ['product', 'feature', 'launch', 'mvp', 'beta', 'release', 'version', 'update', 'roadmap'],
+    'education': ['learn', 'course', 'tutorial', 'education', 'teaching', 'student', 'school', 'university', 'skill', 'training'],
+    'general': []
   };
 
-  const content = `${idea.title} ${idea.content}`.toLowerCase();
+  const text = `${idea.title} ${idea.content}`.toLowerCase();
   
-  for (const [category, keys] of Object.entries(keywords)) {
-    if (keys.some(key => content.includes(key))) {
+  for (const [category, words] of Object.entries(keywords)) {
+    if (words.some(word => text.includes(word))) {
       return category;
     }
   }
@@ -95,13 +97,19 @@ function categorizeIdea(idea: RedditPost): string {
   return 'general';
 }
 
-/**
- * 정렬 옵션 타입
- */
-export type SortOption = 'latest' | 'popular' | 'subreddit';
+interface RedditPost {
+  redditId: string
+  title: string
+  content: string
+  subreddit: string
+  author: string
+  upvotes: number
+  numComments?: number
+  url: string
+}
 
 /**
- * 특정 ID의 아이디어 가져오기
+ * 단일 아이디어 가져오기
  */
 export async function getIdea(id: string): Promise<Idea | null> {
   const { data, error } = await supabase
@@ -119,7 +127,7 @@ export async function getIdea(id: string): Promise<Idea | null> {
 }
 
 /**
- * 아이디어 목록 가져오기
+ * 아이디어 목록 가져오기 (필터링 및 정렬 지원)
  */
 export async function getIdeas(filters?: {
   category?: string;
@@ -129,35 +137,27 @@ export async function getIdeas(filters?: {
   sort?: SortOption;
   subreddit?: string;
 }): Promise<Idea[]> {
-  // 모든 컬럼 선택 (*는 num_comments도 포함)
   let query = supabase
     .from('ideas')
     .select('*');
 
-  // 카테고리 필터
-  if (filters?.category && filters.category !== 'all') {
+  if (filters?.category && filters.category !== 'all' && filters.category.trim() !== '') {
     query = query.eq('category', filters.category);
   }
 
-  // 서브레딧 필터
-  if (filters?.subreddit && filters.subreddit !== 'all') {
+  if (filters?.subreddit && filters.subreddit !== 'all' && filters.subreddit.trim() !== '') {
     query = query.eq('subreddit', filters.subreddit);
   }
 
-  // 정렬 옵션에 따른 쿼리 설정
   if (filters?.sort === 'popular') {
-    // 추천순: upvotes 기준 내림차순
     query = query.order('upvotes', { ascending: false });
   } else if (filters?.sort === 'subreddit') {
-    // 서브레딧순: 서브레딧 이름 기준 오름차순, 그 다음 최신순
     query = query.order('subreddit', { ascending: true })
                  .order('collected_at', { ascending: false });
   } else {
-    // 최신순 (기본값)
     query = query.order('collected_at', { ascending: false });
   }
 
-  // limit과 offset 적용
   if (filters?.limit) {
     query = query.limit(filters.limit);
   }
@@ -168,21 +168,32 @@ export async function getIdeas(filters?: {
 
   const { data, error } = await query;
 
-  // 에러 처리
   if (error) {
     console.error('Error fetching ideas:', error);
     throw error;
   }
 
-  // 데이터가 없으면 빈 배열 반환
+  // 정렬 검증: popular일 때 upvotes 순서 확인 및 필요시 클라이언트에서 재정렬
+  if (filters?.sort === 'popular' && data && data.length > 1) {
+    let isSorted = true;
+    for (let i = 1; i < data.length; i++) {
+      if ((data[i-1].upvotes || 0) < (data[i].upvotes || 0)) {
+        isSorted = false;
+        break;
+      }
+    }
+    if (!isSorted) {
+      data.sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
+    }
+  }
+
   if (!data || data.length === 0) {
     return [];
   }
 
   let result = data;
 
-  // 클라이언트 사이드 검색 (Supabase full-text search는 나중에 구현)
-  if (filters?.search) {
+  if (filters?.search && filters.search.trim() !== '') {
     const searchLower = filters.search.toLowerCase();
     result = result.filter(idea =>
       idea.title.toLowerCase().includes(searchLower) ||
@@ -191,6 +202,15 @@ export async function getIdeas(filters?: {
     );
   }
 
+  // 추천순 정렬 보완: 항상 클라이언트 사이드에서 재정렬하여 확실하게
+  if (filters?.sort === 'popular') {
+    result = result.sort((a, b) => {
+      const aUpvotes = a.upvotes || 0;
+      const bUpvotes = b.upvotes || 0;
+      return bUpvotes - aUpvotes;
+    });
+  }
+  
   return result;
 }
 
@@ -211,38 +231,34 @@ export async function getIdeaStats(): Promise<{
     return { total: 0, byCategory: {}, bySubreddit: {} };
   }
 
-  const byCategory: Record<string, number> = {};
-  const bySubreddit: Record<string, number> = {};
-  
-  (data || []).forEach(idea => {
-    byCategory[idea.category] = (byCategory[idea.category] || 0) + 1;
-    bySubreddit[idea.subreddit] = (bySubreddit[idea.subreddit] || 0) + 1;
+  const stats = {
+    total: data?.length || 0,
+    byCategory: {} as Record<string, number>,
+    bySubreddit: {} as Record<string, number>,
+  };
+
+  data?.forEach(idea => {
+    stats.byCategory[idea.category] = (stats.byCategory[idea.category] || 0) + 1;
+    stats.bySubreddit[idea.subreddit] = (stats.bySubreddit[idea.subreddit] || 0) + 1;
   });
 
-  return {
-    total: data?.length || 0,
-    byCategory,
-    bySubreddit,
-  };
+  return stats;
 }
 
 /**
- * 고유한 서브레딧 목록 가져오기
+ * 서브레딧 목록 가져오기
  */
 export async function getSubreddits(): Promise<string[]> {
   const { data, error } = await supabase
     .from('ideas')
-    .select('subreddit');
+    .select('subreddit')
+    .order('subreddit', { ascending: true });
 
   if (error) {
     console.error('Error fetching subreddits:', error);
     return [];
   }
 
-  // 중복 제거 및 정렬
-  const uniqueSubreddits = Array.from(
-    new Set((data || []).map(idea => idea.subreddit))
-  ).sort();
-
+  const uniqueSubreddits = Array.from(new Set(data?.map(i => i.subreddit) || []));
   return uniqueSubreddits;
 }
