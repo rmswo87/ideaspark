@@ -617,12 +617,12 @@ function CommunityPage() {
         <div className="mb-6 space-y-4">
           {/* 검색 바 */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
             <Input
               placeholder="게시글 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="!pl-10 !pr-4"
             />
           </div>
 

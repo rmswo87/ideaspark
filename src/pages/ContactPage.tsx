@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Send, Building2, MessageSquare, Check, User as UserIcon, LogOut, Shield } from 'lucide-react';
+import { Send, Building2, MessageSquare, Check, User as UserIcon, LogOut, Shield } from 'lucide-react';
 import { createContactInquiry } from '@/services/contactService';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -41,8 +41,6 @@ async function sendEmailNotification(data: {
     if (!response.ok) {
       const error = await response.text();
       console.error('Failed to send email notification:', error);
-    } else {
-      console.log('Email notification sent successfully');
     }
   } catch (error) {
     console.error('Error sending email notification:', error);

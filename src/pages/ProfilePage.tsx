@@ -82,7 +82,10 @@ function ProfilePage() {
   const donationBankName = '카카오뱅크';
   const donationAccountHolder = '자취만렙';
   // QR 코드 이미지는 public 폴더에 있으므로 루트 경로로 접근
-  const donationQrUrl = '/QR.png';
+  // Vite에서 public 폴더의 파일은 빌드 시 루트로 복사되므로 절대 경로 사용
+  const donationQrUrl = typeof window !== 'undefined' 
+    ? new URL('/QR.png', window.location.origin).href 
+    : '/QR.png';
 
   function getImageProxyBase() {
     return (
@@ -177,7 +180,6 @@ function ProfilePage() {
     // 약간의 지연을 두어 DOM 업데이트 후 스크롤 복원
     const timer = setTimeout(() => {
       const savedPosition = scrollPositionRef.current[activeTab];
-      const currentScrollY = window.scrollY;
       
       if (savedPosition !== undefined && savedPosition > 0) {
         // 저장된 위치가 있으면 그 위치로 부드럽게 이동
@@ -726,20 +728,6 @@ function ProfilePage() {
     fetchPrdsList();
   }
 
-  async function handleDeletePRD(prdId: string) {
-    if (!user || !confirm('정말 이 PRD를 삭제하시겠습니까?')) return;
-
-    try {
-      await deletePRD(prdId);
-      await fetchPrdsList();
-    } catch (error: any) {
-      addToast({
-        title: 'PRD 삭제 실패',
-        description: error.message || 'PRD 삭제에 실패했습니다.',
-        variant: 'destructive',
-      });
-    }
-  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -1002,8 +990,7 @@ function ProfilePage() {
 
       <Tabs value={activeTab} onValueChange={(value) => {
         // 현재 탭의 스크롤 위치 저장
-        const currentScrollY = window.scrollY;
-        scrollPositionRef.current[activeTab] = currentScrollY;
+        scrollPositionRef.current[activeTab] = window.scrollY;
         
         // 새 탭으로 전환
         setActiveTab(value);
