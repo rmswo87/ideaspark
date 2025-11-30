@@ -41,11 +41,8 @@ async function sendEmailNotification(data: {
     if (!response.ok) {
       const error = await response.text();
       console.error('Failed to send email notification:', error);
-<<<<<<< HEAD
-=======
     } else {
       console.log('Email notification sent successfully');
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
     }
   } catch (error) {
     console.error('Error sending email notification:', error);
@@ -263,7 +260,7 @@ export function ContactPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
 
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
@@ -453,9 +450,4 @@ export function ContactPage() {
       </div>
     </div>
   );
-<<<<<<< HEAD
 }
-
-=======
-}
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

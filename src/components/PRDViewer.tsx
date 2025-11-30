@@ -22,31 +22,14 @@ interface PRDViewerProps {
 // iframe을 사용하면 React의 가상 DOM과 완전히 분리되어 DOM 충돌이 발생하지 않습니다.
 // 참고: https://rudaks.tistory.com/entry/langgraph-%EA%B7%B8%EB%9E%98%ED%94%84%EB%A5%BC-%EC%8B%9C%EA%B0%81%ED%99%94%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95
 function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number; onEdit?: () => void }) {
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cleanedChart = useMemo(() => chart.trim(), [chart]);
-  const maxRetries = 2; // 최대 2회 재시도
-<<<<<<< HEAD
   const isGanttChart = useMemo(() => cleanedChart.toLowerCase().includes('gantt'), [cleanedChart]);
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-
-  // iframe 내부에서 사용할 HTML 생성
-  // Mermaid 가이드에 따라 iframe으로 완전 분리하여 React와 충돌 방지
+  
+  // 통일된 Mermaid 설정 (모든 다이어그램 타입에 동일한 스타일 적용)
   const iframeContent = useMemo(() => {
-    const escapedChart = cleanedChart
-      .replace(/\\/g, '\\\\')
-      .replace(/`/g, '\\`')
-      .replace(/\$/g, '\\$');
-    
-<<<<<<< HEAD
-    // Gantt 차트 여부 확인 (iframe 내부에서도 사용 가능하도록)
-    const chartTypeValue = isGanttChart ? 'gantt' : 'other';
-    
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-    // 통일된 Mermaid 설정 (모든 다이어그램 타입에 동일한 스타일 적용)
+    const escapedChart = cleanedChart.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    const chartTypeValue = cleanedChart.split('\\n')[0].toLowerCase();
     return `
 <!DOCTYPE html>
 <html>
@@ -72,7 +55,6 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       justify-content: center;
       align-items: flex-start;
       width: 100%;
-<<<<<<< HEAD
       min-height: 200px; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
       padding: 16px;
       overflow: visible !important; /* 잘림 방지 */
@@ -83,20 +65,7 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       min-height: 150px !important; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
       /* height: auto 제거 - 명시적인 값으로 설정하여 에러 방지 */
       width: 100% !important;
-      overflow: visible !important; /* 잘림 방지 */
-=======
-      min-height: 100%;
-      padding: 16px;
-      overflow: hidden !important;
-    }
-    svg {
-      max-width: 100% !important;
-      max-height: 600px !important;
-      height: auto !important;
-      width: 100% !important;
-      overflow: hidden !important;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-      display: block !important;
+      overflow: visible !important; /* 잘림 방지 */      display: block !important;
       box-sizing: border-box !important;
     }
     /* 모든 Mermaid 다이어그램에 통일된 폰트 크기 적용 */
@@ -112,42 +81,7 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     svg .gantt {
       font-size: 13px !important;
       max-width: 100% !important;
-<<<<<<< HEAD
-      width: 100% !important;
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-    }
-    svg .section0, svg .section1, svg .section2 {
-      font-size: 13px !important;
-    }
-    svg .taskText {
-      font-size: 13px !important;
-      fill: #333 !important;
-    }
-    svg .task {
-      font-size: 13px !important;
-    }
-    svg .gantt-title {
-      font-size: 13px !important;
-    }
-    svg .gantt-axis {
-      font-size: 13px !important;
-    }
-<<<<<<< HEAD
-    /* Gantt 차트 전체 컨테이너 - 스크롤 없이 전체 표시 */
-    svg:has(.gantt), svg .gantt {
-      width: 100% !important;
-      max-width: 100% !important;
-      height: auto !important;
-      overflow: visible !important;
-    }
-    /* Gantt 차트의 모든 텍스트 요소 */
-    svg .gantt text, svg .section0 text, svg .section1 text, svg .section2 text {
-      font-size: 13px !important;
-    }
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-    /* Sequence 다이어그램 */
+      width: 100% !important;    /* Sequence 다이어그램 */
     svg .actor, svg .messageText, svg .noteText {
       font-size: 13px !important;
     }
@@ -167,28 +101,16 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     .mermaid svg {
       width: 100% !important;
       max-width: 100% !important;
-<<<<<<< HEAD
       max-height: 800px !important; /* 충분한 높이 허용 */
       min-height: 150px !important; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
       /* height: auto 제거 - JavaScript에서 명시적으로 설정 */
-      overflow: visible !important; /* 잘림 방지 */
-=======
-      max-height: 600px !important;
-      height: auto !important;
-      overflow: hidden !important;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-      display: block !important;
+      overflow: visible !important; /* 잘림 방지 */      display: block !important;
     }
     /* SVG viewBox 및 preserveAspectRatio 강제 설정 */
     .mermaid svg[viewBox] {
       width: 100% !important;
       max-width: 100% !important;
-<<<<<<< HEAD
-      /* height: auto 제거 - JavaScript에서 명시적으로 설정 */
-=======
-      height: auto !important;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-      max-height: 600px !important;
+      /* height: auto 제거 - JavaScript에서 명시적으로 설정 */      max-height: 600px !important;
     }
     /* ER 다이어그램 크기 제한 */
     .mermaid svg .er-entityBox, .mermaid svg .er-attributeBox {
@@ -262,14 +184,9 @@ ${escapedChart}
             barHeight: 18,
             barGap: 3,
             padding: 8,
-<<<<<<< HEAD
             useMaxWidth: true,
             axisFormat: '%Y-%m-%d',
-            bottomTickHeight: 4
-=======
-            useMaxWidth: true
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-          },
+            bottomTickHeight: 4          },
           er: {
             fontSize: 13,
             entityPadding: 12,
@@ -310,7 +227,6 @@ ${escapedChart}
                 svg.setAttribute('width', '100%');
                 svg.style.maxWidth = '100%';
               }
-<<<<<<< HEAD
               // height="auto" 에러 방지: 명시적인 픽셀 값으로 설정
               if (svgHeight && svgHeight === 'auto') {
                 const rect = svg.getBoundingClientRect();
@@ -318,12 +234,7 @@ ${escapedChart}
                   svg.setAttribute('height', Math.ceil(rect.height).toString());
                 }
               } else if (svgHeight && parseFloat(svgHeight) > 800) {
-                svg.setAttribute('height', '800');
-=======
-              if (svgHeight && parseFloat(svgHeight) > 800) {
-                svg.setAttribute('height', 'auto');
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-                svg.style.maxHeight = '600px';
+                svg.setAttribute('height', '800');                svg.style.maxHeight = '600px';
               }
               
               // viewBox가 없으면 추가
@@ -343,7 +254,6 @@ ${escapedChart}
               // SVG가 렌더링되었고 높이가 유효한지 확인
               if (rect.height > 0 && rect.width > 0) {
                 // 실제 렌더링된 크기와 컨테이너 크기 비교하여 조정
-<<<<<<< HEAD
                 const container = document.querySelector('.mermaid');
                 const containerWidth = container ? container.clientWidth : window.innerWidth;
                 
@@ -426,22 +336,7 @@ ${escapedChart}
                   
                   window.parent.postMessage({ type: 'mermaid-height', height: actualHeight, index: ${index} }, '*');
                 }
-                
-=======
-                const containerWidth = document.querySelector('.mermaid').clientWidth;
-                const actualWidth = Math.min(rect.width, containerWidth - 32);
-                const actualHeight = Math.min(rect.height + 32, 600);
-                
-                // SVG 크기 재조정
-                svg.style.width = '100%';
-                svg.style.maxWidth = '100%';
-                svg.style.height = 'auto';
-                svg.style.maxHeight = '600px';
-                svg.style.overflow = 'hidden';
-                
-                window.parent.postMessage({ type: 'mermaid-height', height: actualHeight, index: ${index} }, '*');
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-                window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
+                                window.parent.postMessage({ type: 'mermaid-rendered', success: true, index: ${index} }, '*');
                 return;
               }
             }
@@ -502,12 +397,7 @@ ${escapedChart}
   </script>
 </body>
 </html>`;
-<<<<<<< HEAD
   }, [cleanedChart, index, isGanttChart]);
-=======
-  }, [cleanedChart, index]);
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-
   // iframe에서 오는 메시지 처리
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -515,7 +405,6 @@ ${escapedChart}
         if (event.data?.type === 'mermaid-height' && iframeRef.current) {
           // iframe 높이 동적 조정
           iframeRef.current.style.height = `${event.data.height}px`;
-<<<<<<< HEAD
           // Gantt 차트의 경우 overflow를 visible로 설정
           if (event.data.overflow === 'visible') {
             iframeRef.current.style.overflow = 'visible';
@@ -525,32 +414,6 @@ ${escapedChart}
             iframeRef.current.style.overflow = 'visible'; // 잘림 방지
             iframeRef.current.style.maxHeight = '800px'; // 충분한 높이 허용
           }
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-        } else if (event.data?.type === 'mermaid-rendered') {
-          if (!event.data.success) {
-            // 에러 발생 시 재시도 로직
-            if (retryCount < maxRetries && iframeRef.current) {
-              setRetryCount(prev => prev + 1);
-              // iframe 재로드하여 재렌더링 시도
-              setTimeout(() => {
-                if (iframeRef.current) {
-                  const currentSrc = iframeRef.current.srcdoc;
-                  iframeRef.current.srcdoc = '';
-                  setTimeout(() => {
-                    if (iframeRef.current) {
-                      iframeRef.current.srcdoc = currentSrc;
-                    }
-                  }, 100);
-                }
-              }, 1000);
-            } else {
-              setError(event.data.error || '렌더링 실패');
-            }
-          } else {
-            setError(null);
-            setRetryCount(0); // 성공 시 재시도 카운트 리셋
-          }
         }
       }
     };
@@ -559,89 +422,40 @@ ${escapedChart}
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [index, retryCount, maxRetries]);
-
-  // 에러 발생 시 텍스트로 표시
-  if (error) {
-    const encodeBase64 = (str: string): string => {
-      try {
-        return btoa(unescape(encodeURIComponent(str)));
-      } catch (e) {
-        return encodeURIComponent(str);
-      }
-    };
-    const mermaidLiveUrl = `https://mermaid.live/edit#pako:${encodeBase64(cleanedChart)}`;
-    return (
-      <div className="my-6 p-4 border border-destructive/20 rounded-md bg-destructive/5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium text-foreground">Mermaid 다이어그램 렌더링 오류</p>
-          <a
-            href={mermaidLiveUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-primary hover:underline"
-          >
-            Mermaid Live에서 보기
-          </a>
-        </div>
-        <p className="text-sm text-destructive mb-3">{error}</p>
-        <pre className="text-xs bg-background p-3 rounded overflow-x-auto whitespace-pre-wrap border border-border font-mono">
-          {cleanedChart}
-        </pre>
-      </div>
-    );
-  }
+  }, [index, isGanttChart]);
 
   return (
-<<<<<<< HEAD
-    <div className="my-6 w-full overflow-visible">
-      <div className="mermaid-container w-full relative" style={{ overflow: isGanttChart ? 'visible' : 'hidden', maxHeight: isGanttChart ? 'none' : '600px' }}>
-=======
-    <div className="my-6 w-full overflow-hidden">
-      <div className="mermaid-container w-full relative overflow-hidden" style={{ maxHeight: '600px' }}>
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-        {onEdit && (
-          <div className="absolute top-2 right-2 z-10">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onEdit}
-              className="bg-background/90 backdrop-blur-sm shadow-sm"
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              편집
-            </Button>
-          </div>
-        )}
-        <iframe
-          ref={iframeRef}
-          srcDoc={iframeContent}
-          className="w-full border-0"
-          style={{
-            width: '100%',
-<<<<<<< HEAD
-            minHeight: isGanttChart ? '450px' : '200px', // 최소 높이 보장 (작은 다이어그램도 잘 보이도록)
-            maxHeight: isGanttChart ? 'none' : '800px', // 일반 다이어그램도 충분한 높이 허용
-            border: 'none',
-            display: 'block',
-            overflow: 'visible' // 모든 다이어그램에서 잘림 방지
-          } as React.CSSProperties}
-          title={`Mermaid Diagram ${index}`}
-          sandbox="allow-scripts allow-same-origin"
-          allow="same-origin"
-=======
-            minHeight: '300px',
-            maxHeight: '600px',
-            border: 'none',
-            display: 'block',
-            overflow: 'hidden'
-          } as React.CSSProperties}
-          title={`Mermaid Diagram ${index}`}
-          sandbox="allow-scripts allow-same-origin"
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-          loading="lazy"
-        />
-      </div>
+    <div className="relative w-full my-4">
+      {onEdit && (
+        <div className="absolute top-2 right-2 z-10">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            className="bg-background/90 backdrop-blur-sm shadow-sm"
+          >
+            <Pencil className="h-3.5 w-3.5 mr-1.5" />
+            편집
+          </Button>
+        </div>
+      )}
+      <iframe
+        ref={iframeRef}
+        srcDoc={iframeContent}
+        className="w-full border-0"
+        style={{
+          width: '100%',
+          minHeight: isGanttChart ? '450px' : '200px', // 최소 높이 보장 (작은 다이어그램도 잘 보이도록)
+          maxHeight: isGanttChart ? 'none' : '800px', // 일반 다이어그램도 충분한 높이 허용
+          border: 'none',
+          display: 'block',
+          overflow: 'visible' // 모든 다이어그램에서 잘림 방지
+        } as React.CSSProperties}
+        title={`Mermaid Diagram ${index}`}
+        sandbox="allow-scripts allow-same-origin"
+        allow="same-origin"
+        loading="lazy"
+      />
     </div>
   );
 }

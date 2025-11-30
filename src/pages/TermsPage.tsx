@@ -4,16 +4,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-<<<<<<< HEAD
-export function TermsPage() {
-=======
-function TermsPage() {
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-  const navigate = useNavigate();
+export function TermsPage() {  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8 max-w-4xl">
         <Button
           variant="ghost"
           onClick={() => navigate(-1)}
@@ -162,7 +157,4 @@ function TermsPage() {
   );
 }
 
-<<<<<<< HEAD
-=======
 export default TermsPage;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

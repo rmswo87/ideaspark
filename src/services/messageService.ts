@@ -273,7 +273,4 @@ export async function deleteConversation(userId: string): Promise<void> {
     throw error;
   }
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

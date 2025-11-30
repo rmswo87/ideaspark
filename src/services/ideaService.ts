@@ -250,8 +250,4 @@ export async function getSubreddits(): Promise<string[]> {
 
   const uniqueSubreddits = Array.from(new Set(data?.map(i => i.subreddit) || []));
   return uniqueSubreddits;
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

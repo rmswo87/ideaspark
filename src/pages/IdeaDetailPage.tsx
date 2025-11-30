@@ -340,7 +340,7 @@ function IdeaDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <div className="text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">로딩 중...</p>
@@ -351,7 +351,7 @@ function IdeaDetailPage() {
 
   if (!idea) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-4">아이디어를 찾을 수 없습니다.</p>
@@ -363,7 +363,7 @@ function IdeaDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 relative">
+    <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8 relative">
       {/* 로딩 오버레이 - 전체 화면 */}
       {(generating || generatingPlan || generatingProposal) && (
         <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[9999] flex items-center justify-center">
@@ -867,9 +867,4 @@ function IdeaDetailPage() {
   );
 }
 
-<<<<<<< HEAD
 export default IdeaDetailPage;
-
-=======
-export default IdeaDetailPage;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

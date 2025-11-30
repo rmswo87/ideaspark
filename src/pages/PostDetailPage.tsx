@@ -232,7 +232,7 @@ function PostDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <div className="text-center py-12">
           <p className="text-muted-foreground">로딩 중...</p>
         </div>
@@ -242,7 +242,7 @@ function PostDetailPage() {
 
   if (!post) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-4">게시글을 찾을 수 없습니다.</p>
@@ -561,10 +561,5 @@ function PostDetailPage() {
   );
 }
 
-<<<<<<< HEAD
 export default PostDetailPage;
 
-
-=======
-export default PostDetailPage;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

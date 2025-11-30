@@ -41,8 +41,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).send('Failed to proxy image');
   }
 }
-<<<<<<< HEAD
 
 
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

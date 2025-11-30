@@ -59,9 +59,4 @@ export function ProfileNotificationBadge() {
       {notificationCount > 99 ? '99+' : notificationCount}
     </Badge>
   );
-<<<<<<< HEAD
 }
-
-=======
-}
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

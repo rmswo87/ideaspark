@@ -17,12 +17,7 @@ import { getConversations, getConversation, sendMessage, markAsRead, deleteMessa
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-<<<<<<< HEAD
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-=======
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
-import { Textarea } from '@/components/ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';import { Textarea } from '@/components/ui/textarea';
 import { uploadAvatar } from '@/services/imageService';
 import type { FriendRequest, Friend } from '@/services/friendService';
 import type { Conversation, Message } from '@/services/messageService';
@@ -108,7 +103,6 @@ function ProfilePage() {
     const path = pathParts.join('/');
     const base = getImageProxyBase();
     return `${base}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
-<<<<<<< HEAD
   }
 
   useEffect(() => {
@@ -741,7 +735,7 @@ function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
         <div className="text-center py-12">
           <p className="text-muted-foreground">로딩 중...</p>
         </div>
@@ -755,7 +749,7 @@ function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 sm:px-6 md:px-8 py-6">
       <Button
         variant="ghost"
         onClick={() => navigate('/')}
@@ -1962,7 +1956,3 @@ function ProfilePage() {
 
 export default ProfilePage;
 
-
-=======
-  }
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

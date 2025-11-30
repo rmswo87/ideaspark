@@ -107,7 +107,4 @@ export function RecommendedIdeas({ onGeneratePRD }: RecommendedIdeasProps) {
     </Card>
   );
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

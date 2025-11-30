@@ -273,7 +273,4 @@ export async function getBlockedUsers(): Promise<Friend[]> {
 
   return (data || []) as unknown as Friend[];
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

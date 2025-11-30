@@ -69,7 +69,7 @@ export async function uploadImageToImgur(file: File): Promise<string> {
 /**
  * 게시글용 이미지 업로드 (Imgur 사용)
  */
-export async function uploadPostImage(file: File, userId: string): Promise<string> {
+export async function uploadPostImage(file: File, _userId: string): Promise<string> {
   // userId는 로깅용으로만 사용 (Imgur는 사용자별 구분 불필요)
   return uploadImageToImgur(file);
 }
@@ -77,7 +77,7 @@ export async function uploadPostImage(file: File, userId: string): Promise<strin
 /**
  * 프로필 사진 업로드 (Imgur 사용)
  */
-export async function uploadAvatar(file: File, userId: string): Promise<string> {
+export async function uploadAvatar(file: File, _userId: string): Promise<string> {
   return uploadImageToImgur(file);
 }
 

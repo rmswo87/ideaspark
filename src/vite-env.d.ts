@@ -15,7 +15,4 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

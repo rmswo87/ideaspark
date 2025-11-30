@@ -124,7 +124,7 @@ export async function uploadImageToGoogleDrive(
 /**
  * 게시글용 이미지 업로드 (Google Drive 사용)
  */
-export async function uploadPostImage(file: File, userId: string): Promise<string> {
+export async function uploadPostImage(file: File, _userId: string): Promise<string> {
   // 사용자 인증 필요
   const accessToken = await authenticateGoogleDrive();
   if (!accessToken) {

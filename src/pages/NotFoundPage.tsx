@@ -8,7 +8,7 @@ function NotFoundPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8">
       <Card>
         <CardContent className="py-12 text-center">
           <h1 className="text-4xl font-bold mb-4">404</h1>
@@ -23,9 +23,4 @@ function NotFoundPage() {
   );
 }
 
-<<<<<<< HEAD
 export default NotFoundPage;
-
-=======
-export default NotFoundPage;
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568

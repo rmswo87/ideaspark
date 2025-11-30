@@ -16,7 +16,6 @@ export default defineConfig({
   // GitHub Pages: /ideaspark/ - 테스트/이중화 환경
   // 두 환경 모두 동일한 코드베이스 사용, 환경 변수로 구분
   base: process.env.VITE_GITHUB_PAGES === 'true' ? '/ideaspark/' : '/',
-<<<<<<< HEAD
   // Vercel 서버리스 함수(api 폴더)는 빌드에서 제외
   build: {
     rollupOptions: {
@@ -40,21 +39,4 @@ export default defineConfig({
   },
   // 로그 레벨 조정 (불필요한 HMR 로그 억제)
   logLevel: 'warn',
-  customLogger: {
-    info: () => {}, // HMR 로그 억제
-    warn: (msg) => console.warn(msg),
-    error: (msg) => console.error(msg),
-  },
 })
-=======
-  // Vercel 배포 후 vercel dev 사용 시 프록시 불필요
-  // server: {
-  //   proxy: {
-  //     '/api': {
-  //       target: 'http://localhost:3000',
-  //       changeOrigin: true,
-  //     },
-  //   },
-  // },
-})
->>>>>>> f2d051063a1deac18577154ea77dd273f0920568
