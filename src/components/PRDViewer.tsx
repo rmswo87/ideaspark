@@ -70,10 +70,23 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       display: block !important;
       box-sizing: border-box !important;
     }
-    /* 모든 Mermaid 다이어그램에 통일된 폰트 크기 적용 */
+    /* 모든 Mermaid 다이어그램에 통일된 폰트 크기 적용 (크기 증가) */
     svg text {
-      font-size: 13px !important;
+      font-size: 16px !important;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+    }
+    
+    /* 노드 크기 증가 */
+    svg .node rect, svg .node circle, svg .node ellipse {
+      min-width: 120px !important;
+      min-height: 60px !important;
+    }
+    
+    /* ER 다이어그램 엔티티 박스 크기 증가 */
+    svg .er-entityBox, svg .er-attributeBox {
+      min-width: 150px !important;
+      min-height: 50px !important;
+      padding: 12px !important;
     }
     /* Flowchart/Graph 다이어그램 */
     svg .nodeLabel, svg .edgeLabel {
@@ -118,12 +131,22 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     }
     /* ER 다이어그램 크기 제한 */
     .mermaid svg .er-entityBox, .mermaid svg .er-attributeBox {
-      max-width: 200px !important;
-      font-size: 13px !important;
+      min-width: 150px !important;
+      max-width: 300px !important;
+      font-size: 16px !important;
+      padding: 12px !important;
     }
-    /* Flowchart 노드 크기 제한 */
+    /* Flowchart 노드 크기 증가 */
     .mermaid svg .node rect, .mermaid svg .node circle, .mermaid svg .node ellipse {
-      max-width: 250px !important;
+      min-width: 120px !important;
+      min-height: 60px !important;
+      max-width: 300px !important;
+      font-size: 16px !important;
+    }
+    
+    /* 노드 내부 텍스트 크기 증가 */
+    .mermaid svg .node-label, .mermaid svg .nodeLabel {
+      font-size: 16px !important;
     }
   </style>
 </head>
@@ -162,60 +185,61 @@ ${escapedChart}
           theme: 'default',
           securityLevel: 'loose',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-          fontSize: 13,
+          fontSize: 16, // 폰트 크기 증가 (13 -> 16)
           flowchart: {
-            nodeSpacing: 40,
-            rankSpacing: 40,
+            nodeSpacing: 60, // 노드 간격 증가 (40 -> 60)
+            rankSpacing: 80, // 랭크 간격 증가 (40 -> 80)
             curve: 'basis',
-            fontSize: 13,
-            padding: 8,
+            fontSize: 16, // 폰트 크기 증가
+            padding: 16, // 패딩 증가 (8 -> 16)
             useMaxWidth: true,
             htmlLabels: true
           },
           sequence: {
-            fontSize: 13,
-            actorMargin: 45,
-            width: 140,
-            height: 60,
-            boxMargin: 8,
-            boxTextMargin: 4,
-            noteMargin: 8,
-            messageMargin: 30,
+            fontSize: 16, // 폰트 크기 증가
+            actorMargin: 60, // 마진 증가 (45 -> 60)
+            width: 180, // 너비 증가 (140 -> 180)
+            height: 80, // 높이 증가 (60 -> 80)
+            boxMargin: 12, // 마진 증가 (8 -> 12)
+            boxTextMargin: 6, // 텍스트 마진 증가 (4 -> 6)
+            noteMargin: 12, // 마진 증가 (8 -> 12)
+            messageMargin: 40, // 마진 증가 (30 -> 40)
             useMaxWidth: true
           },
           gantt: {
-            fontSize: 13,
-            sectionFontSize: 13,
-            leftPadding: 70,
-            gridLineStartPadding: 30,
-            bottomPadding: 20,
-            topPadding: 20,
-            barHeight: 18,
-            barGap: 3,
-            padding: 8,
+            fontSize: 16, // 폰트 크기 증가
+            sectionFontSize: 16, // 섹션 폰트 크기 증가
+            leftPadding: 90, // 패딩 증가 (70 -> 90)
+            gridLineStartPadding: 40, // 패딩 증가 (30 -> 40)
+            bottomPadding: 30, // 패딩 증가 (20 -> 30)
+            topPadding: 30, // 패딩 증가 (20 -> 30)
+            barHeight: 24, // 바 높이 증가 (18 -> 24)
+            barGap: 4, // 간격 증가 (3 -> 4)
+            padding: 16, // 패딩 증가 (8 -> 16)
             useMaxWidth: true,
             axisFormat: '%Y-%m-%d',
-            bottomTickHeight: 4          },
+            bottomTickHeight: 6 // 틱 높이 증가 (4 -> 6)
+          },
           er: {
-            fontSize: 13,
-            entityPadding: 12,
-            padding: 16,
-            entityBoxMaxWidth: 200,
+            fontSize: 16, // 폰트 크기 증가
+            entityPadding: 16, // 패딩 증가 (12 -> 16)
+            padding: 20, // 패딩 증가 (16 -> 20)
+            entityBoxMaxWidth: 300, // 최대 너비 증가 (200 -> 300)
             useMaxWidth: true
           },
           pie: {
-            fontSize: 13
+            fontSize: 16 // 폰트 크기 증가
           },
           gitgraph: {
-            fontSize: 13
+            fontSize: 16 // 폰트 크기 증가
           }
         });
         
-        // Mermaid 렌더링 실행 (에러 발생 시에도 계속 시도)
+        // Mermaid 렌더링 실행 (에러를 더 명확하게 확인)
         try {
           await mermaid.run({
             querySelector: '.mermaid',
-            suppressErrors: true
+            suppressErrors: false // 오류를 명확하게 확인하기 위해 false로 변경
           });
           
           // 렌더링 성공 후 높이 전달 (강화된 재시도 로직)
@@ -252,11 +276,26 @@ ${escapedChart}
                 svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
               }
               
-              // 모든 텍스트 요소의 폰트 크기 강제 설정
+              // 모든 텍스트 요소의 폰트 크기 강제 설정 (크기 증가)
               const allTexts = svg.querySelectorAll('text');
               allTexts.forEach(text => {
-                text.setAttribute('font-size', '13');
-                text.style.fontSize = '13px';
+                text.setAttribute('font-size', '16');
+                text.style.fontSize = '16px';
+              });
+              
+              // 노드 크기 증가
+              const nodes = svg.querySelectorAll('.node rect, .node circle, .node ellipse');
+              nodes.forEach(node => {
+                if (node instanceof SVGElement) {
+                  const currentWidth = parseFloat(node.getAttribute('width') || '0');
+                  const currentHeight = parseFloat(node.getAttribute('height') || '0');
+                  if (currentWidth < 120) {
+                    node.setAttribute('width', '120');
+                  }
+                  if (currentHeight < 60) {
+                    node.setAttribute('height', '60');
+                  }
+                }
               });
               
               const rect = svg.getBoundingClientRect();
@@ -303,11 +342,11 @@ ${escapedChart}
                   svg.style.maxHeight = 'none';
                   svg.style.overflow = 'visible';
                   
-                  // Gantt 차트의 모든 텍스트 요소에 대해 강제로 폰트 크기 설정
+                  // Gantt 차트의 모든 텍스트 요소에 대해 강제로 폰트 크기 설정 (크기 증가)
                   const allTexts = svg.querySelectorAll('text');
                   allTexts.forEach(text => {
-                    text.setAttribute('font-size', '13');
-                    text.style.fontSize = '13px';
+                    text.setAttribute('font-size', '16');
+                    text.style.fontSize = '16px';
                     text.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif';
                   });
                   
@@ -316,8 +355,8 @@ ${escapedChart}
                   ganttGroups.forEach(group => {
                     const groupTexts = group.querySelectorAll('text');
                     groupTexts.forEach(text => {
-                      text.setAttribute('font-size', '13');
-                      text.style.fontSize = '13px';
+                      text.setAttribute('font-size', '16');
+                      text.style.fontSize = '16px';
                     });
                   });
                   
@@ -325,11 +364,11 @@ ${escapedChart}
                   const ganttElements = svg.querySelectorAll('.gantt, .section0, .section1, .section2, .task, .taskText, .gantt-title, .gantt-axis');
                   ganttElements.forEach(el => {
                     if (el instanceof SVGElement) {
-                      el.style.fontSize = '13px';
+                      el.style.fontSize = '16px';
                       const textEl = el.querySelectorAll('text');
                       textEl.forEach(text => {
-                        text.setAttribute('font-size', '13');
-                        text.style.fontSize = '13px';
+                        text.setAttribute('font-size', '16');
+                        text.style.fontSize = '16px';
                       });
                     }
                   });
@@ -387,11 +426,11 @@ ${escapedChart}
           } else {
             if (window.parent) {
               window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed after retries', index: ${index} }, '*');
-              // 에러 메시지를 화면에 표시
+              // 에러 메시지를 화면에 표시 (더 명확하게)
               const mermaidDiv = document.querySelector('.mermaid');
               if (mermaidDiv) {
-                const errorMsg = err.message || '다이어그램 렌더링 실패';
-                mermaidDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc2626;"><p>⚠️ Mermaid 렌더링 오류</p><p style="font-size: 12px;">' + errorMsg + '</p><p style="font-size: 11px; margin-top: 10px; color: #666;">다이어그램 코드에 문법 오류가 있을 수 있습니다.</p></div>';
+                const errorDetails = err.message || '알 수 없는 오류';
+                mermaidDiv.innerHTML = '<div style="padding: 24px; text-align: center; color: #dc2626; background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; margin: 20px 0;"><p style="font-size: 18px; font-weight: bold; margin-bottom: 12px;">⚠️ Mermaid 다이어그램 렌더링 오류</p><p style="font-size: 14px; margin-bottom: 10px; word-break: break-word;">' + errorDetails + '</p><p style="font-size: 12px; color: #666; margin-top: 12px; line-height: 1.6;">다이어그램 코드에 문법 오류가 있을 수 있습니다.<br/>코드를 확인하고 수정해주세요.<br/>편집 버튼을 클릭하여 다이어그램을 수정할 수 있습니다.</p></div>';
               }
             }
           }
