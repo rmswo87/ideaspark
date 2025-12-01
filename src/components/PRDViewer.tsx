@@ -855,5 +855,3 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
     </Card>
   );
 }
-=======
->>>>>>> df1c1a9871be393220b9a33a82762202b4a047da

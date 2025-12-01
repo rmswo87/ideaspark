@@ -1593,5 +1593,3 @@ export const aiClient = new AIClient({
   apiKey,
   model: import.meta.env.VITE_OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct', // OpenRouter 무료 모델
 });
-=======
->>>>>>> df1c1a9871be393220b9a33a82762202b4a047da
