@@ -62,11 +62,12 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     }
     svg {
       max-width: 100% !important;
-      max-height: 800px !important; /* 충분한 높이 허용 */
-      min-height: 150px !important; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
-      /* height: auto 제거 - 명시적인 값으로 설정하여 에러 방지 */
+      max-height: none !important; /* 높이 제한 제거 - 전체가 보이도록 */
+      min-height: 200px !important; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
       width: 100% !important;
-      overflow: visible !important; /* 잘림 방지 */      display: block !important;
+      height: auto !important; /* 자동 높이로 전체 내용 표시 */
+      overflow: visible !important; /* 잘림 방지 */
+      display: block !important;
       box-sizing: border-box !important;
     }
     /* 모든 Mermaid 다이어그램에 통일된 폰트 크기 적용 */
@@ -102,16 +103,18 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     .mermaid svg {
       width: 100% !important;
       max-width: 100% !important;
-      max-height: 800px !important; /* 충분한 높이 허용 */
-      min-height: 150px !important; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
-      /* height: auto 제거 - JavaScript에서 명시적으로 설정 */
-      overflow: visible !important; /* 잘림 방지 */      display: block !important;
+      max-height: none !important; /* 높이 제한 제거 - 전체가 보이도록 */
+      min-height: 200px !important; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
+      height: auto !important; /* 자동 높이로 전체 내용 표시 */
+      overflow: visible !important; /* 잘림 방지 */
+      display: block !important;
     }
     /* SVG viewBox 및 preserveAspectRatio 강제 설정 */
     .mermaid svg[viewBox] {
       width: 100% !important;
       max-width: 100% !important;
-      /* height: auto 제거 - JavaScript에서 명시적으로 설정 */      max-height: 600px !important;
+      max-height: none !important; /* 높이 제한 제거 */
+      height: auto !important; /* 자동 높이 */
     }
     /* ER 다이어그램 크기 제한 */
     .mermaid svg .er-entityBox, .mermaid svg .er-attributeBox {
@@ -144,6 +147,11 @@ ${escapedChart}
           } else {
             if (window.parent) {
               window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'Mermaid library failed to load', index: ${index} }, '*');
+              // 에러 메시지를 화면에 표시
+              const mermaidDiv = document.querySelector('.mermaid');
+              if (mermaidDiv) {
+                mermaidDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc2626;"><p>⚠️ Mermaid 라이브러리 로드 실패</p><p style="font-size: 12px;">다이어그램을 렌더링할 수 없습니다.</p></div>';
+              }
             }
             return;
           }
@@ -335,15 +343,14 @@ ${escapedChart}
                   const actualWidth = Math.min(rect.width, containerWidth - 32);
                   // 하단이 잘리지 않도록 패딩을 충분히 추가하고, 최소 높이 보장
                   const minHeight = Math.max(rect.height, 200); // 최소 200px 보장
-                  const actualHeight = Math.min(minHeight + 40, 800); // 최대 800px까지 허용
+                  const actualHeight = minHeight + 60; // 패딩 추가, 높이 제한 없음
                   
-                  // SVG 크기 재조정 (height="auto" 에러 방지)
-                  // 실제 렌더링된 높이를 명시적으로 설정
+                  // SVG 크기 재조정 - 전체가 보이도록
                   svg.setAttribute('height', Math.ceil(rect.height).toString());
                   svg.style.width = '100%';
                   svg.style.maxWidth = '100%';
                   svg.style.height = Math.ceil(rect.height) + 'px';
-                  svg.style.maxHeight = '800px'; // 충분한 높이 허용
+                  svg.style.maxHeight = 'none'; // 높이 제한 제거
                   svg.style.overflow = 'visible'; // 잘림 방지
                   
                   window.parent.postMessage({ type: 'mermaid-height', height: actualHeight, index: ${index} }, '*');
@@ -361,6 +368,11 @@ ${escapedChart}
               // 최대 재시도 후에도 실패하면 에러 전송
               if (window.parent) {
                 window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: 'SVG not found or invalid after rendering', index: ${index} }, '*');
+                // 에러 메시지를 화면에 표시
+                const mermaidDiv = document.querySelector('.mermaid');
+                if (mermaidDiv) {
+                  mermaidDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc2626;"><p>⚠️ 다이어그램 렌더링 실패</p><p style="font-size: 12px;">SVG를 생성할 수 없습니다.</p><p style="font-size: 11px; margin-top: 10px; color: #666;">다이어그램 코드를 확인해주세요.</p></div>';
+                }
               }
             }
           };
@@ -375,6 +387,12 @@ ${escapedChart}
           } else {
             if (window.parent) {
               window.parent.postMessage({ type: 'mermaid-rendered', success: false, error: err.message || 'Rendering failed after retries', index: ${index} }, '*');
+              // 에러 메시지를 화면에 표시
+              const mermaidDiv = document.querySelector('.mermaid');
+              if (mermaidDiv) {
+                const errorMsg = err.message || '다이어그램 렌더링 실패';
+                mermaidDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc2626;"><p>⚠️ Mermaid 렌더링 오류</p><p style="font-size: 12px;">' + errorMsg + '</p><p style="font-size: 11px; margin-top: 10px; color: #666;">다이어그램 코드에 문법 오류가 있을 수 있습니다.</p></div>';
+              }
             }
           }
         }
@@ -456,10 +474,10 @@ ${escapedChart}
           ref={iframeRef}
           srcDoc={iframeContent}
           className="w-full border-0"
-          style={{
+            style={{
             width: '100%',
             minHeight: isGanttChart ? '450px' : '200px',
-            maxHeight: isGanttChart ? 'none' : '1200px', // 충분한 높이 허용
+            maxHeight: 'none', // 높이 제한 제거 - 전체가 보이도록
             border: 'none',
             display: 'block',
             overflow: 'visible', // visible로 변경하여 내용이 잘리지 않도록
