@@ -31,7 +31,9 @@ function IdeaDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatingProposal, setGeneratingProposal] = useState(false);
-  const [planGenerationProgress, setPlanGenerationProgress] = useState<{ current: number; total: number } | null>(null);
+  const [prdProgress, setPrdProgress] = useState(0);
+  const [planProgress, setPlanProgress] = useState(0);
+  const progressAnimationRef = useRef<number | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,11 @@ function IdeaDetailPage() {
     
     return () => {
       isMountedRef.current = false;
+      // 애니메이션 정리
+      if (progressAnimationRef.current) {
+        cancelAnimationFrame(progressAnimationRef.current);
+        progressAnimationRef.current = null;
+      }
     };
   }, [id]);
 
@@ -149,6 +156,38 @@ function IdeaDetailPage() {
     }
   }
 
+  // 부드러운 진행률 애니메이션을 위한 ref
+  const prdProgressRef = useRef(0);
+  const planProgressRef = useRef(0);
+  
+  // 부드러운 진행률 애니메이션 함수
+  const animateProgress = (targetProgress: number, setProgress: (value: number) => void, progressRef: React.MutableRefObject<number>) => {
+    if (progressAnimationRef.current) {
+      cancelAnimationFrame(progressAnimationRef.current);
+    }
+    
+    const animate = () => {
+      const currentProgress = progressRef.current;
+      
+      if (currentProgress < targetProgress) {
+        // 부드럽게 증가 (최대 1.5%씩, 더 부드럽게)
+        const increment = Math.min(1.5, targetProgress - currentProgress);
+        const newProgress = Math.min(100, currentProgress + increment);
+        progressRef.current = newProgress;
+        setProgress(newProgress);
+        
+        progressAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        // 목표에 도달했으면 정확히 설정
+        progressRef.current = targetProgress;
+        setProgress(targetProgress);
+        progressAnimationRef.current = null;
+      }
+    };
+    
+    progressAnimationRef.current = requestAnimationFrame(animate);
+  };
+
   async function handleGeneratePRD() {
     if (!user || !id) {
       alert('로그인이 필요합니다.');
@@ -171,13 +210,23 @@ function IdeaDetailPage() {
     }
 
     setGenerating(true);
+    setPrdProgress(0);
+    prdProgressRef.current = 0;
     setError(null);
     
     try {
       // 선택된 제안서가 있으면 제안서 내용을 기반으로 PRD 생성
       const selectedProposal = proposals.find(p => p.id === selectedProposalId);
       const proposalContent = selectedProposal?.content;
-      const newPRD = await generatePRD(id, user.id, proposalContent);
+      
+      // 진행률 콜백
+      const progressCallback = (progress: number) => {
+        if (isMountedRef.current) {
+          animateProgress(progress, setPrdProgress, prdProgressRef);
+        }
+      };
+      
+      const newPRD = await generatePRD(id, user.id, proposalContent, progressCallback);
       
       // PRD 생성 행동 추적
       if (id) {
@@ -193,6 +242,7 @@ function IdeaDetailPage() {
         setPrd(newPRD);
       }
       setGenerating(false);
+      setPrdProgress(0);
     } catch (error) {
       console.error('PRD generation error:', error);
       if (!isMountedRef.current) return;
@@ -200,6 +250,7 @@ function IdeaDetailPage() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setError(`PRD 생성에 실패했습니다: ${errorMessage}`);
       setGenerating(false);
+      setPrdProgress(0);
       alert(`PRD 생성에 실패했습니다: ${errorMessage}`);
     }
   }
@@ -227,30 +278,23 @@ function IdeaDetailPage() {
     }
 
     setGeneratingPlan(true);
+    setPlanProgress(0);
+    planProgressRef.current = 0;
     setError(null);
-    setPlanGenerationProgress({ current: 0, total: 3 });
     
     try {
       // 선택된 제안서가 있으면 제안서 내용을 우선 사용, 없으면 PRD 내용 사용
       const selectedProposal = proposals.find(p => p.id === selectedProposalId);
       const contentToUse = selectedProposal?.content || prd?.content;
       
-      // 개발 계획서는 여러 번에 나누어서 생성되므로 진행 상황 추적
-      // ai.ts의 generateDevelopmentPlan은 내부적으로 5개 부분으로 나누어 생성합니다
-      // 진행 상황을 시뮬레이션하기 위해 약간의 지연을 추가합니다
-      const progressInterval = setInterval(() => {
-        setPlanGenerationProgress(prev => {
-          if (!prev) return { current: 0, total: 5 };
-          if (prev.current < prev.total) {
-            return { ...prev, current: prev.current + 1 };
-          }
-          return prev;
-        });
-      }, 25000); // 25초마다 진행 상황 업데이트 (실제 생성 시간에 맞춰 조정)
+      // 진행률 콜백
+      const progressCallback = (progress: number) => {
+        if (isMountedRef.current) {
+          animateProgress(progress, setPlanProgress, planProgressRef);
+        }
+      };
       
-      const newPlan = await generateDevelopmentPlan(id, user.id, contentToUse);
-      
-      clearInterval(progressInterval);
+      const newPlan = await generateDevelopmentPlan(id, user.id, contentToUse, progressCallback);
       
       if (!isMountedRef.current) return;
       
@@ -261,7 +305,7 @@ function IdeaDetailPage() {
         setPrd(newPlan);
       }
       setGeneratingPlan(false);
-      setPlanGenerationProgress(null);
+      setPlanProgress(0);
     } catch (error) {
       // 프로덕션 환경이 아닐 때만 에러 로그 출력
       if (import.meta.env.DEV) {
@@ -399,23 +443,47 @@ function IdeaDetailPage() {
               {generatingPlan && '개발 계획서 생성 중...'}
               {generatingProposal && '제안서 생성 중...'}
             </h3>
-            <p className="text-base text-muted-foreground mb-2">
+            <p className="text-base text-muted-foreground mb-4">
               {generatingPlan 
                 ? '개발 계획서는 상세하게 작성중입니다. 잠시만 기다려주세요.'
                 : 'AI가 문서를 생성하고 있습니다. 잠시만 기다려주세요.'}
             </p>
-            {generatingPlan && planGenerationProgress && (
-              <div className="mt-4 w-full bg-secondary rounded-full h-2.5">
-                <div 
-                  className="bg-primary h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(planGenerationProgress.current / planGenerationProgress.total) * 100}%` }}
-                ></div>
+            {/* 진행률 표시 */}
+            {(generating || generatingPlan) && (
+              <div className="mt-4 w-full">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">진행률</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {Math.round(generating ? prdProgress : planProgress)}%
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-primary to-primary/80 h-3 rounded-full transition-all duration-300 ease-out shadow-sm"
+                    style={{ 
+                      width: `${generating ? prdProgress : planProgress}%`,
+                      transition: 'width 0.3s ease-out'
+                    }}
+                  >
+                    <div className="h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
+                  <span>
+                    {generating 
+                      ? `PRD 문서 생성 중... (${Math.round(prdProgress)}%)`
+                      : `개발 계획서 생성 중... (${Math.round(planProgress)}%)`}
+                  </span>
+                </div>
               </div>
             )}
-            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
-              <span>처리 중...</span>
-            </div>
+            {generatingProposal && (
+              <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
+                <span>처리 중...</span>
+              </div>
+            )}
           </div>
         </div>
       )}

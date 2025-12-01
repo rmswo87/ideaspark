@@ -11,27 +11,60 @@ class AIClient {
 
   /**
    * 아이디어를 기반으로 PRD 생성
+   * 여러 번에 나누어서 생성하여 완전한 문서를 만듭니다.
+   * @param onProgress 진행률 콜백 (0-100)
    */
-  async generatePRD(idea: Idea): Promise<string> {
-    const prompt = this.buildPRDPrompt(idea);
-
-    if (this.config.provider === 'openrouter') {
-      return this.callOpenRouter(prompt);
-    } else if (this.config.provider === 'openai') {
-      return this.callOpenAI(prompt);
-    } else {
-      return this.callClaude(prompt);
+  async generatePRD(idea: Idea, onProgress?: (progress: number) => void): Promise<string> {
+    // PRD를 7개 부분으로 나누어서 더 상세하고 완전하게 생성
+    const parts: string[] = [];
+    const totalParts = 7;
+    
+    // 초기 진행률
+    if (onProgress) onProgress(0);
+    
+    for (let partNum = 1; partNum <= totalParts; partNum++) {
+      const prompt = this.buildPRDPrompt(idea, partNum, parts);
+      
+      let partContent: string;
+      if (this.config.provider === 'openrouter') {
+        partContent = await this.callOpenRouter(prompt);
+      } else if (this.config.provider === 'openai') {
+        partContent = await this.callOpenAI(prompt);
+      } else {
+        partContent = await this.callClaude(prompt);
+      }
+      
+      parts.push(partContent);
+      
+      // 각 부분 완료 시 진행률 업데이트 (각 부분은 약 20%씩, 마지막 합치기는 20%)
+      const partProgress = Math.floor((partNum / totalParts) * 80);
+      if (onProgress) onProgress(partProgress);
+      
+      // 마지막 부분이 아니면 잠시 대기 (API rate limit 방지)
+      if (partNum < totalParts) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
     }
+    
+    // 모든 부분을 합쳐서 하나의 문서로 만들기
+    if (onProgress) onProgress(90);
+    const fullDocument = this.mergePRDParts(parts);
+    if (onProgress) onProgress(100);
+    return fullDocument;
   }
 
   /**
    * 아이디어와 PRD를 기반으로 개발 계획서 생성
    * 여러 번에 나누어서 생성하여 완전한 문서를 만듭니다.
+   * @param onProgress 진행률 콜백 (0-100)
    */
-  async generateDevelopmentPlan(idea: Idea, prdContent?: string): Promise<string> {
-    // 개발 계획서를 5개 부분으로 나누어서 더 상세하게 생성
+  async generateDevelopmentPlan(idea: Idea, prdContent?: string, onProgress?: (progress: number) => void): Promise<string> {
+    // 개발 계획서를 8개 부분으로 나누어서 더 상세하고 완전하게 생성
     const parts: string[] = [];
-    const totalParts = 5;
+    const totalParts = 8;
+    
+    // 초기 진행률
+    if (onProgress) onProgress(0);
     
     for (let partNum = 1; partNum <= totalParts; partNum++) {
       const prompt = this.buildDevelopmentPlanPrompt(idea, prdContent, partNum, parts);
@@ -47,6 +80,10 @@ class AIClient {
       
       parts.push(partContent);
       
+      // 각 부분 완료 시 진행률 업데이트 (각 부분은 약 11%씩, 마지막 합치기는 12%)
+      const partProgress = Math.floor((partNum / totalParts) * 88);
+      if (onProgress) onProgress(partProgress);
+      
       // 마지막 부분이 아니면 잠시 대기 (API rate limit 방지)
       if (partNum < totalParts) {
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -54,7 +91,9 @@ class AIClient {
     }
     
     // 모든 부분을 합쳐서 하나의 문서로 만들기
+    if (onProgress) onProgress(95);
     const fullDocument = this.mergeDevelopmentPlanParts(parts);
+    if (onProgress) onProgress(100);
     return fullDocument;
   }
 
@@ -72,7 +111,7 @@ class AIClient {
     const taskMap = new Map<string, { major: number; minor: number; content: string }>();
     
     // 모든 부분에서 Task 추출
-    parts.forEach((part, partIndex) => {
+    parts.forEach((part) => {
       const taskRegex = /## 🎯 \[P\d+\] Task (\d+)\.(\d+):([^\n]+)\n([\s\S]*?)(?=## 🎯|## 📊|## 🗄️|## 📅|## ⚠️|## ✅|$)/g;
       let match;
       while ((match = taskRegex.exec(part)) !== null) {
@@ -200,26 +239,181 @@ class AIClient {
 
   /**
    * 제안서 기반 PRD 생성
+   * 여러 번에 나누어서 생성하여 완전한 문서를 만듭니다.
+   * @param onProgress 진행률 콜백 (0-100)
    */
-  async generatePRDFromProposal(idea: Idea, proposalContent: string): Promise<string> {
-    const prompt = this.buildPRDFromProposalPrompt(idea, proposalContent);
-
-    if (this.config.provider === 'openrouter') {
-      return this.callOpenRouter(prompt);
-    } else if (this.config.provider === 'openai') {
-      return this.callOpenAI(prompt);
-    } else {
-      return this.callClaude(prompt);
+  async generatePRDFromProposal(idea: Idea, proposalContent: string, onProgress?: (progress: number) => void): Promise<string> {
+    // PRD를 4개 부분으로 나누어서 더 상세하게 생성
+    const parts: string[] = [];
+    const totalParts = 4;
+    
+    // 초기 진행률
+    if (onProgress) onProgress(0);
+    
+    for (let partNum = 1; partNum <= totalParts; partNum++) {
+      const prompt = this.buildPRDFromProposalPrompt(idea, proposalContent, partNum, parts);
+      
+      let partContent: string;
+      if (this.config.provider === 'openrouter') {
+        partContent = await this.callOpenRouter(prompt);
+      } else if (this.config.provider === 'openai') {
+        partContent = await this.callOpenAI(prompt);
+      } else {
+        partContent = await this.callClaude(prompt);
+      }
+      
+      parts.push(partContent);
+      
+      // 각 부분 완료 시 진행률 업데이트 (각 부분은 약 20%씩, 마지막 합치기는 20%)
+      const partProgress = Math.floor((partNum / totalParts) * 80);
+      if (onProgress) onProgress(partProgress);
+      
+      // 마지막 부분이 아니면 잠시 대기 (API rate limit 방지)
+      if (partNum < totalParts) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
     }
+    
+    // 모든 부분을 합쳐서 하나의 문서로 만들기
+    if (onProgress) onProgress(90);
+    const fullDocument = this.mergePRDParts(parts);
+    if (onProgress) onProgress(100);
+    return fullDocument;
   }
 
 
   /**
-   * PRD 프롬프트 생성 (prd_ref.md 기반 상세 양식)
+   * PRD 부분들을 합치기
    */
-  private buildPRDPrompt(idea: Idea): string {
-    return `다음 Reddit 게시글을 기반으로 상세하고 구체적인 PRD(Product Requirements Document) 문서를 한국어로 작성해주세요.
+  private mergePRDParts(parts: string[]): string {
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0];
+    
+    // 첫 번째 부분의 헤더 유지
+    let merged = parts[0];
+    
+    // 나머지 부분들을 순차적으로 추가
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      
+      // 중복되는 헤더나 메타 정보 제거
+      let cleanedPart = part
+        // PRD 제목 제거
+        .replace(/^#\s*PRD.*$/m, '')
+        // 섹션 번호 중복 제거 (이미 작성된 섹션 제목 제거)
+        .replace(/^###\s*1\.\s*프로젝트\s*개요.*$/m, '')
+        .replace(/^###\s*2\.\s*사용자\s*스토리.*$/m, '')
+        .replace(/^###\s*3\.\s*기능\s*명세.*$/m, '')
+        .replace(/^###\s*4\.\s*화면\s*설계.*$/m, '')
+        .replace(/^###\s*5\.\s*기술\s*요구사항.*$/m, '')
+        .replace(/^###\s*6\.\s*프로젝트\s*구조.*$/m, '')
+        .replace(/^###\s*6\.\s*성공\s*지표.*$/m, '')
+        // 중복된 시스템 아키텍처 섹션 제거 (다양한 패턴)
+        .replace(/^## 📊\s*시스템\s*아키텍처.*?(?=##|###|$)/gs, '')
+        .replace(/^##\s*시스템\s*아키텍처.*?(?=##|###|$)/gs, '')
+        .replace(/^###\s*시스템\s*구조\s*다이어그램.*?(?=##|###|$)/gs, '')
+        .replace(/^###\s*시스템\s*아키텍처.*?(?=##|###|$)/gs, '')
+        // 중복된 데이터베이스 설계 섹션 제거 (다양한 패턴)
+        .replace(/^## 🗄️\s*데이터베이스\s*설계.*?(?=##|###|$)/gs, '')
+        .replace(/^##\s*데이터베이스\s*설계.*?(?=##|###|$)/gs, '')
+        .replace(/^###\s*ERD.*?(?=##|###|$)/gs, '')
+        .replace(/^###\s*데이터베이스\s*설계.*?(?=##|###|$)/gs, '')
+        // 빈 구분선 제거
+        .replace(/^---\s*$/m, '')
+        // 부분 작성 가이드 제거
+        .replace(/\*\*⚠️ 부분 작성 가이드.*?\n\n/gs, '')
+        // 이전 부분 참고 내용 제거
+        .replace(/\*\*⚠️ CRITICAL: 이전 부분 전체 내용.*?⚠️ 중요 지시사항:.*?\n\n/gs, '')
+        .trim();
+      
+      // 첫 번째 부분에 이미 있는 섹션 제거
+      if (i === 1) {
+        cleanedPart = cleanedPart
+          .replace(/^###\s*1\.\s*프로젝트\s*개요.*?(?=###\s*2\.|##|$)/s, '')
+          .trim();
+      }
+      
+      // 중복된 다이어그램 제거 (같은 내용의 Mermaid 다이어그램이 여러 번 나타나면 첫 번째 것만 유지)
+      if (i > 1) {
+        // 이미 merged에 있는 Mermaid 다이어그램과 동일한 내용이면 제거
+        const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+        const existingDiagrams: string[] = [];
+        let match;
+        while ((match = mermaidRegex.exec(merged)) !== null) {
+          existingDiagrams.push(match[1].trim());
+        }
+        
+        cleanedPart = cleanedPart.replace(/```mermaid\n([\s\S]*?)```/g, (fullMatch, content) => {
+          const trimmedContent = content.trim();
+          if (existingDiagrams.includes(trimmedContent)) {
+            return ''; // 중복된 다이어그램 제거
+          }
+          existingDiagrams.push(trimmedContent);
+          return fullMatch;
+        });
+      }
+      
+      // 자연스럽게 연결
+      if (cleanedPart) {
+        merged += '\n\n' + cleanedPart;
+      }
+    }
+    
+    // 중복 제거 및 정리
+    merged = merged
+      .replace(/\n{4,}/g, '\n\n\n') // 연속된 줄바꿈 정리
+      .replace(/^---\s*$/gm, '---') // 구분선 정리
+      .replace(/\*\*⚠️ 중요:.*?\n\n/gs, '') // 부분 작성 가이드 완전 제거
+      .replace(/\*\*⚠️ CRITICAL:.*?\n\n/gs, '') // CRITICAL 메시지 제거
+      // 중복된 Mermaid 다이어그램 제거 (더 강력한 패턴)
+      .replace(/(```mermaid[\s\S]*?```)([\s\S]*?)\1/g, '$1$2')
+      // 중복된 시스템 아키텍처 섹션 제거
+      .replace(/(## 📊\s*시스템\s*아키텍처[\s\S]*?)(?=## 📊\s*시스템\s*아키텍처|## 🗄️|## 📅|## ⚠️|## ✅|$)/g, '$1')
+      .replace(/(##\s*시스템\s*아키텍처[\s\S]*?)(?=##\s*시스템\s*아키텍처|## 🗄️|## 📅|## ⚠️|## ✅|$)/g, '$1')
+      // 중복된 데이터베이스 설계 섹션 제거
+      .replace(/(## 🗄️\s*데이터베이스\s*설계[\s\S]*?)(?=## 🗄️\s*데이터베이스\s*설계|## 📅|## ⚠️|## ✅|$)/g, '$1')
+      .replace(/(##\s*데이터베이스\s*설계[\s\S]*?)(?=##\s*데이터베이스\s*설계|## 📅|## ⚠️|## ✅|$)/g, '$1')
+      .trim();
+    
+    return merged;
+  }
 
+  /**
+   * PRD 프롬프트 생성 (prd_ref.md 기반 상세 양식)
+   * @param partNumber 부분 번호 (1, 2, 3 등) - 여러 번에 나누어서 생성할 때 사용
+   * @param previousParts 이전에 생성된 부분들
+   */
+  private buildPRDPrompt(idea: Idea, partNumber?: number, previousParts?: string[]): string {
+    const isMultiPart = partNumber !== undefined && partNumber > 1;
+    const totalParts = 7;
+    
+    // 이전 부분의 전체 내용 (중복 체크용)
+    const previousContent = previousParts && previousParts.length > 0 
+      ? `\n\n**⚠️ CRITICAL: 이전 부분 전체 내용 (중복 방지 필수):**\n${previousParts.map((p, i) => `\n### Part ${i + 1} 전체 내용\n${p.substring(0, 5000)}${p.length > 5000 ? '\n\n...(이전 부분이 길어 일부만 표시했습니다. 전체 내용을 참고하여 중복되지 않도록 작성하세요.)' : ''}`).join('\n\n---\n\n')}\n\n**⚠️ 중요 지시사항:**\n- 위 이전 부분의 내용과 **절대 중복되지 않도록** 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 다시 작성하지 마세요.\n- 이전 부분에 이미 작성된 다이어그램은 다시 작성하지 마세요.\n- 이전 부분과 자연스럽게 연결되도록 작성하되, 내용은 완전히 새로운 것이어야 합니다.\n`
+      : '';
+    
+    const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 PRD의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**${previousContent}` : '';
+    
+    // 각 부분별로 작성할 섹션 정의 (7개 부분으로 세분화)
+    const sectionGuide = partNumber === 1 
+      ? `- **Part 1 작성 내용**: 프로젝트 개요 섹션만 상세히 작성하세요.\n- 프로젝트명, 한 줄 설명, 프로젝트 목적, 핵심 가치 제안, 타겟 사용자, 해결하려는 문제를 모두 포함하세요.`
+      : partNumber === 2
+      ? `- **Part 2 작성 내용**: 사용자 스토리 섹션만 상세히 작성하세요.\n- 주요 사용자 페르소나, 사용자 여정, 핵심 기능 요구사항을 모두 포함하세요.\n- 프로젝트 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).`
+      : partNumber === 3
+      ? `- **Part 3 작성 내용**: 기능 명세 섹션만 상세히 작성하세요.\n- MVP 기능 목록, 우선순위별 기능 분류, 기술적 제약사항을 모두 포함하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      : partNumber === 4
+      ? `- **Part 4 작성 내용**: 화면 설계 섹션만 상세히 작성하세요.\n- 최소 2개 이상의 화면을 구체적으로 설계하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      : partNumber === 5
+      ? `- **Part 5 작성 내용**: 기술 요구사항 섹션만 상세히 작성하세요.\n- 기술 스택 제안, 인프라 요구사항, 보안 고려사항을 모두 포함하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      : partNumber === 6
+      ? `- **Part 6 작성 내용**: 프로젝트 구조 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: 프로젝트 구조 다이어그램을 반드시 포함하세요. 다이어그램이 비어있으면 안 됩니다.**\n- 아이디어와 PRD를 분석하여 실제 시스템 아키텍처를 간결한 Mermaid 다이어그램으로 작성하세요.\n- 다이어그램 노드 텍스트는 최대 15자 이하로 작성하세요 (잘림 방지).\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      : partNumber === 7
+      ? `- **Part 7 작성 내용**: 성공 지표 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- KPI 정의와 측정 방법을 모두 포함하세요.\n- 문서 마지막에 "## 완료 조건" 또는 "## 다음 단계" 섹션으로 자연스럽게 마무리하세요.`
+      : '';
+    
+    return `다음 Reddit 게시글을 기반으로 상세하고 구체적인 PRD(Product Requirements Document) 문서를 한국어로 작성해주세요.
+${partInfo}
+${sectionGuide ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${sectionGuide}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n` : ''}
 ## 아이디어 정보
 - **제목**: ${idea.title}
 - **내용**: ${idea.content}
@@ -452,10 +646,34 @@ graph TB
 
   /**
    * 제안서 기반 PRD 프롬프트 생성
+   * @param partNumber 부분 번호 (1, 2, 3 등) - 여러 번에 나누어서 생성할 때 사용
+   * @param previousParts 이전에 생성된 부분들
    */
-  private buildPRDFromProposalPrompt(idea: Idea, proposalContent: string): string {
+  private buildPRDFromProposalPrompt(idea: Idea, proposalContent: string, partNumber?: number, previousParts?: string[]): string {
+    const isMultiPart = partNumber !== undefined && partNumber > 1;
+    const totalParts = 4;
+    
+    // 이전 부분의 전체 내용 (중복 체크용)
+    const previousContent = previousParts && previousParts.length > 0 
+      ? `\n\n**⚠️ CRITICAL: 이전 부분 전체 내용 (중복 방지 필수):**\n${previousParts.map((p, i) => `\n### Part ${i + 1} 전체 내용\n${p.substring(0, 5000)}${p.length > 5000 ? '\n\n...(이전 부분이 길어 일부만 표시했습니다. 전체 내용을 참고하여 중복되지 않도록 작성하세요.)' : ''}`).join('\n\n---\n\n')}\n\n**⚠️ 중요 지시사항:**\n- 위 이전 부분의 내용과 **절대 중복되지 않도록** 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 다시 작성하지 마세요.\n- 이전 부분에 이미 작성된 다이어그램은 다시 작성하지 마세요.\n- 이전 부분과 자연스럽게 연결되도록 작성하되, 내용은 완전히 새로운 것이어야 합니다.\n`
+      : '';
+    
+    const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 PRD의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**${previousContent}` : '';
+    
+    // 각 부분별로 작성할 섹션 정의
+    const sectionGuide = partNumber === 1 
+      ? `- **Part 1 작성 내용**: 프로젝트 개요, 사용자 스토리 섹션을 상세히 작성하세요.`
+      : partNumber === 2
+      ? `- **Part 2 작성 내용**: 기능 명세 섹션을 상세히 작성하세요.\n- 프로젝트 개요, 사용자 스토리 섹션은 작성하지 마세요 (Part 1에 이미 있음).`
+      : partNumber === 3
+      ? `- **Part 3 작성 내용**: 화면 설계, 기술 요구사항 섹션을 상세히 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      : partNumber === 4
+      ? `- **Part 4 작성 내용**: 프로젝트 구조, 성공 지표 섹션을 상세히 작성하세요.\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- 문서 마지막에 "## 완료 조건" 또는 "## 다음 단계" 섹션으로 자연스럽게 마무리하세요.`
+      : '';
+    
     return `다음 원본 아이디어와 개선된 제안서를 기반으로 상세하고 구체적인 PRD(Product Requirements Document) 문서를 한국어로 작성해주세요.
-
+${partInfo}
+${sectionGuide ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${sectionGuide}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n` : ''}
 ## 원본 아이디어 정보
 - **제목**: ${idea.title}
 - **내용**: ${idea.content}
@@ -464,7 +682,7 @@ graph TB
 - **업보트**: ${idea.upvotes}
 
 ## 개선된 제안서
-${proposalContent}
+${proposalContent.substring(0, 8000)}${proposalContent.length > 8000 ? '\n\n(제안서 내용이 길어 일부만 표시했습니다. 전체 내용을 참고하여 작성하세요.)' : ''}
 
 ## PRD 작성 요구사항
 
@@ -477,7 +695,7 @@ ${proposalContent}
 4. **모든 섹션을 박스 단위로 작성**하세요.
 5. **플레이스홀더([...])를 절대 사용하지 마세요.** 모든 내용은 제안서에서 추출한 실제 내용이어야 합니다.
 
-${this.buildPRDPrompt(idea).split('## PRD 작성 요구사항')[1]}`;
+${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요구사항')[1]}`;
   }
 
   /**
@@ -576,7 +794,7 @@ ${this.buildPRDPrompt(idea).split('## PRD 작성 요구사항')[1]}`;
    */
   private buildDevelopmentPlanPrompt(idea: Idea, prdContent?: string, partNumber?: number, previousParts?: string[]): string {
     const isMultiPart = partNumber !== undefined && partNumber > 1;
-    const totalParts = 5;
+    const totalParts = 8;
     
     // 이전 부분에서 생성된 Task 번호 추출
     let lastTaskNumber = 0;
@@ -633,11 +851,11 @@ ${prdContent ? `## PRD 내용\n${prdContent.substring(0, 8000)}${prdContent.leng
 6. **실제 코드 포함**: 각 SubTask마다 핵심 코드 예시 20-50줄 포함 (실제 구현 가능한 수준)
 7. **구체적 수치**: 모든 목표, 완료 조건, 성능 기준에 정량적 수치 포함
 8. **마크다운 스타일 일관성**: 제목 크기와 진하기를 일관되게 유지하세요
-   - 1단계 제목: `#` (문서 제목만)
-   - 2단계 제목: `##` (주요 섹션)
-   - 3단계 제목: `###` (하위 섹션)
-   - 4단계 제목: `####` (세부 항목)
-   - 강조: `**텍스트**` (볼드)는 섹션 제목과 중요 내용에만 사용
+   - 1단계 제목: 해시 기호 하나 (문서 제목만)
+   - 2단계 제목: 해시 기호 두 개 (주요 섹션)
+   - 3단계 제목: 해시 기호 세 개 (하위 섹션)
+   - 4단계 제목: 해시 기호 네 개 (세부 항목)
+   - 강조: 볼드 마크다운 (볼드)는 섹션 제목과 중요 내용에만 사용
    - 일반 텍스트는 볼드 없이 작성
 9. **Task 번호 연속성**: 여러 부분으로 나눠서 작성할 때, 이전 부분의 Task 번호를 확인하고 연속된 번호를 사용하세요 (예: Part 1에서 Task 1.1, 1.2를 작성했다면, Part 2에서는 Task 1.3부터 시작)
 10. **문서 완성도**: 문서가 중간에 끊기지 않도록 마지막까지 완전히 작성하세요. 마지막 부분에서는 "다음 단계", "완료 조건" 등으로 문서를 자연스럽게 마무리하세요.
@@ -658,7 +876,7 @@ ${prdContent ? `## PRD 내용\n${prdContent.substring(0, 8000)}${prdContent.leng
 
 다음 구조를 **정확히** 따라 마크다운 형식으로 작성해주세요. **Full 모드 (1,000-1,500줄)**로 상세하게 작성하세요.
 
-${isMultiPart ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${partNumber === 1 ? '- **Part 1 작성 내용**: Epic 개요, Task 1.1, Task 1.2를 상세히 작성하세요.\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 전문가 핸드오프 체계를 텍스트 형식으로 작성 (Mermaid 금지)\n- **Task 번호는 1.1, 1.2부터 시작하세요**' : partNumber === 2 ? `- **Part 2 작성 내용**: Task ${nextTaskNumber}, Task ${nextTaskNumber.split('.')[0]}.${parseInt(nextTaskNumber.split('.')[1]) + 1}, 시스템 아키텍처를 상세히 작성하세요.\n- Epic 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 시스템 아키텍처 다이어그램은 이전 부분에 없을 때만 작성하세요` : partNumber === 3 ? `- **Part 3 작성 내용**: 데이터베이스 설계, Task ${nextTaskNumber}를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 데이터베이스 스키마는 실제 SQL 코드 포함 (100줄 이상)\n- 각 테이블의 CREATE TABLE 문 포함\n- 데이터베이스 설계 섹션은 이전 부분에 없을 때만 작성하세요` : partNumber === 4 ? `- **Part 4 작성 내용**: 개발 일정 (WBS 텍스트 형식), 리스크 관리를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- WBS는 텍스트 형식으로만 작성 (Mermaid Gantt 차트 금지)\n- 각 리스크마다 구체적인 검증 방법과 Plan B 포함\n- 개발 일정 섹션은 이전 부분에 없을 때만 작성하세요` : partNumber === 5 ? `- **Part 5 작성 내용**: 완료 조건, 성능 메트릭, 다음 단계를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 전문가별 구체적인 완료 조건과 수치 포함\n- 성능 메트릭은 정량적 수치로 명시\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- 문서 마지막에 "## 다음 단계" 또는 "## 완료 조건" 섹션으로 자연스럽게 마무리하세요.` : ''}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n- **⚠️ TCREI 정의는 반드시 5단계 모두 완전히 작성하세요 (T, C, R, E, I).**\n` : ''}
+${isMultiPart ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${partNumber === 1 ? '- **Part 1 작성 내용**: Epic 개요, Task 1.1, Task 1.2를 상세히 작성하세요.\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 전문가 핸드오프 체계를 텍스트 형식으로 작성 (Mermaid 금지)\n- **Task 번호는 1.1, 1.2부터 시작하세요**' : partNumber === 2 ? `- **Part 2 작성 내용**: Task ${nextTaskNumber}, Task ${nextTaskNumber.split('.')[0]}.${parseInt(nextTaskNumber.split('.')[1]) + 1}를 상세히 작성하세요.\n- Epic 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함` : partNumber === 3 ? `- **Part 3 작성 내용**: Task ${nextTaskNumber}, 시스템 아키텍처를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함\n- 시스템 아키텍처 다이어그램은 이전 부분에 없을 때만 작성하세요` : partNumber === 4 ? `- **Part 4 작성 내용**: 데이터베이스 설계, Task ${nextTaskNumber}를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 데이터베이스 스키마는 실제 SQL 코드 포함 (100줄 이상)\n- 각 테이블의 CREATE TABLE 문 포함\n- 데이터베이스 설계 섹션은 이전 부분에 없을 때만 작성하세요` : partNumber === 5 ? `- **Part 5 작성 내용**: Task ${nextTaskNumber}를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함` : partNumber === 6 ? `- **Part 6 작성 내용**: Task ${nextTaskNumber}를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 Task마다 최소 3-5개 SubTask 포함\n- 각 SubTask마다 실제 코드 예시 20-50줄 포함` : partNumber === 7 ? `- **Part 7 작성 내용**: 개발 일정 (WBS 텍스트 형식), 리스크 관리를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- WBS는 텍스트 형식으로만 작성 (Mermaid Gantt 차트 금지)\n- 각 리스크마다 구체적인 검증 방법과 Plan B 포함\n- 개발 일정 섹션은 이전 부분에 없을 때만 작성하세요` : partNumber === 8 ? `- **Part 8 작성 내용**: 완료 조건, 성능 메트릭, 다음 단계를 상세히 작성하세요.\n- **Task 번호는 ${nextTaskNumber}부터 시작하세요** (이전 부분의 Task 번호를 확인하고 연속된 번호 사용)\n- 각 전문가별 구체적인 완료 조건과 수치 포함\n- 성능 메트릭은 정량적 수치로 명시\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- 문서 마지막에 "## 다음 단계" 또는 "## 완료 조건" 섹션으로 자연스럽게 마무리하세요.` : ''}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n- **⚠️ TCREI 정의는 반드시 5단계 모두 완전히 작성하세요 (T, C, R, E, I).**\n- **⚠️ CRITICAL: Task 번호는 반드시 연속적으로 작성하세요. 이전 부분의 마지막 Task 번호 다음 번호부터 시작하세요.**\n` : ''}
 ### EPIC 문서 구조
 
 \`\`\`markdown
@@ -880,63 +1098,74 @@ graph TB
 
 ## 🗄️ 데이터베이스 설계
 
+**⚠️ CRITICAL: 데이터베이스 설계 섹션은 반드시 완전히 작성해야 합니다. 비어있으면 안 됩니다.**
+
 ### **ERD (Entity Relationship Diagram)**
 아이디어와 PRD를 분석하여 실제 필요한 엔티티와 관계를 간결한 Mermaid ERD로 작성하세요:
 
 \`\`\`mermaid
 erDiagram
-    USERS ||--o{ IDEAS : creates
-    USERS ||--o{ PRDS : generates
-    IDEAS ||--o| PRDS : has
-    USERS ||--o{ POSTS : writes
-    POSTS ||--o{ COMMENTS : has
+    [아이디어와 PRD에서 추출한 실제 엔티티 1] ||--o{ [실제 엔티티 2] : [실제 관계명]
+    [실제 엔티티 2] ||--o{ [실제 엔티티 3] : [실제 관계명]
 \`\`\`
 
 **⚠️ CRITICAL: ERD 작성 규칙 (절대 준수):**
 - **엔티티 이름 길이 제한**: 각 엔티티 이름은 **최대 10자 이하**로 작성하세요. 긴 이름은 잘립니다.
 - **엔티티 이름 예시**: "USERS", "IDEAS", "PRDS" (좋음) / "프리랜서자격증교육" (나쁨 - 너무 김)
+- **⚠️ ERD 다이어그램을 반드시 포함하세요. 비어있으면 안 됩니다.**
+- 아이디어와 PRD를 분석하여 실제로 필요한 엔티티만 포함하세요. 예시 엔티티를 그대로 사용하지 마세요.
 - ERD는 간결하게 작성하여 화면에 잘 맞도록 하세요. 핵심 엔티티만 포함하세요.
 - 모든 엔티티와 관계는 아이디어와 PRD에서 실제로 필요한 것만 반영해야 합니다.
 - 다이어그램이 너무 크거나 복잡하지 않도록 주의하세요. 최대 5-7개 엔티티 이하로 작성하세요.
 
 ### **주요 테이블 구조**
-핵심 테이블만 2-3개를 선택하여 구체적인 구조를 제시하세요. 상세 스키마는 database/schema.sql 참조로 명시하세요.
+핵심 테이블만 2-3개를 선택하여 구체적인 구조를 제시하세요. 아이디어와 PRD를 분석하여 실제로 필요한 테이블만 작성하세요. 상세 스키마는 database/schema.sql 참조로 명시하세요.
+
+**⚠️ CRITICAL: 주요 테이블 구조를 반드시 포함하세요. 비어있으면 안 됩니다.**
 
 ---
 
 ## 📅 개발 일정 (WBS - Work Breakdown Structure)
-아이디어와 PRD를 분석하여 실제 개발 일정을 **텍스트 형식으로만** 작성하세요 (Mermaid Gantt 차트 사용 금지):
+
+**⚠️ CRITICAL: 개발 일정 작성 규칙 (절대 준수):**
+1. **아이디어와 PRD를 반드시 분석**하여 실제 프로젝트에 맞는 개발 일정을 작성하세요.
+2. **위에 작성된 Task들을 기반으로** 일정을 작성하세요. Task 목록에 없는 내용을 임의로 추가하지 마세요.
+3. **플레이스홀더([...], "[아이디어와 PRD에서 추출한...]")를 절대 사용하지 마세요.** 모든 내용은 실제 Task 이름, 전문가 이름, 구체적인 시간과 완료 조건이어야 합니다.
+4. **추상적이거나 일반적인 내용을 작성하지 마세요.** 예를 들어, "Task 1", "Task 2" 같은 이름 대신 실제 Task 이름을 사용하세요.
+5. **텍스트 형식으로만 작성하세요** (Mermaid Gantt 차트 사용 금지).
+
+아이디어와 PRD를 분석하여 실제 개발 일정을 **텍스트 형식으로만** 작성하세요:
 
 ### **Phase 1: MVP (Week 1-2)**
 
 **Week 1:**
-- **Day 1-2**: [P0] [아이디어와 PRD에서 추출한 실제 Task 1 이름]
-  - 담당: [전문가 이름]
-  - 예상 시간: [N]시간
-  - 완료 조건: [구체적인 완료 조건]
+- **Day 1-2**: [P0] [위에 작성된 실제 Task 이름을 그대로 사용하세요. 예: "Task 1.1: 사용자 인증 시스템 구축"]
+  - 담당: [위에 작성된 실제 전문가 이름을 그대로 사용하세요. 예: "API Expert (Marcus)"]
+  - 예상 시간: [위에 작성된 실제 예상 시간을 그대로 사용하세요. 예: "8시간"]
+  - 완료 조건: [위에 작성된 실제 완료 조건을 그대로 사용하세요]
   
-- **Day 3-4**: [P0] [아이디어와 PRD에서 추출한 실제 Task 2 이름]
-  - 담당: [전문가 이름]
-  - 예상 시간: [N]시간
-  - 완료 조건: [구체적인 완료 조건]
-  - 의존성: Task 1 완료 후 시작
+- **Day 3-4**: [P0] [위에 작성된 실제 Task 이름을 그대로 사용하세요]
+  - 담당: [위에 작성된 실제 전문가 이름을 그대로 사용하세요]
+  - 예상 시간: [위에 작성된 실제 예상 시간을 그대로 사용하세요]
+  - 완료 조건: [위에 작성된 실제 완료 조건을 그대로 사용하세요]
+  - 의존성: [실제 의존성이 있다면 명시하세요. 예: "Task 1.1 완료 후 시작"]
 
-- **Day 5**: [P1] [아이디어와 PRD에서 추출한 실제 Task 3 이름]
-  - 담당: [전문가 이름]
-  - 예상 시간: [N]시간
-  - 완료 조건: [구체적인 완료 조건]
-  - 의존성: Task 2 완료 후 시작
+- **Day 5**: [P1] [위에 작성된 실제 Task 이름을 그대로 사용하세요]
+  - 담당: [위에 작성된 실제 전문가 이름을 그대로 사용하세요]
+  - 예상 시간: [위에 작성된 실제 예상 시간을 그대로 사용하세요]
+  - 완료 조건: [위에 작성된 실제 완료 조건을 그대로 사용하세요]
+  - 의존성: [실제 의존성이 있다면 명시하세요]
 
 **Week 2:**
-- **Day 6-7**: [P1] [아이디어와 PRD에서 추출한 실제 Task 4 이름]
-  - 담당: [전문가 이름]
-  - 예상 시간: [N]시간
-  - 완료 조건: [구체적인 완료 조건]
+- **Day 6-7**: [P1] [위에 작성된 실제 Task 이름을 그대로 사용하세요]
+  - 담당: [위에 작성된 실제 전문가 이름을 그대로 사용하세요]
+  - 예상 시간: [위에 작성된 실제 예상 시간을 그대로 사용하세요]
+  - 완료 조건: [위에 작성된 실제 완료 조건을 그대로 사용하세요]
   
-- **Day 8-9**: [P1] [아이디어와 PRD에서 추출한 실제 Task 5 이름]
-  - 담당: [전문가 이름]
-  - 예상 시간: [N]시간
-  - 완료 조건: [구체적인 완료 조건]
+- **Day 8-9**: [P1] [위에 작성된 실제 Task 이름을 그대로 사용하세요]
+  - 담당: [위에 작성된 실제 전문가 이름을 그대로 사용하세요]
+  - 예상 시간: [위에 작성된 실제 예상 시간을 그대로 사용하세요]
+  - 완료 조건: [위에 작성된 실제 완료 조건을 그대로 사용하세요]
 
 - **Day 10**: 통합 테스트 및 버그 수정
   - 담당: QA Expert
@@ -945,7 +1174,7 @@ erDiagram
 ### **Phase 2: 확장 (Week 3-4)**
 
 **Week 3:**
-- **Day 11-13**: [P2] [아이디어와 PRD에서 추출한 실제 Task 6 이름]
+- **Day 11-13**: [P2] [위에 작성된 실제 Task 이름을 그대로 사용하세요]
   - 담당: [전문가 이름]
   - 예상 시간: [N]시간
   - 완료 조건: [구체적인 완료 조건]

@@ -21,7 +21,8 @@ export interface PRD {
 export async function generatePRD(
   ideaId: string, 
   userId: string,
-  proposalContent?: string
+  proposalContent?: string,
+  onProgress?: (progress: number) => void
 ): Promise<PRD> {
   // 아이디어 조회
   const { data: idea, error: ideaError } = await supabase
@@ -39,10 +40,10 @@ export async function generatePRD(
   try {
     if (proposalContent) {
       // 제안서 기반 PRD 생성
-      prdContent = await aiClient.generatePRDFromProposal(idea as Idea, proposalContent);
+      prdContent = await aiClient.generatePRDFromProposal(idea as Idea, proposalContent, onProgress);
     } else {
       // 일반 PRD 생성
-      prdContent = await aiClient.generatePRD(idea as Idea);
+      prdContent = await aiClient.generatePRD(idea as Idea, onProgress);
     }
   } catch (error) {
     console.error('PRD generation error:', error);
@@ -178,7 +179,8 @@ export async function deletePRD(prdId: string): Promise<void> {
 export async function generateDevelopmentPlan(
   ideaId: string,
   userId: string,
-  prdContent?: string
+  prdContent?: string,
+  onProgress?: (progress: number) => void
 ): Promise<PRD> {
   // 아이디어 조회
   const { data: idea, error: ideaError } = await supabase
@@ -194,7 +196,7 @@ export async function generateDevelopmentPlan(
   // AI로 개발 계획서 생성
   let planContent: string;
   try {
-    planContent = await aiClient.generateDevelopmentPlan(idea as Idea, prdContent);
+    planContent = await aiClient.generateDevelopmentPlan(idea as Idea, prdContent, onProgress);
     
     // 마지막 문구 제거 (Planning Expert v6.1 관련 메타 정보)
     const metaInfoPattern = /---\s*\n\s*이 문서는 Planning Expert v6\.1.*$/s;

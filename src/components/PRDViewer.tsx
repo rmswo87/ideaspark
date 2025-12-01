@@ -425,9 +425,9 @@ ${escapedChart}
   }, [index, isGanttChart]);
 
   return (
-    <div className="relative w-full my-4">
+    <div className="relative w-full my-4" style={{ position: 'relative', overflow: 'visible' }}>
       {onEdit && (
-        <div className="absolute top-2 right-2 z-10">
+        <div className="absolute top-2 right-2 z-20" style={{ position: 'absolute', pointerEvents: 'auto' }}>
           <Button
             variant="outline"
             size="sm"
@@ -439,23 +439,26 @@ ${escapedChart}
           </Button>
         </div>
       )}
-      <iframe
-        ref={iframeRef}
-        srcDoc={iframeContent}
-        className="w-full border-0"
-        style={{
-          width: '100%',
-          minHeight: isGanttChart ? '450px' : '200px', // 최소 높이 보장 (작은 다이어그램도 잘 보이도록)
-          maxHeight: isGanttChart ? 'none' : '800px', // 일반 다이어그램도 충분한 높이 허용
-          border: 'none',
-          display: 'block',
-          overflow: 'visible' // 모든 다이어그램에서 잘림 방지
-        } as React.CSSProperties}
-        title={`Mermaid Diagram ${index}`}
-        sandbox="allow-scripts allow-same-origin"
-        allow="same-origin"
-        loading="lazy"
-      />
+      <div className="w-full" style={{ position: 'relative', overflow: 'visible', minHeight: isGanttChart ? '450px' : '200px' }}>
+        <iframe
+          ref={iframeRef}
+          srcDoc={iframeContent}
+          className="w-full border-0"
+          style={{
+            width: '100%',
+            minHeight: isGanttChart ? '450px' : '200px',
+            maxHeight: isGanttChart ? 'none' : '1200px', // 충분한 높이 허용
+            border: 'none',
+            display: 'block',
+            overflow: 'visible', // visible로 변경하여 내용이 잘리지 않도록
+            position: 'relative'
+          } as React.CSSProperties}
+          title={`Mermaid Diagram ${index}`}
+          sandbox="allow-scripts allow-same-origin"
+          allow="same-origin"
+          loading="lazy"
+        />
+      </div>
     </div>
   );
 }
