@@ -316,10 +316,8 @@ function IdeaDetailPage() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setError(`개발 계획서 생성에 실패했습니다: ${errorMessage}`);
       setGeneratingPlan(false);
-      setPlanGenerationProgress(null);
+      setPlanProgress(0);
       alert(`개발 계획서 생성에 실패했습니다: ${errorMessage}`);
-    } finally {
-      setPlanGenerationProgress(null);
     }
   }
 
@@ -961,4 +959,3 @@ function IdeaDetailPage() {
 }
 
 export default IdeaDetailPage;
-

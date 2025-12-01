@@ -45,8 +45,8 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
     }
     html, body {
       width: 100%;
-      height: 100%;
-      overflow: hidden !important;
+      min-height: 100%;
+      overflow: visible !important; /* visible로 변경하여 내용이 잘리지 않도록 */
       background: transparent;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     }
@@ -56,8 +56,9 @@ function MermaidDiagram({ chart, index, onEdit }: { chart: string; index: number
       align-items: flex-start;
       width: 100%;
       min-height: 200px; /* 작은 다이어그램도 잘 보이도록 최소 높이 보장 */
-      padding: 16px;
+      padding: 20px; /* 패딩 증가 */
       overflow: visible !important; /* 잘림 방지 */
+      position: relative;
     }
     svg {
       max-width: 100% !important;

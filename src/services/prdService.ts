@@ -209,7 +209,8 @@ export async function generateDevelopmentPlan(
     // 프로덕션 환경이 아닐 때만 에러 로그 출력
     if (import.meta.env.DEV) {
       console.error('Development plan generation error:', error);
-    }    throw new Error(`개발 계획서 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    throw new Error(`개발 계획서 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
   // 개발 계획서 저장
@@ -232,4 +233,3 @@ export async function generateDevelopmentPlan(
 
   return plan;
 }
-
