@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // PRD 뷰어 컴포넌트 (개선된 마크다운 렌더링 및 Mermaid 지원)
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -854,3 +855,5 @@ export function PRDViewer({ prd, onEdit, onUpdate }: PRDViewerProps) {
     </Card>
   );
 }
+=======
+>>>>>>> df1c1a9871be393220b9a33a82762202b4a047da

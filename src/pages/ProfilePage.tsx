@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getFriends, getFriendRequests, acceptFriendRequest, deleteFriendRequest, getBlockedUsers, unblockUser, sendFriendRequest, getFriendStatus, blockUser } from '@/services/friendService';
-import { getPRDs, deletePRD } from '@/services/prdService';
+import { getPRDs, deletePRD, type PRD } from '@/services/prdService';
 import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage, markAsRead, deleteMessage, deleteConversation } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
@@ -1849,7 +1849,7 @@ function ProfilePage() {
               </div>
               <PRDViewer 
                 prd={selectedPrd} 
-                onUpdate={async (updatedPrd) => {
+                onUpdate={async (updatedPrd: PRD) => {
                   setSelectedPrd(updatedPrd);
                   await fetchPrdsList();
                 }}
