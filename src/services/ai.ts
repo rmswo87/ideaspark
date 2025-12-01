@@ -38,7 +38,6 @@ class AIClient {
       
       // 각 부분 완료 시 진행률 업데이트 (부드럽게 증가하도록 작은 단위로)
       // 각 부분은 약 80/totalParts%씩, 합치기는 20%
-      const partProgress = Math.floor((partNum / totalParts) * 80);
       // 부드러운 진행을 위해 여러 단계로 나눠서 업데이트
       if (onProgress) {
         const steps = 10; // 각 부분을 10단계로 나눔
@@ -92,7 +91,6 @@ class AIClient {
       
       // 각 부분 완료 시 진행률 업데이트 (부드럽게 증가하도록 작은 단위로)
       // 각 부분은 약 88/totalParts%씩, 합치기는 12%
-      const partProgress = Math.floor((partNum / totalParts) * 88);
       // 부드러운 진행을 위해 여러 단계로 나눠서 업데이트
       if (onProgress) {
         const steps = 10; // 각 부분을 10단계로 나눔
