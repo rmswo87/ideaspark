@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // AI API 클라이언트 구현
 import type { AIConfig } from '@/types/ai';
 import type { Idea } from '@/services/ideaService';
