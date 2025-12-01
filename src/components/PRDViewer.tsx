@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // PRD 뷰어 컴포넌트 (개선된 마크다운 렌더링 및 Mermaid 지원)
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
