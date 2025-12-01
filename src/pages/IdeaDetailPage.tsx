@@ -444,7 +444,7 @@ function IdeaDetailPage() {
             <p className="text-base text-muted-foreground mb-4">
               {generatingPlan 
                 ? '개발 계획서는 상세하게 작성중입니다. 잠시만 기다려주세요.'
-                : 'AI가 문서를 생성하고 있습니다. 잠시만 기다려주세요.'}
+                : '문서를 생성하고 있습니다. 잠시만 기다려주세요.'}
             </p>
             {/* 진행률 표시 */}
             {(generating || generatingPlan) && (

@@ -258,6 +258,17 @@ ${escapedChart}
                 const container = document.querySelector('.mermaid');
                 const containerWidth = container ? container.clientWidth : window.innerWidth;
                 
+                // SVG 크기를 컨테이너에 맞게 조정 (viewBox 사용)
+                if (!svg.getAttribute('viewBox')) {
+                  svg.setAttribute('viewBox', '0 0 ' + rect.width + ' ' + rect.height);
+                  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                  svg.setAttribute('width', '100%');
+                  svg.setAttribute('height', 'auto');
+                  svg.style.width = '100%';
+                  svg.style.height = 'auto';
+                  svg.style.maxWidth = '100%';
+                }
+                
                 // Gantt 차트인지 확인 (gantt 클래스 또는 특정 패턴 확인)
                 const chartTypeCheck = '${chartTypeValue}';
                 const isGantt = chartTypeCheck === 'gantt' || 
