@@ -332,7 +332,7 @@ export function AuthPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 sm:gap-3 bg-background hover:bg-accent border-border p-2"
+              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 sm:gap-3 bg-[#FEE500] hover:bg-[#FDD835] border-[#FEE500] text-[#000000]"
               onClick={() => handleSocialLogin('kakao')}
               disabled={loading || !!socialLoading}
               aria-label="Kakao로 로그인"
@@ -343,12 +343,12 @@ export function AuthPage() {
                   <span className="text-sm sm:text-base">처리 중...</span>
                 </>
               ) : (
-                <img 
-                  src="/kakao_login_medium_narrow.png" 
-                  alt="Kakao 로그인" 
-                  className="h-5 w-auto sm:h-6 object-contain"
-                  aria-hidden="true"
-                />
+                <>
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11l-4.408 2.883c-.501.265-.678.236-.472-.413l.892-3.678c-2.88-1.46-4.785-3.99-4.785-6.866C1.5 6.665 6.201 3 12 3z"/>
+                  </svg>
+                  <span className="text-sm sm:text-base font-medium">카카오 로그인</span>
+                </>
               )}
             </Button>
           </div>

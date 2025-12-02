@@ -141,6 +141,37 @@
 
 ## 🔧 문제 해결
 
+### 에러: "앱 관리자 설정 오류 (KOE006)"
+
+**원인**: Kakao Developers에서 앱 설정이 완료되지 않았거나, Redirect URI가 일치하지 않음
+
+**해결 방법**:
+1. **Kakao Developers > 내 애플리케이션 > 앱 설정 > 플랫폼** 확인:
+   - Web 플랫폼이 등록되어 있는지 확인
+   - 사이트 도메인이 정확히 입력되어 있는지 확인
+   - 프로덕션: `https://ideaspark-pi.vercel.app`
+   - 개발 환경: `http://localhost:5173` (선택사항)
+
+2. **Kakao Developers > 내 애플리케이션 > 제품 설정 > 카카오 로그인** 확인:
+   - **"활성화 설정"** 토글이 **ON**인지 확인
+   - **"Redirect URI"**가 정확히 설정되어 있는지 확인:
+     ```
+     https://djxiousdavdwwznufpzs.supabase.co/auth/v1/callback
+     ```
+   - ⚠️ **중요**: URI는 정확히 일치해야 하며, 끝에 슬래시(`/`)가 있으면 안 됩니다.
+
+3. **Kakao Developers > 내 애플리케이션 > 앱 설정 > 앱 키** 확인:
+   - REST API 키가 정상적으로 발급되어 있는지 확인
+   - Supabase Dashboard에 입력한 Client ID와 일치하는지 확인
+
+4. **앱 상태 확인**:
+   - 앱이 정상적으로 활성화되어 있는지 확인
+   - 앱 삭제 또는 비활성화 상태가 아닌지 확인
+
+5. **캐시 및 재시도**:
+   - 브라우저 캐시 삭제 후 재시도
+   - 몇 분 후 다시 시도 (설정 변경 후 반영 시간 필요)
+
 ### 에러: "설정하지 않은 동의 항목: account_email"
 
 **원인**: Kakao Developers에서 `account_email` 동의 항목이 활성화되지 않음
