@@ -342,7 +342,7 @@ export function AuthPage() {
                 <img 
                   src="/kakao_login_medium_narrow.png" 
                   alt="Kakao 로그인" 
-                  className="h-full w-auto max-h-[44px] sm:max-h-[40px]"
+                  className="w-full h-auto max-h-[44px] sm:max-h-[40px] object-contain"
                   aria-hidden="true"
                 />
               )}
