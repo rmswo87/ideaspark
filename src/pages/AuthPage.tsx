@@ -93,7 +93,7 @@ export function AuthPage() {
     }
   }
 
-  async function handleSocialLogin(provider: 'google' | 'github') {
+  async function handleSocialLogin(provider: 'google' | 'github' | 'kakao') {
     setSocialLoading(provider);
     setError(null);
     setMessage(null);
@@ -126,12 +126,14 @@ export function AuthPage() {
         // 에러 메시지 개선
         let errorMessage = oauthError.message;
         if (oauthError.message?.includes('provider is not enabled') || oauthError.message?.includes('Unsupported provider')) {
-          errorMessage = `${provider === 'google' ? 'Google' : 'GitHub'} OAuth Provider가 활성화되지 않았습니다. Supabase Dashboard에서 ${provider === 'google' ? 'Google' : 'GitHub'} Provider를 활성화해주세요.`;
+          const providerName = provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : 'Kakao';
+          errorMessage = `${providerName} OAuth Provider가 활성화되지 않았습니다. Supabase Dashboard에서 ${providerName} Provider를 활성화해주세요.`;
         }
         
         setError(errorMessage);
+        const providerName = provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : 'Kakao';
         addToast({
-          title: `${provider === 'google' ? 'Google' : 'GitHub'} 로그인 실패`,
+          title: `${providerName} 로그인 실패`,
           description: errorMessage,
           variant: 'destructive',
         });
@@ -320,6 +322,32 @@ export function AuthPage() {
                     />
                   </svg>
                   <span className="text-sm sm:text-base font-medium">GitHub로 계속하기</span>
+                </>
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 sm:gap-3 bg-[#FEE500] hover:bg-[#FDD835] border-[#FEE500] text-[#000000]"
+              onClick={() => handleSocialLogin('kakao')}
+              disabled={loading || !!socialLoading}
+              aria-label="Kakao로 로그인"
+            >
+              {socialLoading === 'kakao' ? (
+                <>
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <span className="text-sm sm:text-base">처리 중...</span>
+                </>
+              ) : (
+                <>
+                  <img 
+                    src="/kakao_login_medium_narrow.png" 
+                    alt="Kakao 로그인" 
+                    className="h-4 w-auto sm:h-5"
+                    aria-hidden="true"
+                  />
+                  <span className="text-sm sm:text-base font-medium">카카오 로그인</span>
                 </>
               )}
             </Button>

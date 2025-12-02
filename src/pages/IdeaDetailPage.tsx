@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { PRDViewer } from '@/components/PRDViewer';
-import { generatePRD, generateDevelopmentPlan, getPRD, getPRDs } from '@/services/prdService';
+import { generatePRD, getPRD, getPRDs } from '@/services/prdService';
 import { generateProposal, getProposals, type Proposal } from '@/services/proposalService';
 import { getIdea, fetchRedditPostContent, updateIdeaContent } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
@@ -29,10 +29,8 @@ function IdeaDetailPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [generatingPlan, setGeneratingPlan] = useState(false);
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [prdProgress, setPrdProgress] = useState(0);
-  const [planProgress, setPlanProgress] = useState(0);
   const progressAnimationRef = useRef<number | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -158,7 +156,6 @@ function IdeaDetailPage() {
 
   // 부드러운 진행률 애니메이션을 위한 ref
   const prdProgressRef = useRef(0);
-  const planProgressRef = useRef(0);
   
   // 부드러운 진행률 애니메이션 함수
   const animateProgress = (targetProgress: number, setProgress: (value: number) => void, progressRef: React.MutableRefObject<number>) => {
@@ -252,72 +249,6 @@ function IdeaDetailPage() {
       setGenerating(false);
       setPrdProgress(0);
       alert(`PRD 생성에 실패했습니다: ${errorMessage}`);
-    }
-  }
-
-  async function handleGenerateDevelopmentPlan() {
-    if (!user || !id) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
-
-    if (!isMountedRef.current) return;
-
-    // 기존 개발 계획서 확인
-    try {
-      const existingPlans = await getPRDs({ ideaId: id, userId: user.id, limit: 10 });
-      const hasPlan = existingPlans.some(p => p.title.includes('개발 계획서'));
-      if (hasPlan) {
-        const confirmMessage = '이미 이 아이디어에 대한 개발 계획서가 있습니다. 새로 생성하시겠습니까? (기존 계획서는 유지됩니다)';
-        if (!confirm(confirmMessage)) {
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking existing plan:', error);
-    }
-
-    setGeneratingPlan(true);
-    setPlanProgress(0);
-    planProgressRef.current = 0;
-    setError(null);
-    
-    try {
-      // 선택된 제안서가 있으면 제안서 내용을 우선 사용, 없으면 PRD 내용 사용
-      const selectedProposal = proposals.find(p => p.id === selectedProposalId);
-      const contentToUse = selectedProposal?.content || prd?.content;
-      
-      // 진행률 콜백
-      const progressCallback = (progress: number) => {
-        if (isMountedRef.current) {
-          animateProgress(progress, setPlanProgress, planProgressRef);
-        }
-      };
-      
-      const newPlan = await generateDevelopmentPlan(id, user.id, contentToUse, progressCallback);
-      
-      if (!isMountedRef.current) return;
-      
-      // PRD 목록 업데이트
-      const updatedPRDs = await getPRDs({ ideaId: id, userId: user.id, limit: 100 });
-      if (isMountedRef.current) {
-        setPrds(updatedPRDs);
-        setPrd(newPlan);
-      }
-      setGeneratingPlan(false);
-      setPlanProgress(0);
-    } catch (error) {
-      // 프로덕션 환경이 아닐 때만 에러 로그 출력
-      if (import.meta.env.DEV) {
-        console.error('Development plan generation error:', error);
-      }
-      if (!isMountedRef.current) return;
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setError(`개발 계획서 생성에 실패했습니다: ${errorMessage}`);
-      setGeneratingPlan(false);
-      setPlanProgress(0);
-      alert(`개발 계획서 생성에 실패했습니다: ${errorMessage}`);
     }
   }
 
@@ -432,34 +363,31 @@ function IdeaDetailPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8 relative">
       {/* 로딩 오버레이 - 전체 화면 */}
-      {(generating || generatingPlan || generatingProposal) && (
+      {(generating || generatingProposal) && (
         <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[9999] flex items-center justify-center">
           <div className="bg-card border-2 rounded-lg p-8 shadow-2xl text-center max-w-md mx-4">
             <Loader2 className="h-16 w-16 animate-spin mx-auto mb-6 text-primary" />
             <h3 className="text-xl font-bold mb-3">
               {generating && 'PRD 생성 중...'}
-              {generatingPlan && '개발 계획서 생성 중...'}
               {generatingProposal && '제안서 생성 중...'}
             </h3>
             <p className="text-base text-muted-foreground mb-4">
-              {generatingPlan 
-                ? '개발 계획서는 상세하게 작성중입니다. 잠시만 기다려주세요.'
-                : '문서를 생성하고 있습니다. 잠시만 기다려주세요.'}
+              문서를 생성하고 있습니다. 잠시만 기다려주세요.
             </p>
             {/* 진행률 표시 */}
-            {(generating || generatingPlan) && (
+            {generating && (
               <div className="mt-4 w-full">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">진행률</span>
                   <span className="text-sm font-semibold text-primary">
-                    {Math.round(generating ? prdProgress : planProgress)}%
+                    {Math.round(prdProgress)}%
                   </span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
                   <div 
                     className="bg-gradient-to-r from-primary to-primary/80 h-3 rounded-full transition-all duration-300 ease-out shadow-sm"
                     style={{ 
-                      width: `${generating ? prdProgress : planProgress}%`,
+                      width: `${prdProgress}%`,
                       transition: 'width 0.3s ease-out'
                     }}
                   >
@@ -468,11 +396,7 @@ function IdeaDetailPage() {
                 </div>
                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
-                  <span>
-                    {generating 
-                      ? `PRD 문서 생성 중... (${Math.round(prdProgress)}%)`
-                      : `개발 계획서 생성 중... (${Math.round(planProgress)}%)`}
-                  </span>
+                  <span>PRD 문서 생성 중... ({Math.round(prdProgress)}%)</span>
                 </div>
               </div>
             )}
@@ -656,10 +580,10 @@ function IdeaDetailPage() {
                   </ReactMarkdown>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  {/* 버튼 순서 고정: 제안서 작성 -> PRD 생성 -> 개발 계획서 작성 */}
+                  {/* 버튼 순서 고정: 제안서 작성 -> PRD 생성 */}
                   <Button
                     onClick={handleGenerateProposal}
-                    disabled={generatingProposal || generating || generatingPlan || !user}
+                    disabled={generatingProposal || generating || !user}
                     size="lg"
                     variant="outline"
                   >
@@ -677,7 +601,7 @@ function IdeaDetailPage() {
                   </Button>
                   <Button
                     onClick={handleGeneratePRD}
-                    disabled={generating || generatingPlan || !user}
+                    disabled={generating || !user}
                     size="lg"
                     variant="default"
                   >
@@ -690,24 +614,6 @@ function IdeaDetailPage() {
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
                         제안서 기반 PRD 생성
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={handleGenerateDevelopmentPlan}
-                    disabled={generating || generatingPlan || !user}
-                    size="lg"
-                    variant="outline"
-                  >
-                    {generatingPlan ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        개발 계획서 생성 중...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        제안서 기반 개발 계획서 작성
                       </>
                     )}
                   </Button>
@@ -743,12 +649,9 @@ function IdeaDetailPage() {
                     <SelectContent>
                       {prds.map((p, index) => {
                         const isPRD = p.title.includes('PRD');
-                        const isPlan = p.title.includes('개발 계획서') || p.title.includes('개발 계획');
                         const isProposalBased = p.title.includes('제안서');
                         let label = '';
-                        if (isPlan) {
-                          label = isProposalBased ? `개발 계획서 (제안서 기반) ${index + 1}` : `개발 계획서 ${index + 1}`;
-                        } else if (isPRD) {
+                        if (isPRD) {
                           label = isProposalBased ? `PRD (제안서 기반) ${index + 1}` : `PRD ${index + 1}`;
                         } else {
                           label = `${p.title} ${index + 1}`;
@@ -798,13 +701,13 @@ function IdeaDetailPage() {
           <ErrorBoundary>
             <PRDViewer prd={prd} />
           </ErrorBoundary>
-          {/* PRD가 있을 때 추가 생성 버튼들 - 순서 고정: 제안서 작성 -> PRD 생성 -> 개발 계획서 작성 */}
+          {/* PRD가 있을 때 추가 생성 버튼들 - 순서 고정: 제안서 작성 -> PRD 생성 */}
           <Card className="mt-4">
             <CardContent className="py-6">
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
                   onClick={handleGenerateProposal}
-                  disabled={generatingProposal || generating || generatingPlan || !user}
+                  disabled={generatingProposal || generating || !user}
                   variant="outline"
                   size="lg"
                 >
@@ -838,36 +741,6 @@ function IdeaDetailPage() {
                     </>
                   )}
                 </Button>
-                {(() => {
-                  const currentPrd = prd;
-                  if (!currentPrd || !currentPrd.title) {
-                    return null;
-                  }
-                  const isDevelopmentPlan = currentPrd.title.includes('개발 계획서') || currentPrd.title.includes('개발 계획');
-                  if (isDevelopmentPlan) {
-                    return null;
-                  }
-                  return (
-                    <Button
-                      onClick={handleGenerateDevelopmentPlan}
-                      disabled={generatingPlan || !user}
-                      variant="outline"
-                      size="lg"
-                    >
-                      {generatingPlan ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          개발 계획서 생성 중...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          개발 계획서 작성
-                        </>
-                      )}
-                    </Button>
-                  );
-                })()}
               </div>
             </CardContent>
           </Card>
@@ -879,7 +752,7 @@ function IdeaDetailPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-6">
-              이 아이디어를 개선하여 제안서를 작성하거나, 바로 PRD/개발 계획서를 생성해보세요.
+              이 아이디어를 개선하여 제안서를 작성하거나, 바로 PRD를 생성해보세요.
             </p>
             <div className="flex flex-col gap-4">
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-2">
@@ -889,7 +762,7 @@ function IdeaDetailPage() {
                 </p>
                 <Button
                   onClick={handleGenerateProposal}
-                  disabled={generatingProposal || generating || generatingPlan || !user}
+                  disabled={generatingProposal || generating || !user}
                   size="lg"
                   variant="default"
                   className="w-full sm:w-auto"
@@ -910,7 +783,7 @@ function IdeaDetailPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button
                   onClick={handleGeneratePRD}
-                  disabled={generating || generatingPlan || generatingProposal || !user}
+                  disabled={generating || generatingProposal || !user}
                   size="lg"
                   variant="outline"
                 >
@@ -923,24 +796,6 @@ function IdeaDetailPage() {
                     <>
                       <Sparkles className="h-4 w-4 mr-2" />
                       PRD 자동 생성
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={handleGenerateDevelopmentPlan}
-                  disabled={generating || generatingPlan || generatingProposal || !user}
-                  size="lg"
-                  variant="outline"
-                >
-                  {generatingPlan ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      개발 계획서 생성 중...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      개발 계획서 작성
                     </>
                   )}
                 </Button>
