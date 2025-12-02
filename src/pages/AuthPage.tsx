@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Sparkles, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
 export function AuthPage() {
@@ -157,7 +157,6 @@ export function AuthPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">IdeaSpark</CardTitle>
           </div>
           <CardDescription>
@@ -329,7 +328,7 @@ export function AuthPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 sm:gap-3 bg-[#FEE500] hover:bg-[#FDD835] border-[#FEE500] text-[#000000]"
+              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center p-0 bg-transparent hover:bg-transparent border-0 shadow-none"
               onClick={() => handleSocialLogin('kakao')}
               disabled={loading || !!socialLoading}
               aria-label="Kakao로 로그인"
@@ -340,15 +339,12 @@ export function AuthPage() {
                   <span className="text-sm sm:text-base">처리 중...</span>
                 </>
               ) : (
-                <>
-                  <img 
-                    src="/kakao_login_medium_narrow.png" 
-                    alt="Kakao 로그인" 
-                    className="h-4 w-auto sm:h-5"
-                    aria-hidden="true"
-                  />
-                  <span className="text-sm sm:text-base font-medium">카카오 로그인</span>
-                </>
+                <img 
+                  src="/kakao_login_medium_narrow.png" 
+                  alt="Kakao 로그인" 
+                  className="h-full w-auto max-h-[44px] sm:max-h-[40px]"
+                  aria-hidden="true"
+                />
               )}
             </Button>
           </div>
