@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload, MoreVertical, UserPlus, Ban, Trash2, UserIcon, CheckSquare, Square } from 'lucide-react';
+import { ArrowLeft, User, FileText, MessageSquare, Heart, Bookmark, Camera, Upload, MoreVertical, UserPlus, Ban, Trash2, UserIcon, CheckSquare, Square, Rocket } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { PRDViewer } from '@/components/PRDViewer';
 import { getConversations, getConversation, sendMessage, markAsRead, deleteMessage, deleteConversation } from '@/services/messageService';
 import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postService';
 import { getMyComments } from '@/services/commentService';
+import { getImplementationStats, getImplementationsByUser } from '@/services/implementationService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';import { Textarea } from '@/components/ui/textarea';
 import { uploadAvatar } from '@/services/imageService';
@@ -43,6 +44,8 @@ function ProfilePage() {
     likes: 0,
     bookmarks: 0,
     prds: 0,
+    implementations: 0,
+    completedImplementations: 0,
   });
   const [profile, setProfile] = useState<{ is_public: boolean; nickname?: string; bio?: string; avatar_url?: string } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -65,6 +68,9 @@ function ProfilePage() {
   const [prdsList, setPrdsList] = useState<any[]>([]);
   const [loadingPrds, setLoadingPrds] = useState(false);
   const [selectedPrd, setSelectedPrd] = useState<any | null>(null);
+  const [implementationsDialogOpen, setImplementationsDialogOpen] = useState(false);
+  const [implementationsList, setImplementationsList] = useState<any[]>([]);
+  const [loadingImplementations, setLoadingImplementations] = useState(false);
   const [donationCopied, setDonationCopied] = useState(false);
   const [donationShowQR, setDonationShowQR] = useState(false);
   const [donationQrError, setDonationQrError] = useState(false);
@@ -245,12 +251,17 @@ function ProfilePage() {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
+      // 구현 통계
+      const implStats = await getImplementationStats(user.id);
+
       setStats({
         posts: postsCount || 0,
         comments: commentsCount || 0,
         likes: totalLikes,
         bookmarks: bookmarksCount || 0,
         prds: prdsCount || 0,
+        implementations: implStats.total,
+        completedImplementations: implStats.completed,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -316,12 +327,17 @@ function ProfilePage() {
 
       const totalLikes = myPosts?.reduce((sum, post) => sum + (post.like_count || 0), 0) || 0;
 
+      // 다른 사람의 구현 통계도 공개 (완료된 것만)
+      const implStats = await getImplementationStats(targetUserId);
+
       setStats({
         posts: postsCount || 0,
         comments: 0, // 다른 사람의 댓글 수는 비공개
         likes: totalLikes,
         bookmarks: 0, // 다른 사람의 북마크 수는 비공개
         prds: 0, // 다른 사람의 PRD 수는 비공개
+        implementations: implStats.total,
+        completedImplementations: implStats.completed,
       });
     } catch (error) {
       console.error('Error fetching other user stats:', error);
@@ -725,6 +741,30 @@ function ProfilePage() {
   function handleOpenPrdsDialog() {
     setPrdsDialogOpen(true);
     fetchPrdsList();
+  }
+
+  async function fetchImplementationsList() {
+    if (!user) return;
+
+    setLoadingImplementations(true);
+    try {
+      const data = await getImplementationsByUser(user.id);
+      setImplementationsList(data);
+    } catch (error) {
+      console.error('Error fetching implementations:', error);
+      addToast({
+        title: '오류',
+        description: '구현 목록을 불러오는데 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingImplementations(false);
+    }
+  }
+
+  function handleOpenImplementationsDialog() {
+    setImplementationsDialogOpen(true);
+    fetchImplementationsList();
   }
 
 
@@ -1189,6 +1229,32 @@ function ProfilePage() {
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {stats.prds > 0 ? '아이디어로부터 생성한 PRD 문서를 확인하세요' : '아직 생성한 PRD가 없습니다'}
+                  </p>
+                </div>
+                <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-sm group"
+              onClick={handleOpenImplementationsDialog}
+            >
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
+                  <Rocket className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors duration-300" />
+                  구현한 아이디어
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{stats.completedImplementations}</p>
+                  <span className="text-sm text-muted-foreground/80">개</span>
+                </div>
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {stats.completedImplementations > 0 
+                      ? `총 ${stats.implementations}개 중 ${stats.completedImplementations}개 완료` 
+                      : '아직 구현한 아이디어가 없습니다'}
                   </p>
                 </div>
                 <p className="text-xs text-primary mt-2 font-medium">클릭하여 확인 →</p>
@@ -1908,6 +1974,105 @@ function ProfilePage() {
                       <p className="text-sm text-muted-foreground line-clamp-3">
                         {prd.content.substring(0, 200)}...
                       </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 구현 목록 다이얼로그 */}
+      <Dialog open={implementationsDialogOpen} onOpenChange={setImplementationsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>구현한 아이디어</DialogTitle>
+          </DialogHeader>
+          {loadingImplementations ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">로딩 중...</p>
+            </div>
+          ) : implementationsList.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">구현한 아이디어가 없습니다.</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                아이디어 상세 페이지에서 "이 아이디어를 구현했어요!" 버튼을 눌러 구현 사례를 등록해보세요.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {implementationsList.map((impl) => (
+                <Card key={impl.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            impl.status === 'completed' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : impl.status === 'in_progress'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                          }`}>
+                            {impl.status === 'completed' ? '완료' : impl.status === 'in_progress' ? '진행 중' : '계획 중'}
+                          </span>
+                        </div>
+                        <CardTitle 
+                          className="line-clamp-2 mb-2 cursor-pointer hover:text-primary"
+                          onClick={() => navigate(`/ideas/${impl.idea_id}`)}
+                        >
+                          아이디어 보기
+                        </CardTitle>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{formatDate(impl.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {impl.screenshot_url && (
+                      <div className="mb-3">
+                        <img
+                          src={impl.screenshot_url}
+                          alt="구현 스크린샷"
+                          className="w-full max-w-md rounded-md border"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    {impl.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
+                        {impl.description}
+                      </p>
+                    )}
+                    {impl.implementation_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="w-full sm:w-auto"
+                      >
+                        <a
+                          href={impl.implementation_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          구현 보기
+                        </a>
+                      </Button>
+                    )}
+                    <div className="mt-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/ideas/${impl.idea_id}`)}
+                      >
+                        원본 아이디어 보기
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

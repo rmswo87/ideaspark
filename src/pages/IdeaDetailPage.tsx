@@ -7,6 +7,10 @@ import { generateProposal, getProposals, type Proposal } from '@/services/propos
 import { getIdea, fetchRedditPostContent, updateIdeaContent } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
 import { trackIdeaView, trackUserBehavior } from '@/services/recommendationService';
+import { ImplementationButton } from '@/components/ImplementationButton';
+import { SimilarImplementationCard } from '@/components/SimilarImplementationCard';
+import { getSimilarImplementations } from '@/services/implementationService';
+import type { IdeaImplementation } from '@/services/implementationService';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,6 +39,7 @@ function IdeaDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [similarImplementations, setSimilarImplementations] = useState<IdeaImplementation[]>([]);
   const isMountedRef = useRef(true);
 
   // 아이디어와 사용자 정보 가져오기 (id 변경 시에만)
@@ -72,6 +77,24 @@ function IdeaDetailPage() {
       checkExistingProposals();
     }
   }, [user?.id, id]);
+
+  // 비슷한 구현 사례 조회
+  useEffect(() => {
+    if (!id) return;
+
+    async function fetchSimilarImplementations() {
+      try {
+        const similar = await getSimilarImplementations(id!, 5);
+        if (isMountedRef.current) {
+          setSimilarImplementations(similar);
+        }
+      } catch (error) {
+        console.error('비슷한 구현 사례 조회 실패:', error);
+      }
+    }
+
+    fetchSimilarImplementations();
+  }, [id]);
 
   async function fetchIdea() {
     if (!id) return;
@@ -437,15 +460,30 @@ function IdeaDetailPage() {
               <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{idea.content}</p>
             </div>
             <div className="mt-4 flex flex-col gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <a 
-                  href={idea.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
-                  Reddit 원문 페이지 열기
-                </a>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" size="sm" asChild className="flex-1">
+                  <a 
+                    href={idea.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    Reddit 원문 페이지 열기
+                  </a>
+                </Button>
+                {user && (
+                  <ImplementationButton 
+                    ideaId={id!} 
+                    onUpdate={() => {
+                      // 구현 사례 업데이트 시 비슷한 구현 사례 다시 조회
+                      if (id) {
+                        getSimilarImplementations(id, 5)
+                          .then(setSimilarImplementations)
+                          .catch(console.error);
+                      }
+                    }}
+                  />
+                )}
+              </div>
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3 text-sm">
                 <p className="font-medium text-blue-900 dark:text-blue-100 mb-2">
                   💡 Chrome 자동 번역 사용하기
@@ -460,6 +498,30 @@ function IdeaDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 비슷한 구현 사례 섹션 */}
+      {similarImplementations.length > 0 && (
+        <div className="mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                비슷한 아이디어의 구현 사례
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                이 아이디어와 비슷한 카테고리의 다른 아이디어들이 이미 구현되었습니다. 참고해보세요!
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {similarImplementations.map((impl) => (
+                  <SimilarImplementationCard key={impl.id} implementation={impl} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* 제안서 섹션 */}
       {proposals.length > 0 && (

@@ -32,6 +32,7 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const CommunityPage = lazy(() => import('@/pages/CommunityPage'))
 const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'))
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'))
+const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(m => ({ default: m.ImplementationGallery })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 // 로딩 컴포넌트
@@ -652,6 +653,7 @@ function App() {
             <Route path="/idea/:id" element={<IdeaDetailPage />} />
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/community/:id" element={<PostDetailPage />} />
+            <Route path="/implementations" element={<ImplementationGallery />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />

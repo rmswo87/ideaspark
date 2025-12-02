@@ -1,6 +1,6 @@
 # 📋 IdeaSpark 개발 계획서 브리핑
 
-**작성일**: 2025년 1월 30일  
+**작성일**: 2025년 12월 2일 (최종 업데이트)  
 **목적**: 현재 개발 계획서 요약 및 다음 단계 브리핑
 
 ---
@@ -136,7 +136,80 @@ CREATE INDEX idx_idea_implementations_status ON idea_implementations(status);
 
 ---
 
-### 3. 추천 시스템 고도화 ⭐⭐⭐⭐⭐
+### 3. AI 기반 아이디어 평가 및 자동 추천 시스템 ⭐⭐⭐⭐⭐
+**우선순위**: 최우선 (혁신적 차별화 포인트)  
+**예상 시간**: 2-3주  
+**상태**: 기획 완료, 구현 대기
+
+#### 핵심 기능
+1. **3가지 평가 기준 (총 30점)**
+   - 비타민/약 점수 (10점): 사용자에게 실제로 필요한가?
+   - 경쟁율 점수 (10점): 시장에 경쟁자가 적은가?
+   - 섹시함 점수 (10점): 사람들이 관심을 가질 만한가?
+
+2. **업무 난이도 평가**
+   - 하/중/상으로 평가
+   - 실제 구현 가능성 고려
+
+3. **AI 기반 수요 분석**
+   - 인터넷에서 실제 사람들의 질문, 갈증, 수요 분석
+   - "I wish", "I need" 같은 패턴 감지
+   - 공급 부족 분석
+
+4. **매일 자동 추천**
+   - 최고 점수 아이디어를 매일 하나씩 추천
+   - 홈페이지 상단 배너
+   - 이메일/푸시 알림 (선택사항)
+
+#### 데이터베이스 스키마
+```sql
+CREATE TABLE idea_scores (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idea_id UUID REFERENCES ideas(id) ON DELETE CASCADE,
+  vitamin_score INTEGER CHECK (vitamin_score >= 0 AND vitamin_score <= 10),
+  competition_score INTEGER CHECK (competition_score >= 0 AND competition_score <= 10),
+  sexiness_score INTEGER CHECK (sexiness_score >= 0 AND sexiness_score <= 10),
+  total_score INTEGER GENERATED ALWAYS AS (vitamin_score + competition_score + sexiness_score) STORED,
+  difficulty_level TEXT CHECK (difficulty_level IN ('하', '중', '상')),
+  ai_analysis JSONB,
+  is_recommended BOOLEAN DEFAULT false,
+  recommended_at TIMESTAMPTZ,
+  analyzed_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(idea_id)
+);
+```
+
+#### 구현 파일
+- `src/services/ideaScoringService.ts` (신규)
+  - `scoreIdea()`: 아이디어 평가 실행
+  - `scoreIdeas()`: 여러 아이디어 일괄 평가
+  - `getRecommendedIdea()`: 오늘의 추천 아이디어 조회
+
+- `src/services/demandAnalysisService.ts` (신규)
+  - `detectQuestionPatterns()`: 질문 패턴 감지
+  - `analyzeDemandStrength()`: 수요 강도 분석
+  - `analyzeSupplyGap()`: 공급 부족 분석
+
+- `src/components/RecommendedIdeaOfTheDay.tsx` (신규)
+  - 오늘의 추천 아이디어 배너
+  - 점수 시각화
+  - 추천 이유 표시
+
+- `api/cron/recommend-idea.ts` (신규)
+  - 매일 자동으로 최고 점수 아이디어 선정
+
+#### 프리미엄 vs 무료 전략
+- **MVP 단계**: 무료로 제공 (사용자 확보)
+- **성장 단계**: 기본 추천 무료, 상세 분석 프리미엄
+- **성숙 단계**: 프리미엄 플랜 도입
+
+**참고 문서**: `docs/development/AI_IDEA_SCORING_SYSTEM.md`
+
+---
+
+### 4. 추천 시스템 고도화 ⭐⭐⭐⭐
 **우선순위**: 높음  
 **예상 시간**: 3-5일  
 **상태**: 기본 기능 존재, 고도화 필요
@@ -200,7 +273,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 
 ## 📅 Phase 2: 단기 구현 (2-4주)
 
-### 4. 아이디어 협업 기능 ⭐⭐⭐⭐
+### 5. 아이디어 협업 기능 ⭐⭐⭐⭐
 **예상 시간**: 5-7일
 
 **기능**:
@@ -210,7 +283,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 - 협업 채팅/댓글
 - 협업 진행 상황 추적
 
-### 5. 아이디어 버전 관리 ⭐⭐⭐⭐
+### 6. 아이디어 버전 관리 ⭐⭐⭐⭐
 **예상 시간**: 3-5일
 
 **기능**:
@@ -219,7 +292,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 - 버전 비교 기능
 - 이전 버전 복원
 
-### 6. 로드맵 공유 기능 ⭐⭐⭐⭐
+### 7. 로드맵 공유 기능 ⭐⭐⭐⭐
 **예상 시간**: 4-6일
 
 **기능**:
@@ -232,7 +305,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 
 ## 📅 Phase 3: 중기 구현 (4-8주)
 
-### 7. 실시간 알림 강화 ⭐⭐⭐
+### 8. 실시간 알림 강화 ⭐⭐⭐
 **예상 시간**: 3-5일
 
 **개선 사항**:
@@ -241,7 +314,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 - 알림 필터링 및 그룹화
 - 이메일 알림 옵션
 
-### 8. 투표 및 우선순위 시스템 ⭐⭐⭐
+### 9. 투표 및 우선순위 시스템 ⭐⭐⭐
 **예상 시간**: 4-6일
 
 **기능**:
@@ -250,7 +323,8 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 - 우선순위 설정
 - 투표 기반 추천
 
-### 9. AI 아이디어 분석 ⭐⭐⭐
+### 10. AI 아이디어 분석 ⭐⭐⭐
+**참고**: Task 3 (AI 기반 아이디어 평가 시스템)과 통합 고려
 **예상 시간**: 5-7일
 
 **기능**:
@@ -264,7 +338,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 
 ## 📅 Phase 4: 장기 구현 (8주+)
 
-### 10. 구독 모델 구현
+### 11. 구독 모델 구현
 **예상 시간**: 10일
 
 **작업 내용**:
@@ -273,7 +347,7 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 - 사용량 제한 로직
 - 구독 관리 UI
 
-### 11. 챌린지/이벤트 시스템
+### 12. 챌린지/이벤트 시스템
 **예상 시간**: 5-7일
 
 **기능**:
@@ -308,9 +382,11 @@ CREATE INDEX idx_user_behaviors_type ON user_behaviors(behavior_type);
 - **개발 로드맵**: `docs/development/DEVELOPMENT_ROADMAP.md`
 - **진행 상황 브리핑**: `docs/development/PROGRESS_BRIEFING.md`
 - **OAuth 설정 가이드**: `docs/development/OAUTH_SETUP_GUIDE.md`
+- **AI 아이디어 평가 시스템**: `docs/development/AI_IDEA_SCORING_SYSTEM.md` ⭐ NEW
 
 ---
 
 **작성자**: AI Assistant  
-**최종 업데이트**: 2025년 1월 30일
+**최종 업데이트**: 2025년 12월 2일  
+**주요 변경사항**: AI 기반 아이디어 평가 및 자동 추천 시스템 추가 (Task 3)
 
