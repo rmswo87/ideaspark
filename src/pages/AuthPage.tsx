@@ -113,6 +113,10 @@ export function AuthPage() {
             access_type: 'offline',
             prompt: 'consent',
           } : undefined,
+          // 참고: Supabase는 Kakao OAuth에서 기본적으로 email을 요청합니다.
+          // Kakao Developers에서 'account_email' 동의 항목을 활성화해야 합니다.
+          // Supabase Dashboard > Authentication > Providers > Kakao에서
+          // "Allow users without an email" 옵션을 활성화하면 email 없이도 로그인 가능하지만 권장되지 않습니다.
         },
       });
 
@@ -328,7 +332,7 @@ export function AuthPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center p-0 bg-transparent hover:bg-transparent border-0 shadow-none"
+              className="w-full min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 sm:gap-3 bg-background hover:bg-accent border-border p-2"
               onClick={() => handleSocialLogin('kakao')}
               disabled={loading || !!socialLoading}
               aria-label="Kakao로 로그인"
@@ -342,7 +346,7 @@ export function AuthPage() {
                 <img 
                   src="/kakao_login_medium_narrow.png" 
                   alt="Kakao 로그인" 
-                  className="w-full h-auto max-h-[44px] sm:max-h-[40px] object-contain"
+                  className="h-5 w-auto sm:h-6 object-contain"
                   aria-hidden="true"
                 />
               )}
