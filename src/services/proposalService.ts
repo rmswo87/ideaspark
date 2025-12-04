@@ -20,7 +20,8 @@ export interface Proposal {
  */
 export async function generateProposal(
   ideaId: string,
-  userId: string
+  userId: string,
+  userPrompt?: string
 ): Promise<Proposal> {
   // 아이디어 조회
   const { data: idea, error: ideaError } = await supabase
@@ -36,7 +37,7 @@ export async function generateProposal(
   // AI로 제안서 생성
   let proposalContent: string;
   try {
-    proposalContent = await aiClient.generateProposal(idea as Idea);
+    proposalContent = await aiClient.generateProposal(idea as Idea, userPrompt);
   } catch (error) {
     console.error('Proposal generation error:', error);
     throw new Error(`제안서 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);

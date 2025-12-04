@@ -15,9 +15,10 @@ class AIClient {
    * @param onProgress 진행률 콜백 (0-100)
    */
   async generatePRD(idea: Idea, onProgress?: (progress: number) => void): Promise<string> {
-    // PRD를 10개 부분으로 나누어서 더 상세하고 완전하게 생성
+    // PRD를 7개 부분으로 나누어서 더 상세하고 완전하게 생성
+    // 각 Part가 명확한 섹션 하나만 담당하여 중복 방지
     const parts: string[] = [];
-    const totalParts = 10;
+    const totalParts = 7;
     
     // 초기 진행률
     if (onProgress) onProgress(0);
@@ -269,9 +270,9 @@ class AIClient {
   /**
    * 아이디어를 기반으로 개선된 제안서 생성
    */
-  async generateProposal(idea: Idea): Promise<string> {
+  async generateProposal(idea: Idea, userPrompt?: string): Promise<string> {
     try {
-      const prompt = this.buildProposalPrompt(idea);
+      const prompt = this.buildProposalPrompt(idea, userPrompt);
 
       let result: string;
       if (this.config.provider === 'openrouter') {
@@ -312,9 +313,10 @@ class AIClient {
    * @param onProgress 진행률 콜백 (0-100)
    */
   async generatePRDFromProposal(idea: Idea, proposalContent: string, onProgress?: (progress: number) => void): Promise<string> {
-    // PRD를 10개 부분으로 나누어서 더 상세하게 생성
+    // PRD를 7개 부분으로 나누어서 더 상세하게 생성
+    // 각 Part가 명확한 섹션 하나만 담당하여 중복 방지
     const parts: string[] = [];
-    const totalParts = 10;
+    const totalParts = 7;
     
     // 초기 진행률
     if (onProgress) onProgress(0);
@@ -350,6 +352,168 @@ class AIClient {
     return fullDocument;
   }
 
+  /**
+   * AI 기반 아이디어 평가
+   * 3가지 점수(비타민/경쟁율/섹시함)와 난이도 평가
+   */
+  async scoreIdea(idea: Idea): Promise<{
+    vitamin_score: number;
+    competition_score: number;
+    sexiness_score: number;
+    total_score: number;
+    difficulty_level: '하' | '중' | '상';
+    ai_analysis: {
+      vitamin_reason: string;
+      competition_reason: string;
+      sexiness_reason: string;
+      difficulty_reason: string;
+      summary: string;
+    };
+  }> {
+    const prompt = this.buildScoringPrompt(idea);
+
+    let result: string;
+    if (this.config.provider === 'openrouter') {
+      result = await this.callOpenRouter(prompt);
+    } else if (this.config.provider === 'openai') {
+      result = await this.callOpenAI(prompt);
+    } else {
+      result = await this.callClaude(prompt);
+    }
+
+    // JSON 형식으로 파싱
+    try {
+      // JSON 코드 블록 제거
+      const jsonMatch = result.match(/```json\s*([\s\S]*?)\s*```/) || result.match(/```\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : result;
+      const parsed = JSON.parse(jsonString.trim());
+
+      // 점수 검증
+      if (
+        typeof parsed.vitamin_score !== 'number' || parsed.vitamin_score < 0 || parsed.vitamin_score > 10 ||
+        typeof parsed.competition_score !== 'number' || parsed.competition_score < 0 || parsed.competition_score > 10 ||
+        typeof parsed.sexiness_score !== 'number' || parsed.sexiness_score < 0 || parsed.sexiness_score > 10
+      ) {
+        throw new Error('Invalid score values');
+      }
+
+      if (!['하', '중', '상'].includes(parsed.difficulty_level)) {
+        throw new Error('Invalid difficulty level');
+      }
+
+      return {
+        vitamin_score: parsed.vitamin_score,
+        competition_score: parsed.competition_score,
+        sexiness_score: parsed.sexiness_score,
+        total_score: parsed.vitamin_score + parsed.competition_score + parsed.sexiness_score,
+        difficulty_level: parsed.difficulty_level,
+        ai_analysis: parsed.ai_analysis || {
+          vitamin_reason: parsed.vitamin_reason || '',
+          competition_reason: parsed.competition_reason || '',
+          sexiness_reason: parsed.sexiness_reason || '',
+          difficulty_reason: parsed.difficulty_reason || '',
+          summary: parsed.summary || '',
+        },
+      };
+    } catch (error) {
+      console.error('Error parsing scoring result:', error);
+      console.error('Raw result:', result);
+      throw new Error('AI 평가 결과 파싱 실패. JSON 형식으로 반환되지 않았습니다.');
+    }
+  }
+
+
+  /**
+   * 섹션 번호 정규화 (중복된 섹션 번호 제거 및 정리)
+   */
+  private normalizeSectionNumbers(content: string): string {
+    const sectionOrder = [
+      { num: 1, name: '프로젝트 개요' },
+      { num: 2, name: '사용자 스토리' },
+      { num: 3, name: '기능 명세' },
+      { num: 4, name: '화면 설계' },
+      { num: 5, name: '기술 요구사항' },
+      { num: 6, name: '프로젝트 구조' },
+      { num: 6, name: '성공 지표' } // 성공 지표도 섹션 6 (프로젝트 구조와 같은 레벨)
+    ];
+    
+    // 섹션 번호 정규화 및 중복 제거
+    sectionOrder.forEach((section) => {
+      const sectionNum = section.num;
+      const sectionName = section.name;
+      const correctHeader = `### ${sectionNum}. ${sectionName}`;
+      
+      // 섹션 헤더 찾기 (더 강력한 패턴)
+      const escapedName = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const sectionRegex = new RegExp(`^###\\s*\\d+\\.\\s*${escapedName}`, 'gm');
+      let matchCount = 0;
+      
+      content = content.replace(sectionRegex, () => {
+        matchCount++;
+        if (matchCount === 1) {
+          // 첫 번째 매칭만 정규화
+          return correctHeader;
+        } else {
+          // 두 번째 이후 매칭은 제거 (중복)
+          return '';
+        }
+      });
+    });
+    
+    return content;
+  }
+
+
+  /**
+   * 두 문자열의 유사도 계산 (간단한 Jaccard 유사도)
+   */
+  private calculateSimilarity(str1: string, str2: string): number {
+    const words1 = new Set(str1.toLowerCase().split(/\s+/));
+    const words2 = new Set(str2.toLowerCase().split(/\s+/));
+    
+    const intersection = new Set([...words1].filter(x => words2.has(x)));
+    const union = new Set([...words1, ...words2]);
+    
+    return intersection.size / union.size;
+  }
+
+  /**
+   * 문서 완성도 확인 및 마무리
+   */
+  private ensureDocumentCompletion(content: string): string {
+    // 마지막 5줄 확인
+    const lines = content.split('\n');
+    const lastLines = lines.slice(-5).join('\n');
+    
+    // 불완전한 문장 패턴
+    const incompletePatterns = [
+      /^[-*]\s*[^\.]*$/m, // 불완전한 리스트 항목
+      /^[-*]\s*사용\s*$/m,
+      /^[-*]\s*측정\s*$/m,
+      /^[-*]\s*기능\s*$/m,
+      /^[-*]\s*성공률\s*$/m,
+      /^[^\.]*\s*$/m, // 마지막 줄이 마침표 없이 끝남
+    ];
+    
+    const isIncomplete = incompletePatterns.some(pattern => pattern.test(lastLines));
+    
+    if (isIncomplete) {
+      // 불완전한 마지막 줄 제거
+      let cleaned = content;
+      incompletePatterns.forEach(pattern => {
+        cleaned = cleaned.replace(new RegExp(`\n${pattern.source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'), '');
+      });
+      
+      // 마무리 문장 추가
+      if (!cleaned.trim().endsWith('.')) {
+        cleaned += '\n\n---\n\n이 PRD 문서는 위 내용을 기반으로 개발을 진행할 수 있도록 작성되었습니다.';
+      }
+      
+      return cleaned;
+    }
+    
+    return content;
+  }
 
   /**
    * PRD 부분들을 합치기
@@ -369,14 +533,21 @@ class AIClient {
       let cleanedPart = part
         // PRD 제목 제거
         .replace(/^#\s*PRD.*$/m, '')
-        // 섹션 번호 중복 제거 (이미 작성된 섹션 제목 제거)
-        .replace(/^###\s*1\.\s*프로젝트\s*개요.*$/m, '')
-        .replace(/^###\s*2\.\s*사용자\s*스토리.*$/m, '')
-        .replace(/^###\s*3\.\s*기능\s*명세.*$/m, '')
-        .replace(/^###\s*4\.\s*화면\s*설계.*$/m, '')
-        .replace(/^###\s*5\.\s*기술\s*요구사항.*$/m, '')
-        .replace(/^###\s*6\.\s*프로젝트\s*구조.*$/m, '')
-        .replace(/^###\s*6\.\s*성공\s*지표.*$/m, '')
+        // 섹션 번호 중복 제거 (이미 작성된 섹션 제목 제거) - 더 강력한 패턴
+        // 섹션 1-6은 각각 한 번만 나타나야 함
+        .replace(/^###\s*1\.\s*프로젝트\s*개요[\s\S]*?(?=###\s*2\.|###\s*[3-7]\.|##|$)/gm, '')
+        .replace(/^###\s*2\.\s*사용자\s*스토리[\s\S]*?(?=###\s*3\.|###\s*[4-7]\.|##|$)/gm, '')
+        .replace(/^###\s*3\.\s*기능\s*명세[\s\S]*?(?=###\s*4\.|###\s*[5-7]\.|##|$)/gm, '')
+        .replace(/^###\s*4\.\s*화면\s*설계[\s\S]*?(?=###\s*5\.|###\s*[6-7]\.|##|$)/gm, '')
+        .replace(/^###\s*5\.\s*기술\s*요구사항[\s\S]*?(?=###\s*6\.|###\s*7\.|##|$)/gm, '')
+        // 섹션 6 중복 제거 (프로젝트 구조와 성공 지표 모두 섹션 6)
+        // 첫 번째 섹션 6 (프로젝트 구조)는 유지하고, 두 번째부터 제거
+        .replace(/^###\s*6\.\s*프로젝트\s*구조[\s\S]*?(?=###\s*6\.\s*성공|###\s*6\.\s*프로젝트|###\s*7\.|##|$)/gm, '')
+        // 섹션 6 성공 지표는 첫 번째만 유지
+        .replace(/^###\s*6\.\s*성공\s*지표[\s\S]*?(?=###\s*6\.\s*성공|###\s*[1-7]\.|##\s*[^6]|$)/gm, '')
+        // 섹션 7 이상은 모두 제거 (7개 Part 구조에서는 섹션 7 이상이 없어야 함)
+        .replace(/^###\s*[7-9]\.\s*.*?(?=###\s*[0-9]\.|##|$)/gm, '')
+        .replace(/^###\s*10\.\s*.*?(?=##|$)/gm, '')
         // 중복된 시스템 아키텍처 섹션 제거 (다양한 패턴)
         .replace(/^## 📊\s*시스템\s*아키텍처.*?(?=##|###|$)/gs, '')
         .replace(/^##\s*시스템\s*아키텍처.*?(?=##|###|$)/gs, '')
@@ -409,9 +580,9 @@ class AIClient {
           .trim();
       }
       
-      // 중복된 다이어그램 제거 (같은 내용의 Mermaid 다이어그램이 여러 번 나타나면 첫 번째 것만 유지)
+      // 중복된 다이어그램 제거 (유사도 기반, 더 강력한 중복 제거)
       if (i > 1) {
-        // 이미 merged에 있는 Mermaid 다이어그램과 동일한 내용이면 제거
+        // 이미 merged에 있는 Mermaid 다이어그램과 동일하거나 유사한 내용이면 제거
         const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
         const existingDiagrams: string[] = [];
         let match;
@@ -421,9 +592,22 @@ class AIClient {
         
         cleanedPart = cleanedPart.replace(/```mermaid\n([\s\S]*?)```/g, (fullMatch, content) => {
           const trimmedContent = content.trim();
+          
+          // 정확히 동일한 내용
           if (existingDiagrams.includes(trimmedContent)) {
             return ''; // 중복된 다이어그램 제거
           }
+          
+          // 유사도 체크 (80% 이상 유사하면 중복으로 간주)
+          const isSimilar = existingDiagrams.some(existing => {
+            const similarity = this.calculateSimilarity(existing, trimmedContent);
+            return similarity > 0.8;
+          });
+          
+          if (isSimilar) {
+            return ''; // 유사한 다이어그램 제거
+          }
+          
           existingDiagrams.push(trimmedContent);
           return fullMatch;
         });
@@ -439,8 +623,35 @@ class AIClient {
     merged = merged
       .replace(/\n{4,}/g, '\n\n\n') // 연속된 줄바꿈 정리
       .replace(/^---\s*$/gm, '---') // 구분선 정리
+      // "## PRD 문서" 이후 모든 내용 제거 (문서 완료 후 중복 내용)
+      .replace(/##\s*PRD\s*문서[\s\S]*$/g, '');
+    
+    // "PRD 문서 완료" 마커 이후 모든 내용 제거
+    const completionMarkers = [
+      /\*\*_PRD\s*문서\s*완료\._\*\*/i,
+      /\*\*PRD\s*문서\s*완료\*\*/i,
+      /PRD\s*문서\s*완료/i,
+      /이\s*PRD\s*문서는\s*위\s*내용을\s*기반으로\s*개발을\s*진행할\s*수\s*있도록\s*작성되었습니다/i
+    ];
+    
+    for (const marker of completionMarkers) {
+      const match = merged.match(marker);
+      if (match) {
+        const completionIndex = match.index! + match[0].length;
+        // 완료 마커 이후의 "## PRD 문서" 섹션 제거
+        const afterCompletion = merged.substring(completionIndex);
+        const prdDocMatch = afterCompletion.match(/^[\s\n]*##\s*PRD\s*문서/);
+        if (prdDocMatch) {
+          merged = merged.substring(0, completionIndex) + merged.substring(completionIndex + prdDocMatch.index!);
+        }
+        break;
+      }
+    }
+    
+    merged = merged
       .replace(/\*\*⚠️ 중요:.*?\n\n/gs, '') // 부분 작성 가이드 완전 제거
       .replace(/\*\*⚠️ CRITICAL:.*?\n\n/gs, '') // CRITICAL 메시지 제거
+      .replace(/\*\*⚠️⚠️⚠️.*?\n\n/gs, '') // CRITICAL 메시지 제거
       // 불필요한 메타 정보 제거 (최종 확인 사항 등)
       .replace(/\*\*⚠️ 최종 확인 사항.*?✅.*?확인.*?\n\n/gs, '')
       .replace(/⚠️ 최종 확인 사항.*?✅.*?확인.*?\n\n/gs, '')
@@ -458,8 +669,29 @@ class AIClient {
       // 불완전한 문장 제거 (예: "기능의 성공률"로 끝나는 경우)
       .replace(/- 사용자 기억을 학습하고, 기억을 유지하는 기능의 성공률\s*$/gm, '')
       .replace(/- 사용자 기억을 학습하고, 기억을 유지하는 기능의 성공률\n*$/gm, '')
-      // 중복된 Mermaid 다이어그램 제거 (더 강력한 패턴)
-      .replace(/(```mermaid[\s\S]*?```)([\s\S]*?)\1/g, '$1$2')
+      // 이미 작성된 섹션 목록 제거
+      .replace(/\*\*⚠️⚠️⚠️ CRITICAL: 이미 작성된 섹션 목록.*?⚠️ 중요 지시사항:.*?\n\n/gs, '')
+      .replace(/\*\*⚠️⚠️⚠️ CRITICAL: 이미 작성된 Mermaid 다이어그램:.*?\n\n/gs, '')
+      // "## PRD 문서" 섹션 제거 (문서 완료 후 중복)
+      .replace(/^##\s*PRD\s*문서[\s\S]*$/gm, '')
+      // 섹션 번호 없는 중복 섹션 제거
+      .replace(/^###\s*프로젝트\s*개요[\s\S]*?(?=###\s*[1-7]\.|##|$)/gm, (match, offset, string) => {
+        // 이미 섹션 1이 있으면 제거
+        const beforeMatch = string.substring(0, offset);
+        if (beforeMatch.match(/^###\s*1\.\s*프로젝트\s*개요/m)) {
+          return '';
+        }
+        return match;
+      });
+    
+    // 섹션 번호 정규화
+    merged = this.normalizeSectionNumbers(merged);
+    
+    // Mermaid 다이어그램 완전 제거 (모든 다이어그램 제거)
+    merged = merged.replace(/```mermaid[\s\S]*?```/g, '');
+    
+    // 추가 중복 제거 (시스템 아키텍처, 데이터베이스 설계, 프로젝트 구조)
+    merged = merged
       // 중복된 시스템 아키텍처 섹션 제거
       .replace(/(## 📊\s*시스템\s*아키텍처[\s\S]*?)(?=## 📊\s*시스템\s*아키텍처|## 🗄️|## 📅|## ⚠️|## ✅|$)/g, '$1')
       .replace(/(##\s*시스템\s*아키텍처[\s\S]*?)(?=##\s*시스템\s*아키텍처|## 🗄️|## 📅|## ⚠️|## ✅|$)/g, '$1')
@@ -482,18 +714,50 @@ class AIClient {
       .replace(/- 사용자 기억을 학습하고, 기억을 유지하는 기능의 성공률\s*$/gm, '')
       .replace(/- 사용자 기억을 학습하고, 기억을 유지하는 기능의 성공률\n*$/gm, '')
       // 문서가 불완전하게 끝나는 경우 체크
-      .replace(/\n- 사용자 기억을 학습하고, 기억을 유지하는 기능의 성공률\s*$/s, '')
-      .trim();
+      .replace(/\n- 사용자 기억을 학습하고, 기억을 유지하는 기능의 성공률\s*$/s, '');
     
-    // 문서가 불완전하게 끝나는지 확인 (마지막 줄이 불완전한 문장으로 끝나면 제거)
-    const lastLines = merged.split('\n').slice(-3).join('\n');
-    if (lastLines.match(/기능의 성공률\s*$/) || lastLines.match(/성공률\s*$/)) {
-      // 불완전한 마지막 줄 제거
-      merged = merged.replace(/\n- .*?성공률\s*$/s, '');
-    }
+    // 문서 완성도 확인 및 마무리
+    merged = this.ensureDocumentCompletion(merged);
+    
+    // 최종 정리
+    merged = merged
+      .replace(/\n{4,}/g, '\n\n\n') // 연속된 줄바꿈 정리
+      .replace(/^\s+$/gm, '') // 빈 줄 정리
+      .trim();
     
     return merged;
   }
+
+  /**
+   * 이전 부분에서 작성된 섹션 목록 추출
+   */
+  private extractWrittenSections(parts: string[]): string[] {
+    const sections: Set<string> = new Set();
+    const sectionPatterns = [
+      /^###\s*(\d+\.\s*[^\n]+)/gm,
+      /^##\s*([^\n]+)/gm,
+      /^####\s*([^\n]+)/gm,
+    ];
+    
+    parts.forEach(part => {
+      sectionPatterns.forEach(pattern => {
+        let match;
+        while ((match = pattern.exec(part)) !== null) {
+          const sectionTitle = match[1].trim();
+          // 불필요한 섹션 제외
+          if (!sectionTitle.includes('⚠️') && 
+              !sectionTitle.includes('CRITICAL') &&
+              !sectionTitle.includes('부분 작성') &&
+              !sectionTitle.includes('이전 부분')) {
+            sections.add(sectionTitle);
+          }
+        }
+      });
+    });
+    
+    return Array.from(sections);
+  }
+
 
   /**
    * PRD 프롬프트 생성 (prd_ref.md 기반 상세 양식)
@@ -504,42 +768,66 @@ class AIClient {
     const isMultiPart = partNumber !== undefined && partNumber > 1;
     const totalParts = 10;
     
-    // 이전 부분의 전체 내용 (중복 체크용)
-    const previousContent = previousParts && previousParts.length > 0 
-      ? `\n\n**⚠️ CRITICAL: 이전 부분 전체 내용 (중복 방지 필수):**\n${previousParts.map((p, i) => `\n### Part ${i + 1} 전체 내용\n${p.substring(0, 5000)}${p.length > 5000 ? '\n\n...(이전 부분이 길어 일부만 표시했습니다. 전체 내용을 참고하여 중복되지 않도록 작성하세요.)' : ''}`).join('\n\n---\n\n')}\n\n**⚠️ 중요 지시사항:**\n- 위 이전 부분의 내용과 **절대 중복되지 않도록** 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 다시 작성하지 마세요.\n- 이전 부분에 이미 작성된 다이어그램은 다시 작성하지 마세요.\n- 이전 부분과 자연스럽게 연결되도록 작성하되, 내용은 완전히 새로운 것이어야 합니다.\n`
+    // 이전 부분에서 작성된 섹션 목록 추출 (간결하게)
+    const writtenSections = previousParts && previousParts.length > 0 
+      ? this.extractWrittenSections(previousParts)
+      : [];
+    
+    // 이전 부분 정보 구성 (간결하고 명확하게)
+    const previousContent = isMultiPart && writtenSections.length > 0
+      ? `\n\n**⚠️⚠️⚠️ CRITICAL: 이미 작성된 섹션 (절대 다시 작성 금지):**\n${writtenSections.slice(0, 10).map(s => `- ❌ ${s}`).join('\n')}${writtenSections.length > 10 ? `\n... 외 ${writtenSections.length - 10}개` : ''}\n\n**⚠️ 중요:**\n- 위 섹션은 **절대 다시 작성하지 마세요**\n- **Mermaid 다이어그램은 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- **새로운 섹션만** 작성하세요\n`
       : '';
     
     const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 PRD의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**${previousContent}` : '';
     
-    // 각 부분별로 작성할 섹션 정의 (7개 부분으로 세분화)
+    // 각 부분별로 작성할 섹션 정의 (명확한 섹션 번호 지정 + Mermaid 사용 규칙 명확화)
     const sectionGuide = partNumber === 1 
-      ? `- **Part 1 작성 내용**: 프로젝트 개요 섹션만 상세히 작성하세요.\n- 프로젝트명, 한 줄 설명, 프로젝트 목적, 핵심 가치 제안, 타겟 사용자, 해결하려는 문제를 모두 포함하세요.`
+      ? `- **Part 1 작성 내용**: **### 1. 프로젝트 개요** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 1. 프로젝트 개요"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 프로젝트명, 한 줄 설명, 프로젝트 목적, 핵심 가치 제안, 타겟 사용자, 해결하려는 문제를 모두 포함하세요.\n- 다른 섹션(2, 3, 4, 5, 6번)은 작성하지 마세요.`
       : partNumber === 2
-      ? `- **Part 2 작성 내용**: 사용자 스토리 섹션만 상세히 작성하세요.\n- 주요 사용자 페르소나, 사용자 여정, 핵심 기능 요구사항을 모두 포함하세요.\n- 프로젝트 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).`
+      ? `- **Part 2 작성 내용**: **### 2. 사용자 스토리** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 2. 사용자 스토리"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 주요 사용자 페르소나, 사용자 여정, 핵심 기능 요구사항을 모두 포함하세요.\n- 이전 부분(1번)에 이미 작성된 섹션은 작성하지 마세요.\n- 다른 섹션(3, 4, 5, 6번)은 작성하지 마세요.`
       : partNumber === 3
-      ? `- **Part 3 작성 내용**: 기능 명세 섹션만 상세히 작성하세요.\n- MVP 기능 목록, 우선순위별 기능 분류, 기술적 제약사항을 모두 포함하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      ? `- **Part 3 작성 내용**: **### 3. 기능 명세** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 3. 기능 명세"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- MVP 기능 목록, 우선순위별 기능 분류, 기술적 제약사항을 모두 포함하세요.\n- 이전 부분(1, 2번)에 이미 작성된 섹션은 작성하지 마세요.\n- 다른 섹션(4, 5, 6번)은 작성하지 마세요.`
       : partNumber === 4
-      ? `- **Part 4 작성 내용**: 화면 설계 섹션만 상세히 작성하세요.\n- 최소 2개 이상의 화면을 구체적으로 설계하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      ? `- **Part 4 작성 내용**: **### 4. 화면 설계** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 4. 화면 설계"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 최소 2개 이상의 화면을 구체적으로 설계하세요.\n- 이전 부분(1, 2, 3번)에 이미 작성된 섹션은 작성하지 마세요.\n- 다른 섹션(5, 6번)은 작성하지 마세요.`
       : partNumber === 5
-      ? `- **Part 5 작성 내용**: 기술 요구사항 섹션만 상세히 작성하세요.\n- 기술 스택 제안, 인프라 요구사항, 보안 고려사항을 모두 포함하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      ? `- **Part 5 작성 내용**: **### 5. 기술 요구사항** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 5. 기술 요구사항"으로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 기술 스택 제안, 인프라 요구사항, 보안 고려사항을 모두 포함하세요.\n- 이전 부분(1, 2, 3, 4번)에 이미 작성된 섹션은 작성하지 마세요.\n- 다른 섹션(6번)은 작성하지 마세요.`
       : partNumber === 6
-      ? `- **Part 6 작성 내용**: 프로젝트 구조 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: 프로젝트 구조 다이어그램을 반드시 포함하세요. 다이어그램이 비어있으면 안 됩니다.**\n- **⚠️ CRITICAL: 다이어그램은 반드시 \`\`\`mermaid 형식을 사용하세요. 일반 코드 블록(\`\`\`)을 사용하지 마세요.**\n- 아이디어와 PRD를 분석하여 실제 시스템 아키텍처를 간결한 Mermaid 다이어그램으로 작성하세요.\n- 다이어그램 노드 텍스트는 최대 10자 이하로 작성하세요 (잘림 방지).\n- 다이어그램 노드는 최대 8개 이하로 작성하세요 (화면 크기 초과 방지).\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.\n- **⚠️ CRITICAL: 이전 부분에 이미 작성된 다이어그램과 동일한 내용의 다이어그램을 작성하지 마세요.**`
+      ? `- **Part 6 작성 내용**: **### 6. 프로젝트 구조** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 6. 프로젝트 구조"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- **프로젝트 구조는 텍스트로 논리적이고 체계적으로 설명하세요.**\n- 예시: "프로젝트는 프론트엔드, 백엔드, 데이터베이스로 구성됩니다. 프론트엔드는 사용자 인터페이스를 담당하며, 백엔드와 REST API로 통신합니다. 백엔드는 비즈니스 로직을 처리하고 데이터베이스와 상호작용합니다."\n- 이전 부분(1, 2, 3, 4, 5번)에 이미 작성된 섹션은 작성하지 마세요.`
       : partNumber === 7
-      ? `- **Part 7 작성 내용**: 성공 지표 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- KPI 정의와 측정 방법을 모두 포함하세요.\n- **⚠️ CRITICAL: 문서 마지막은 반드시 완전한 문장으로 끝나야 합니다.**\n- 문서 마지막에 다음 중 하나로 자연스럽게 마무리하세요:\n  1. "## 완료 조건" 섹션 추가\n  2. "## 다음 단계" 섹션 추가\n  3. "## 참고 자료" 섹션 추가\n- **절대 불완전한 문장(예: "* 사용", "* 측정" 등)으로 끝나면 안 됩니다.**\n- 마지막 문장 예시: "이 PRD 문서는 위 내용을 기반으로 개발을 진행할 수 있도록 작성되었습니다."\n- 마지막 문장 예시: "위 KPI를 기준으로 프로젝트의 성공 여부를 측정할 수 있습니다."`
+      ? `- **Part 7 작성 내용**: **### 6. 성공 지표** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 6. 성공 지표"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- **⚠️⚠️⚠️ CRITICAL: 이것은 마지막 Part입니다. 문서를 완전히 마무리하세요.**\n- KPI 정의와 측정 방법을 모두 포함하세요.\n- **⚠️⚠️⚠️ CRITICAL: 문서 마지막은 반드시 완전한 문장으로 끝나야 합니다.**\n- 문서 마지막에 "**_PRD 문서 완료._**" 또는 "**이 PRD 문서는 위 내용을 기반으로 개발을 진행할 수 있도록 작성되었습니다.**"로 마무리하세요.\n- **절대 불완전한 문장(예: "* 사용", "* 측정", "- 기능" 등)으로 끝나면 안 됩니다.**\n- **⚠️⚠️⚠️ CRITICAL: 문서를 마무리한 후에는 "## PRD 문서" 또는 다른 섹션을 추가로 작성하지 마세요.**\n- 이전 부분(1, 2, 3, 4, 5, 6번)에 이미 작성된 섹션은 작성하지 마세요.`
       : '';
+    
+    // Mermaid 다이어그램 완전 금지 (모든 Part에서)
+    const mermaidRule = `\n\n## ⚠️⚠️⚠️ CRITICAL: MERMAID 다이어그램 절대 금지 ⚠️⚠️⚠️\n**이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요.**\n**텍스트로만 논리적이고 체계적으로 작성하세요. 다이어그램 없이도 충분히 명확한 설명이 가능합니다.**\n`;
     
     return `다음 Reddit 게시글을 기반으로 상세하고 구체적인 PRD(Product Requirements Document) 문서를 한국어로 작성해주세요.
 
+${mermaidRule}
 **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요. 불완전한 문장으로 끝나면 안 됩니다.**
 
 ${partInfo}
 ${sectionGuide ? `\n**⚠️ 부분 작성 가이드 (Part ${partNumber}/${totalParts}):**\n${sectionGuide}\n- 이전 부분과 자연스럽게 연결되도록 작성하세요.\n- 중복되는 헤더나 개요 섹션은 작성하지 마세요.\n- 각 부분마다 최소 200-300줄 이상 작성하세요.\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 불완전한 문장으로 끝나면 안 됩니다.**\n` : ''}
-## 아이디어 정보
+
+## ⚠️⚠️⚠️ CRITICAL: 아이디어 정보 (반드시 이 내용만 사용하세요) ⚠️⚠️⚠️
+
+**아래 아이디어 정보를 반드시 분석하고, 이 아이디어에만 해당하는 PRD를 작성하세요. 다른 예시나 템플릿을 사용하지 마세요.**
+
 - **제목**: ${idea.title}
 - **내용**: ${idea.content}
 - **서브레딧**: r/${idea.subreddit}
 - **작성자**: ${idea.author}
 - **업보트**: ${idea.upvotes}
+
+**⚠️ 절대 금지 사항:**
+- ❌ 위 아이디어 정보와 무관한 내용을 작성하지 마세요
+- ❌ 다른 프로젝트나 예시 프로젝트의 내용을 복사하지 마세요
+- ❌ "감정적 투쟁", "부부", "경쟁 점수" 등 위 아이디어에 없는 내용을 작성하지 마세요
+- ❌ 템플릿이나 예시를 그대로 사용하지 마세요
+
+**✅ 필수 사항:**
+- ✅ 위 아이디어 제목과 내용을 정확히 분석하여 작성하세요
+- ✅ 아이디어에서 언급된 구체적인 문제, 기능, 사용자만 사용하세요
+- ✅ 아이디어의 실제 내용과 일치하는 PRD만 작성하세요
 
 ## 아이디어 개선 및 구축 가이드라인
 
@@ -571,16 +859,20 @@ PRD를 작성할 때 다음 사항을 고려하여 아이디어를 다듬고 구
 
 ## ⚠️ 중요 지시사항
 
-**절대 금지 사항:**
+**⚠️⚠️⚠️ 절대 금지 사항 (반드시 준수):**
 - ❌ "[프로젝트 이름을 명확하게 제시]" 같은 플레이스홀더나 예시 템플릿을 그대로 사용하지 마세요
 - ❌ "[기능명 1]", "[설명]", "[예상 시간]" 같은 대괄호 안의 예시 텍스트를 그대로 남기지 마세요
 - ❌ 일반적인 설명이나 추상적인 내용만 작성하지 마세요
+- ❌ **위 아이디어 정보와 무관한 다른 프로젝트 내용을 작성하지 마세요**
+- ❌ **"감정적 투쟁", "부부", "경쟁 점수" 등 위 아이디어에 없는 내용을 작성하지 마세요**
+- ❌ **다른 예시나 템플릿 파일의 내용을 복사하지 마세요**
 
-**필수 사항:**
-- ✅ 위에 제공된 아이디어 제목과 내용을 **반드시 분석**하여 실제 내용을 작성하세요
-- ✅ 아이디어에서 언급된 **구체적인 문제점, 기능, 사용자**를 기반으로 작성하세요
-- ✅ 모든 섹션에 **실제 아이디어에서 추출한 구체적인 내용**을 포함하세요
-- ✅ 예시가 아닌 **실제 프로젝트 기획서**를 작성하세요
+**✅✅✅ 필수 사항 (반드시 준수):**
+- ✅ **위에 제공된 아이디어 제목과 내용만 분석**하여 실제 내용을 작성하세요
+- ✅ **아이디어에서 언급된 구체적인 문제점, 기능, 사용자만** 기반으로 작성하세요
+- ✅ **모든 섹션에 실제 아이디어에서 추출한 구체적인 내용만** 포함하세요
+- ✅ **예시가 아닌 실제 프로젝트 기획서**를 작성하세요
+- ✅ **아이디어의 실제 내용과 100% 일치하는 PRD만** 작성하세요
 
 ## PRD 작성 요구사항
 
@@ -721,38 +1013,11 @@ PRD를 작성할 때 다음 사항을 고려하여 아이디어를 다듬고 구
 
 ### 6. 프로젝트 구조
 
-#### 프로젝트 구조 다이어그램
-아이디어에서 제시된 기능을 기반으로 실제 프로젝트 구조를 Mermaid 다이어그램으로 작성하세요.
-
-**⚠️ CRITICAL: Mermaid 다이어그램 형식 규칙 (절대 준수):**
-1. **반드시 다음 형식을 정확히 따라야 합니다:**
-   \`\`\`mermaid
-   graph TB
-       A[노드1] --> B[노드2]
-   \`\`\`
-2. **절대 일반 코드 블록(\`\`\`)을 사용하지 마세요. 반드시 \`\`\`mermaid를 사용하세요.**
-3. **다이어그램 크기 제한 (화면 잘림 방지):**
-   - 노드 개수: 최대 8개
-   - 노드 텍스트: 최대 10자 (한글 기준)
-   - 레벨(깊이): 최대 3단계
-   - 이 제한을 초과하면 다이어그램을 여러 개로 나누어 작성하세요.
-4. **다이어그램 내용:**
-   - 다이어그램의 모든 노드(박스)는 아이디어에서 언급된 실제 기능명을 사용해야 합니다.
-   - 예시 텍스트("프로젝트 시작", "Phase 1: MVP" 등)를 그대로 사용하지 마세요.
-   - 아이디어의 실제 기능명을 사용하세요.
-
-**예시 (올바른 형식):**
-\`\`\`mermaid
-graph TB
-    A[사용자 인증] --> B[대시보드]
-    B --> C[데이터 분석]
-\`\`\`
-
-**예시 (잘못된 형식 - 사용 금지):**
-\`\`\`
-graph TB
-    A[프로젝트 시작] --> B[Phase 1]
-\`\`\`
+#### 프로젝트 구조 설명
+**⚠️⚠️⚠️ CRITICAL: 프로젝트 구조는 텍스트로만 논리적이고 체계적으로 설명하세요.**
+- Mermaid 다이어그램을 사용하지 마세요.
+- 텍스트로 각 컴포넌트와 그 관계를 명확히 설명하세요.
+- 예시: "프로젝트는 프론트엔드, 백엔드, 데이터베이스로 구성됩니다. 프론트엔드는 사용자 인터페이스를 담당하며, 백엔드와 REST API로 통신합니다. 백엔드는 비즈니스 로직을 처리하고 데이터베이스와 상호작용합니다."
 
 ### 6. 성공 지표
 
@@ -770,12 +1035,12 @@ graph TB
 - ✅ 예시 템플릿이 아닌 실제 프로젝트 기획서를 작성했는지 확인
 - ✅ 각 섹션을 매우 상세하고 구체적으로 작성했는지 확인
 - ✅ 실제 개발자가 바로 착수할 수 있을 정도로 구체적인 내용을 포함했는지 확인
-- ✅ Mermaid 다이어그램에 실제 기능명을 사용했는지 확인 (예시 텍스트 사용 금지)
+- ✅ 프로젝트 구조가 텍스트로 논리적이고 체계적으로 설명되었는지 확인
 - ✅ 마크다운 형식을 정확히 지켰는지 확인
 - ✅ 모든 아이디어에 대해 동일한 구조와 형식을 사용했는지 확인
 - ✅ 각 섹션이 박스 단위로 명확히 구분되어 있는지 확인
 - ✅ **문서를 완전히 마무리했는지 확인 (불완전한 문장으로 끝나면 안 됨)**
-- ✅ **Mermaid 다이어그램이 \`\`\`mermaid 형식으로 작성되었는지 확인 (일반 코드 블록 사용 금지)**
+- ✅ **Mermaid 다이어그램이 사용되지 않았는지 확인 (텍스트로만 작성)**
 - ✅ **이전 부분에 이미 작성된 섹션이나 다이어그램과 중복되지 않았는지 확인**
 - ✅ **제안서 내용을 그대로 출력하지 않았는지 확인 (제안서는 참고만 함)**
 - ✅ **문서 마지막 문장이 완전한 문장인지 확인 (예: "* 사용", "* 측정" 같은 불완전한 문장 금지)**`;
@@ -788,7 +1053,7 @@ graph TB
    */
   private buildPRDFromProposalPrompt(idea: Idea, proposalContent: string, partNumber?: number, previousParts?: string[]): string {
     const isMultiPart = partNumber !== undefined && partNumber > 1;
-    const totalParts = 10;
+    const totalParts = 7; // 7개 Part로 최적화: 각 Part가 명확한 섹션 하나만 담당
     
     // 이전 부분의 섹션 목록 추출 (중복 체크용)
     const extractSections = (content: string): string[] => {
@@ -804,38 +1069,35 @@ graph TB
     const previousContent = previousParts && previousParts.length > 0 
       ? `\n\n**⚠️ CRITICAL: 이전 부분 작성된 섹션 목록 (중복 방지 필수):**\n${previousParts.map((p, i) => {
           const sections = extractSections(p);
-          const mermaidDiagrams = (p.match(/```mermaid[\s\S]*?```/g) || []).length;
-          return `\n### Part ${i + 1} 작성된 내용\n**작성된 섹션:**\n${sections.length > 0 ? sections.map(s => `- ✅ ${s}`).join('\n') : '- (섹션 없음)'}\n**작성된 Mermaid 다이어그램:** ${mermaidDiagrams}개\n${p.substring(0, 2000)}${p.length > 2000 ? '\n\n...(이전 부분이 길어 일부만 표시했습니다.)' : ''}`;
-        }).join('\n\n---\n\n')}\n\n**⚠️ 중요 지시사항:**\n- 위 이전 부분에 **이미 작성된 섹션은 절대 다시 작성하지 마세요.**\n- 위 이전 부분에 **이미 작성된 다이어그램과 동일한 내용의 다이어그램을 작성하지 마세요.**\n- 이전 부분과 자연스럽게 연결되도록 작성하되, 내용은 완전히 새로운 것이어야 합니다.\n- **중복된 섹션이나 다이어그램이 발견되면 해당 부분을 건너뛰고 다음 섹션으로 진행하세요.**\n`
+          return `\n### Part ${i + 1} 작성된 내용\n**작성된 섹션:**\n${sections.length > 0 ? sections.map(s => `- ✅ ${s}`).join('\n') : '- (섹션 없음)'}\n${p.substring(0, 2000)}${p.length > 2000 ? '\n\n...(이전 부분이 길어 일부만 표시했습니다.)' : ''}`;
+        }).join('\n\n---\n\n')}\n\n**⚠️ 중요 지시사항:**\n- 위 이전 부분에 **이미 작성된 섹션은 절대 다시 작성하지 마세요.**\n- **Mermaid 다이어그램은 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 이전 부분과 자연스럽게 연결되도록 작성하되, 내용은 완전히 새로운 것이어야 합니다.\n- **중복된 섹션이나 내용이 발견되면 해당 부분을 건너뛰고 다음 섹션으로 진행하세요.**\n`
       : '';
     
     const partInfo = isMultiPart ? `\n\n**⚠️ 중요: 이것은 PRD의 ${partNumber}번째 부분입니다 (전체 ${totalParts}개 부분).**${previousContent}` : '';
     
-    // 각 부분별로 작성할 섹션 정의 (10개 부분)
+    // 각 부분별로 작성할 섹션 정의 (7개 부분) - Mermaid 사용 규칙 명확화
     const sectionGuide = partNumber === 1 
-      ? `- **Part 1 작성 내용**: 프로젝트 개요 섹션만 상세히 작성하세요.`
+      ? `- **Part 1 작성 내용**: **### 1. 프로젝트 개요** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 1. 프로젝트 개요"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**`
       : partNumber === 2
-      ? `- **Part 2 작성 내용**: 사용자 스토리 섹션만 상세히 작성하세요.\n- 프로젝트 개요 섹션은 작성하지 마세요 (Part 1에 이미 있음).`
+      ? `- **Part 2 작성 내용**: **### 2. 사용자 스토리** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 2. 사용자 스토리"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 이전 부분(1번)에 이미 작성된 섹션은 작성하지 마세요.`
       : partNumber === 3
-      ? `- **Part 3 작성 내용**: 기능 명세 섹션만 상세히 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      ? `- **Part 3 작성 내용**: **### 3. 기능 명세** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 3. 기능 명세"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 이전 부분(1, 2번)에 이미 작성된 섹션은 작성하지 마세요.`
       : partNumber === 4
-      ? `- **Part 4 작성 내용**: 화면 설계 섹션만 상세히 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      ? `- **Part 4 작성 내용**: **### 4. 화면 설계** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 4. 화면 설계"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 이전 부분(1, 2, 3번)에 이미 작성된 섹션은 작성하지 마세요.`
       : partNumber === 5
-      ? `- **Part 5 작성 내용**: 기술 요구사항 섹션만 상세히 작성하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
+      ? `- **Part 5 작성 내용**: **### 5. 기술 요구사항** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 5. 기술 요구사항"으로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- 이전 부분(1, 2, 3, 4번)에 이미 작성된 섹션은 작성하지 마세요.`
       : partNumber === 6
-      ? `- **Part 6 작성 내용**: 시스템 아키텍처 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: 시스템 아키텍처 다이어그램을 반드시 포함하세요. 다이어그램이 비어있으면 안 됩니다.**\n- **⚠️ CRITICAL: 다이어그램은 반드시 \`\`\`mermaid 형식을 사용하세요. 일반 코드 블록(\`\`\`)을 사용하지 마세요.**\n- 아이디어와 PRD를 분석하여 실제 시스템 아키텍처를 간결한 Mermaid 다이어그램으로 작성하세요.\n- 다이어그램 노드 텍스트는 최대 10자 이하로 작성하세요 (잘림 방지).\n- 다이어그램 노드는 최대 8개 이하로 작성하세요 (화면 크기 초과 방지).\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.\n- **⚠️ CRITICAL: 이전 부분에 이미 작성된 다이어그램과 동일한 내용의 다이어그램을 작성하지 마세요.**`
+      ? `- **Part 6 작성 내용**: **### 6. 프로젝트 구조** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 6. 프로젝트 구조"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요.**\n- **프로젝트 구조는 텍스트로 논리적이고 체계적으로 설명하세요.**\n- 예시: "프로젝트는 프론트엔드, 백엔드, 데이터베이스로 구성됩니다. 프론트엔드는 사용자 인터페이스를 담당하며, 백엔드와 REST API로 통신합니다. 백엔드는 비즈니스 로직을 처리하고 데이터베이스와 상호작용합니다."\n- 이전 부분(1, 2, 3, 4, 5번)에 이미 작성된 섹션은 작성하지 마세요.`
       : partNumber === 7
-      ? `- **Part 7 작성 내용**: 데이터베이스 설계 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: ERD 다이어그램과 주요 테이블 구조를 반드시 포함하세요. 빈 섹션이면 안 됩니다.**\n- **⚠️ CRITICAL: 다이어그램은 반드시 \`\`\`mermaid 형식을 사용하세요. 일반 코드 블록(\`\`\`)을 사용하지 마세요.**\n- 아이디어와 PRD를 분석하여 실제 데이터베이스 구조를 작성하세요.\n- ERD 다이어그램 노드 텍스트는 최대 10자 이하로 작성하세요 (잘림 방지).\n- 다이어그램 노드는 최대 8개 이하로 작성하세요 (화면 크기 초과 방지).\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.\n- **⚠️ CRITICAL: 이전 부분에 이미 작성된 다이어그램과 동일한 내용의 다이어그램을 작성하지 마세요.**`
-      : partNumber === 8
-      ? `- **Part 8 작성 내용**: 프로젝트 구조 섹션만 상세히 작성하세요.\n- **⚠️ CRITICAL: 프로젝트 구조 다이어그램을 반드시 포함하세요. 다이어그램이 비어있으면 안 됩니다.**\n- **⚠️ CRITICAL: 다이어그램은 반드시 \`\`\`mermaid 형식을 사용하세요. 일반 코드 블록(\`\`\`)을 사용하지 마세요.**\n- 다이어그램 노드 텍스트는 최대 10자 이하로 작성하세요 (잘림 방지).\n- 다이어그램 노드는 최대 8개 이하로 작성하세요 (화면 크기 초과 방지).\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.\n- **⚠️ CRITICAL: 이전 부분에 이미 작성된 다이어그램과 동일한 내용의 다이어그램을 작성하지 마세요.**`
-      : partNumber === 9
-      ? `- **Part 9 작성 내용**: 성공 지표 섹션만 상세히 작성하세요.\n- KPI 정의와 측정 방법을 모두 포함하세요.\n- 이전 부분에 이미 작성된 섹션은 작성하지 마세요.`
-      : partNumber === 10
-      ? `- **Part 10 작성 내용**: 문서 마무리 섹션을 작성하세요.\n- **⚠️ CRITICAL: 문서를 완전히 마무리하세요. 중간에 끊기지 않도록 마지막까지 작성하세요.**\n- **⚠️ CRITICAL: 문서 마지막은 반드시 완전한 문장으로 끝나야 합니다.**\n- 문서 마지막에 다음 중 하나로 자연스럽게 마무리하세요:\n  1. "## 완료 조건" 섹션 추가\n  2. "## 다음 단계" 섹션 추가\n  3. "## 참고 자료" 섹션 추가\n- **절대 불완전한 문장(예: "* 사용", "* 측정" 등)으로 끝나면 안 됩니다.**\n- 마지막 문장 예시: "이 PRD 문서는 위 내용을 기반으로 개발을 진행할 수 있도록 작성되었습니다."\n- 마지막 문장 예시: "위 KPI를 기준으로 프로젝트의 성공 여부를 측정할 수 있습니다."`
+      ? `- **Part 7 작성 내용**: **### 6. 성공 지표** 섹션만 상세히 작성하세요.\n- 섹션 번호는 반드시 "### 6. 성공 지표"로 시작하세요.\n- **⚠️⚠️⚠️ 절대 금지: 이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요. 텍스트로만 작성하세요. Mermaid는 Part 6에서만 작성되었습니다.**\n- **⚠️⚠️⚠️ CRITICAL: 이것은 마지막 Part입니다. 문서를 완전히 마무리하세요.**\n- KPI 정의와 측정 방법을 모두 포함하세요.\n- **⚠️⚠️⚠️ CRITICAL: 문서 마지막은 반드시 완전한 문장으로 끝나야 합니다.**\n- 문서 마지막에 "**_PRD 문서 완료._**" 또는 "**이 PRD 문서는 위 내용을 기반으로 개발을 진행할 수 있도록 작성되었습니다.**"로 마무리하세요.\n- **절대 불완전한 문장으로 끝나면 안 됩니다.**\n- **⚠️⚠️⚠️ CRITICAL: 문서를 마무리한 후에는 "## PRD 문서" 또는 다른 섹션을 추가로 작성하지 마세요.**\n- 이전 부분(1, 2, 3, 4, 5, 6번)에 이미 작성된 섹션은 작성하지 마세요.`
       : '';
+    
+    // Mermaid 다이어그램 완전 금지 (모든 Part에서)
+    const mermaidRule = `\n\n## ⚠️⚠️⚠️ CRITICAL: MERMAID 다이어그램 절대 금지 ⚠️⚠️⚠️\n**이 Part에서는 Mermaid 다이어그램(\`\`\`mermaid)을 절대 사용하지 마세요.**\n**텍스트로만 논리적이고 체계적으로 작성하세요. 다이어그램 없이도 충분히 명확한 설명이 가능합니다.**\n`;
     
     return `다음 원본 아이디어와 개선된 제안서를 기반으로 상세하고 구체적인 PRD(Product Requirements Document) 문서를 한국어로 작성해주세요.
 
+${mermaidRule}
 **⚠️ CRITICAL: 제안서 내용을 그대로 출력하지 마세요. 제안서는 참고 자료일 뿐이며, PRD 문서에 포함되면 안 됩니다.**
 
 ${partInfo}
@@ -869,11 +1131,11 @@ ${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요�
   }
 
   /**
-   * 제안서 생성 프롬프트 작성
-   * 기존 아이디어를 분석하여 개선된 제안서 작성
+   * 아이디어 평가 프롬프트 작성
+   * 3가지 점수(비타민/경쟁율/섹시함)와 난이도 평가
    */
-  private buildProposalPrompt(idea: Idea): string {
-    return `당신은 전문적인 제품 기획자입니다. 다음 Reddit 아이디어를 분석하여 개선된 제안서를 작성해주세요.
+  private buildScoringPrompt(idea: Idea): string {
+    return `당신은 전문적인 제품 기획자이자 시장 분석가입니다. 다음 Reddit 아이디어를 분석하여 3가지 기준으로 평가해주세요.
 
 ## 원본 아이디어 정보
 - **제목**: ${idea.title}
@@ -882,27 +1144,162 @@ ${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요�
 - **작성자**: ${idea.author}
 - **업보트**: ${idea.upvotes}
 
+## 평가 기준
+
+### 1. 비타민/약 점수 (0-10점)
+**의미**: 사용자에게 실제로 필요한가? (필수적인가?)
+- **10점**: 사용자가 반드시 필요로 하는 핵심 기능/서비스 (생활 필수품 수준)
+- **7-9점**: 매우 유용하고 실용적인 서비스 (자주 사용할 것)
+- **4-6점**: 유용하지만 선택적인 서비스 (가끔 사용할 것)
+- **1-3점**: 있으면 좋지만 필수는 아닌 서비스 (선택적)
+- **0점**: 거의 필요 없는 서비스
+
+### 2. 경쟁율 점수 (0-10점)
+**의미**: 시장에 경쟁자가 적은가? (시장 진입 가능성)
+- **10점**: 경쟁자가 거의 없거나 매우 적음 (블루오션)
+- **7-9점**: 경쟁자가 있지만 차별화 가능 (시장 진입 가능)
+- **4-6점**: 경쟁자가 많지만 차별화 포인트 있음 (경쟁 치열)
+- **1-3점**: 경쟁자가 매우 많고 차별화 어려움 (레드오션)
+- **0점**: 이미 포화된 시장 (진입 불가능)
+
+### 3. 섹시함 점수 (0-10점)
+**의미**: 사람들이 관심을 가질 만한가? (흥미/화제성)
+- **10점**: 매우 흥미롭고 화제가 될 만한 서비스 (바이럴 가능성 높음)
+- **7-9점**: 흥미롭고 관심을 끌 만한 서비스 (SNS 공유 가능)
+- **4-6점**: 평범하지만 유용한 서비스 (일부 사용자 관심)
+- **1-3점**: 특별하지 않은 서비스 (관심도 낮음)
+- **0점**: 거의 관심을 끌지 못할 서비스
+
+### 4. 업무 난이도 평가
+- **하**: 1-2주 이내 구현 가능 (간단한 기능, 기존 기술 스택 활용)
+- **중**: 1-2개월 구현 가능 (중간 규모, 일부 새로운 기술 필요)
+- **상**: 3개월 이상 구현 필요 (복잡한 기능, 많은 기술 스택 필요)
+
+## 출력 형식
+
+다음 JSON 형식으로만 응답해주세요:
+
+\`\`\`json
+{
+  "vitamin_score": 7,
+  "competition_score": 8,
+  "sexiness_score": 6,
+  "difficulty_level": "중",
+  "ai_analysis": {
+    "vitamin_reason": "이 서비스는 사용자가 실제로 필요로 하는 핵심 기능을 제공합니다. [구체적인 이유 설명]",
+    "competition_reason": "시장에 유사한 서비스가 있지만, 이 아이디어는 차별화된 접근 방식을 제시합니다. [구체적인 이유 설명]",
+    "sexiness_reason": "이 서비스는 사용자들에게 흥미를 끌 만한 요소가 있습니다. [구체적인 이유 설명]",
+    "difficulty_reason": "구현 난이도는 중간 수준입니다. [구체적인 이유 설명]",
+    "summary": "이 아이디어는 실용적이고 시장 진입 가능성이 있으며, 적당한 흥미를 끌 수 있는 서비스입니다. 총점 21점으로 우수한 아이디어입니다."
+  }
+}
+\`\`\`
+
+**⚠️ 중요 지시사항:**
+- 점수는 0-10 사이의 정수만 사용하세요.
+- difficulty_level은 반드시 "하", "중", "상" 중 하나만 사용하세요.
+- 각 점수에 대한 구체적인 이유를 명확히 설명하세요.
+- 아이디어의 실제 내용을 분석하여 객관적으로 평가하세요.
+- 과도하게 높거나 낮은 점수를 주지 마세요. 현실적으로 평가하세요.
+
+평가를 시작하세요.`;
+  }
+
+  /**
+   * 알림용 아이디어 요약 생성
+   */
+  async summarizeIdeaForNotification(idea: Idea, score: any): Promise<string> {
+    const prompt = `다음 아이디어를 간단히 요약해주세요. 알림 메시지에 사용될 것이므로 2-3줄로 간결하게 작성해주세요.
+
+## 아이디어 정보
+- **제목**: ${idea.title}
+- **내용**: ${idea.content.substring(0, 500)}${idea.content.length > 500 ? '...' : ''}
+- **점수**: 총 ${score.total_score}점 (비타민: ${score.vitamin_score}, 경쟁율: ${score.competition_score}, 섹시함: ${score.sexiness_score})
+
+## 요약 요구사항
+- 2-3줄로 간결하게 작성
+- 아이디어의 핵심 가치와 차별점 강조
+- 점수가 높은 이유 간단히 언급
+- 마크다운 형식 사용하지 말고 일반 텍스트로 작성
+
+요약:`;
+
+    let result: string;
+    if (this.config.provider === 'openrouter') {
+      result = await this.callOpenRouter(prompt);
+    } else if (this.config.provider === 'openai') {
+      result = await this.callOpenAI(prompt);
+    } else {
+      result = await this.callClaude(prompt);
+    }
+
+    // 결과 정리 (마크다운 제거, 불필요한 공백 제거)
+    return result
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/#{1,6}\s+/g, '')
+      .replace(/\*\*/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  /**
+   * 제안서 생성 프롬프트 작성
+   * 기존 아이디어를 분석하여 개선된 제안서 작성
+   */
+  private buildProposalPrompt(idea: Idea, userPrompt?: string): string {
+    const userPromptSection = userPrompt 
+      ? `\n\n## 사용자 추가 요구사항\n**사용자가 추가로 요청한 개선 사항:**\n${userPrompt}\n\n**⚠️ 중요**: 위 사용자 요구사항을 반드시 반영하여 제안서를 작성하세요. 사용자의 의도를 정확히 파악하고, 기존 제안서보다 더 구체적이고 개선된 내용으로 작성하세요.\n`
+      : '';
+
+    return `당신은 전문적인 제품 기획자이자 서비스 설계 전문가입니다. 다음 Reddit 아이디어를 분석하여 **실제로 상품으로 판매할 수 있을 정도로 재밌고 신선하고 유용하고 효율적인 서비스**로 발전시킨 제안서를 작성해주세요.
+
+## 원본 아이디어 정보
+- **제목**: ${idea.title}
+- **내용**: ${idea.content}
+- **서브레딧**: r/${idea.subreddit}
+- **작성자**: ${idea.author}
+- **업보트**: ${idea.upvotes}
+${userPromptSection}
 ## 제안서 작성 목표
 
-기존 아이디어가 단순하거나 추상적이거나, 기존에 비슷한 프로그램이 있을 수 있습니다. 
-이를 분석하고 개선하여 더 구체적이고 실행 가능한 제안서로 발전시켜주세요.
+**⚠️ CRITICAL: 이 제안서는 단순히 아이디어를 정리하는 수준이 아닙니다.**
 
-### 1. 아이디어 분석 및 개선
-- **문제 정의 명확화**: 원본 아이디어의 핵심 문제를 더 구체적으로 정의
-- **타겟 사용자 구체화**: 누가 이 문제를 겪는지, 얼마나 많은 사람들이 영향을 받는지
-- **경쟁 분석**: 유사한 솔루션이 있는지, 기존 솔루션의 한계점은 무엇인지
-- **차별화 포인트**: 기존 솔루션 대비 이 아이디어의 고유한 가치와 차별점
+당신은 전문가가 서비스를 만들어서 배포한다고 생각했을 때, "이 정도 서비스는 아쉬운데?" 하는 기분이 들지 않게 **잘 개선하고 정리된 제안서**를 작성해야 합니다.
 
-### 2. 아이디어 구체화
-- **핵심 기능 명확화**: MVP에서 반드시 필요한 기능만 선별
-- **사용자 시나리오**: 실제 사용자가 어떻게 사용할지 구체적인 시나리오 제시
-- **기술적 실현 가능성**: 현재 기술로 구현 가능한지, 필요한 기술 스택은 무엇인지
-- **비즈니스 모델**: 수익화 방안 (선택사항)
+원본 아이디어는 단순하고 추상적일 수 있습니다. 이를 다음과 같이 개선하세요:
 
-### 3. 실행 계획
-- **개발 단계**: MVP → Phase 2 → Phase 3 순서로 단계적 확장 계획
-- **예상 기간**: 각 단계별 예상 개발 기간
-- **필요 리소스**: 개발자 수, 예산, 인프라 등
+### 1. 아이디어 분석 및 개선 (필수)
+- **문제 정의 명확화**: 원본 아이디어의 핵심 문제를 더 구체적이고 측정 가능하게 정의
+- **타겟 사용자 구체화**: 
+  - 누가 이 문제를 겪는지 (구체적인 페르소나)
+  - 얼마나 많은 사람들이 영향을 받는지 (시장 규모)
+  - 사용자의 구체적인 니즈와 페인 포인트
+- **경쟁 분석**: 
+  - 유사한 솔루션이 있는지 철저히 조사
+  - 기존 솔루션의 한계점과 사용자 불만사항
+  - 시장에서 놓치고 있는 기회
+- **차별화 포인트**: 
+  - 기존 솔루션 대비 이 아이디어의 고유한 가치와 차별점
+  - 왜 사용자가 이 서비스를 선택해야 하는지 명확한 이유
+
+### 2. 아이디어 구체화 및 기능 설계 (필수)
+- **핵심 기능 명확화**: 
+  - MVP에서 반드시 필요한 핵심 기능만 선별 (3-5개)
+  - 각 기능의 구체적인 동작 방식과 사용자 경험
+  - "이런 기능을 추가해서 만들면 어떨까?" - 실제로 추가할 만한 가치 있는 기능 제안
+- **기능 개선 및 삭제**: 
+  - "이런 기능을 개선하거나, 이런 부분은 삭제해서 더 좋은 서비스를 만들 수 있을 거 같다"
+  - 원본 아이디어에서 불필요하거나 개선이 필요한 부분 식별
+  - 더 효율적이고 사용자 친화적인 대안 제시
+- **사용자 시나리오**: 
+  - 실제 사용자가 어떻게 사용할지 구체적인 시나리오 제시 (최소 3개)
+  - 각 시나리오에서 사용자가 얻는 가치와 만족도
+- **기술적 실현 가능성**: 
+  - 현재 기술로 구현 가능한지, 필요한 기술 스택은 무엇인지
+  - 기술적 제약사항과 해결 방안
+- **비즈니스 모델**: 
+  - 수익화 방안 (무료/유료/프리미엄 등)
+  - 지속 가능한 비즈니스 모델 제안
 
 ## 제안서 작성 형식
 
@@ -916,28 +1313,33 @@ ${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요�
 - **개선 목표**: [이 제안서가 해결하려는 문제]
 - **핵심 가치**: [이 제안서의 핵심 가치 제안]
 
-## 2. 문제 정의
-- **문제 상황**: [구체적인 문제 상황 설명]
-- **영향받는 사용자**: [타겟 사용자 그룹과 규모]
-- **현재 솔루션의 한계**: [기존 솔루션이 있다면 그 한계점]
+## 2. 문제 정의 및 시장 분석
+- **문제 상황**: [구체적인 문제 상황 설명 - 사용자의 실제 페인 포인트]
+- **영향받는 사용자**: [타겟 사용자 그룹과 규모 - 구체적인 페르소나]
+- **현재 솔루션의 한계**: [기존 솔루션이 있다면 그 한계점과 사용자 불만사항]
+- **시장 기회**: [이 문제를 해결할 시장의 잠재력]
 
 ## 3. 제안 솔루션
-- **핵심 기능**: [MVP에서 반드시 필요한 핵심 기능 3-5개]
-- **차별화 포인트**: [기존 솔루션 대비 차별점]
-- **기술 스택**: [권장 기술 스택과 이유]
+- **핵심 기능**: [MVP에서 반드시 필요한 핵심 기능 3-5개 - 각 기능의 구체적인 동작 방식 설명]
+- **추가 제안 기능**: [원본 아이디어에 없지만 추가하면 좋을 기능들]
+- **개선/삭제 제안**: [원본 아이디어에서 개선하거나 삭제할 부분과 그 이유]
+- **차별화 포인트**: [기존 솔루션 대비 차별점 - 왜 사용자가 이 서비스를 선택해야 하는지]
+- **기술 스택**: [권장 기술 스택과 이유 - 구체적인 기술 선택 근거]
 
 ## 4. 사용자 시나리오
-- **시나리오 1**: [구체적인 사용자 시나리오]
+- **시나리오 1**: [구체적인 사용자 시나리오 - 사용자가 어떻게 사용하고 어떤 가치를 얻는지]
 - **시나리오 2**: [추가 시나리오]
+- **시나리오 3**: [추가 시나리오]
 
 ## 5. 실행 계획
-- **Phase 1 (MVP)**: [4주 이내, 핵심 기능만]
-- **Phase 2**: [추가 기능 확장]
-- **Phase 3**: [장기 비전]
+- **Phase 1 (MVP)**: [4주 이내, 핵심 기능만 - 구체적인 기능 목록과 개발 순서]
+- **Phase 2**: [추가 기능 확장 - 어떤 기능을 언제 추가할지]
+- **Phase 3**: [장기 비전 - 서비스의 장기적인 발전 방향]
 
-## 6. 예상 성과
-- **사용자 가치**: [사용자가 얻을 수 있는 가치]
-- **비즈니스 가치**: [비즈니스 관점에서의 가치, 선택사항]
+## 6. 예상 성과 및 지표
+- **사용자 가치**: [사용자가 얻을 수 있는 가치 - 구체적으로]
+- **비즈니스 가치**: [비즈니스 관점에서의 가치 - 수익화 방안 포함]
+- **성공 지표**: [서비스 성공을 측정할 수 있는 구체적인 지표]
 \`\`\`
 
 ## ⚠️ 중요 지시사항
@@ -945,14 +1347,18 @@ ${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요�
 **절대 금지 사항:**
 - ❌ 플레이스홀더나 예시 템플릿을 그대로 사용하지 마세요
 - ❌ 일반적인 설명이나 추상적인 내용만 작성하지 마세요
-- ❌ 원본 아이디어를 단순히 복사하지 마세요
+- ❌ 원본 아이디어를 단순히 복사하거나 정리하는 수준으로 작성하지 마세요
+- ❌ "이런 기능을 추가하면 좋을 것 같다"는 식의 모호한 제안만 하지 마세요
 
 **필수 사항:**
 - ✅ 원본 아이디어를 **반드시 분석**하여 실제 개선 내용을 작성하세요
-- ✅ 구체적이고 실행 가능한 제안을 작성하세요
+- ✅ **"이런 기능을 추가해서 만들면 어떨까?"** - 구체적인 기능 제안과 그 가치를 명확히 제시하세요
+- ✅ **"이런 기능을 개선하거나, 이런 부분은 삭제해서 더 좋은 서비스를 만들 수 있을 거 같다"** - 구체적인 개선/삭제 제안과 그 이유를 제시하세요
+- ✅ 구체적이고 실행 가능한 제안을 작성하세요 - 전문가가 바로 개발을 시작할 수 있을 정도로 구체적으로
 - ✅ 경쟁 분석과 차별화 포인트를 명확히 제시하세요
 - ✅ 실제 구현 가능한 기술 스택을 제안하세요
 - ✅ 모든 내용은 원본 아이디어에서 발전시킨 구체적인 내용이어야 합니다
+- ✅ **실제로 상품으로 판매할 수 있을 정도로 재밌고 신선하고 유용하고 효율적인 서비스**로 발전시켜야 합니다
 
 제안서를 작성해주세요.`;
   }

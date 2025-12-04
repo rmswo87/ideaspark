@@ -14,7 +14,9 @@ import type { IdeaImplementation } from '@/services/implementationService';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Sparkles, ArrowLeft, Trash2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Loader2, Sparkles, ArrowLeft, Trash2, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Idea } from '@/services/ideaService';
 import type { PRD } from '@/services/prdService';
@@ -35,6 +37,8 @@ function IdeaDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [prdProgress, setPrdProgress] = useState(0);
+  const [userProposalPrompt, setUserProposalPrompt] = useState('');
+  const [showProposalPromptInput, setShowProposalPromptInput] = useState(false);
   const progressAnimationRef = useRef<number | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -235,7 +239,9 @@ function IdeaDetailPage() {
     setError(null);
     
     try {
-      // 선택된 제안서가 있으면 제안서 내용을 기반으로 PRD 생성
+      // PRD 생성 옵션 확인
+      // 1. 선택된 제안서가 있으면 제안서 내용을 기반으로 PRD 생성
+      // 2. 제안서가 없으면 기본 아이디어를 기반으로 PRD 생성
       const selectedProposal = proposals.find(p => p.id === selectedProposalId);
       const proposalContent = selectedProposal?.content;
       
@@ -275,7 +281,7 @@ function IdeaDetailPage() {
     }
   }
 
-  async function handleGenerateProposal() {
+  async function handleGenerateProposal(customPrompt?: string) {
     if (!user || !id) {
       alert('로그인이 필요합니다.');
       return;
@@ -286,7 +292,7 @@ function IdeaDetailPage() {
     // 기존 제안서 확인
     try {
       const existingProposals = await getProposals({ ideaId: id, userId: user.id, limit: 1 });
-      if (existingProposals.length > 0) {
+      if (existingProposals.length > 0 && !customPrompt) {
         const confirmMessage = '이미 이 아이디어에 대한 제안서가 있습니다. 새로 생성하시겠습니까? (기존 제안서는 유지됩니다)';
         if (!confirm(confirmMessage)) {
           return;
@@ -300,7 +306,7 @@ function IdeaDetailPage() {
     setError(null);
     
     try {
-      const newProposal = await generateProposal(id, user.id);
+      const newProposal = await generateProposal(id, user.id, customPrompt);
       
       if (!isMountedRef.current) return;
       
@@ -641,10 +647,51 @@ function IdeaDetailPage() {
                     {proposal.content}
                   </ReactMarkdown>
                 </div>
+                
+                {/* 사용자 프롬프트 입력 영역 */}
+                <Card className="mb-4 border-primary/20">
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="proposal-prompt" className="text-sm font-medium">
+                          제안서 개선 프롬프트 (선택사항)
+                        </Label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowProposalPromptInput(!showProposalPromptInput);
+                            if (showProposalPromptInput) {
+                              setUserProposalPrompt('');
+                            }
+                          }}
+                        >
+                          {showProposalPromptInput ? '닫기' : '프롬프트 입력'}
+                        </Button>
+                      </div>
+                      {showProposalPromptInput && (
+                        <>
+                          <Textarea
+                            id="proposal-prompt"
+                            placeholder="예: 더 구체적인 사용자 시나리오를 추가해주세요. 또는 특정 기능을 강조해서 작성해주세요."
+                            value={userProposalPrompt}
+                            onChange={(e) => setUserProposalPrompt(e.target.value)}
+                            rows={4}
+                            className="resize-none"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            제안서를 더 개선하고 싶은 부분을 자유롭게 입력하세요. 예: "이런 기능을 추가해서 만들면 어떨까?", "이런 부분은 개선하거나 삭제해서 더 좋은 서비스를 만들 수 있을 거 같다"
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   {/* 버튼 순서 고정: 제안서 작성 -> PRD 생성 */}
                   <Button
-                    onClick={handleGenerateProposal}
+                    onClick={() => handleGenerateProposal(userProposalPrompt || undefined)}
                     disabled={generatingProposal || generating || !user}
                     size="lg"
                     variant="outline"
@@ -653,6 +700,11 @@ function IdeaDetailPage() {
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         제안서 생성 중...
+                      </>
+                    ) : userProposalPrompt ? (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        프롬프트로 제안서 개선
                       </>
                     ) : (
                       <>
@@ -768,7 +820,7 @@ function IdeaDetailPage() {
             <CardContent className="py-6">
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
-                  onClick={handleGenerateProposal}
+                  onClick={() => handleGenerateProposal()}
                   disabled={generatingProposal || generating || !user}
                   variant="outline"
                   size="lg"
@@ -823,7 +875,7 @@ function IdeaDetailPage() {
                   아이디어가 단순하거나 추상적일 때, 제안서를 먼저 작성하여 아이디어를 구체화하고 개선할 수 있습니다.
                 </p>
                 <Button
-                  onClick={handleGenerateProposal}
+                  onClick={() => handleGenerateProposal()}
                   disabled={generatingProposal || generating || !user}
                   size="lg"
                   variant="default"
