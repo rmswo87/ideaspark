@@ -435,7 +435,8 @@ function HomePage() {
 
               {/* 통계 정보 - 컴팩트하게 표시 */}
               {stats.total > 0 && (
-                <div className="flex flex-col gap-1.5 pt-2 border-t border-border/30">
+                <div className="flex flex-col gap-2 pt-2 border-t border-border/30">
+                  {/* 첫 번째 줄: 총 개수 및 카테고리 */}
                   <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground">
                     <span className="font-semibold text-foreground">총 {stats.total}개</span>
                     {Object.entries(stats.byCategory).length > 0 && (
@@ -474,46 +475,46 @@ function HomePage() {
                         </div>
                       </>
                     )}
-                    {Object.entries(stats.bySubreddit || {}).length > 0 && (
-                      <>
-                        <span className="opacity-50">·</span>
-                        <span className="font-medium">서브레딧:</span>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {Object.entries(stats.bySubreddit || {})
-                            .sort(([, a], [, b]) => (b as number) - (a as number))
-                            .slice(0, 4)
-                            .map(([sub, count]) => {
-                              const isSelected = selectedSubreddits.has(sub);
-                              return (
-                                <button
-                                  key={sub}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedSubreddits(prev => {
-                                      const newSet = new Set(prev);
-                                      if (newSet.has(sub)) {
-                                        newSet.delete(sub);
-                                      } else {
-                                        newSet.add(sub);
-                                      }
-                                      return newSet;
-                                    });
-                                    setSubredditFilter('all');
-                                  }}
-                                  className={`px-2 py-0.5 rounded-full text-[10px] transition-all duration-300 cursor-pointer font-medium ${
-                                    isSelected 
-                                      ? 'bg-primary text-primary-foreground shadow-sm' 
-                                      : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50'
-                                  }`}
-                                >
-                                  r/{sub} ({count})
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </>
-                    )}
                   </div>
+                  {/* 두 번째 줄: 서브레딧 (별도 줄) */}
+                  {Object.entries(stats.bySubreddit || {}).length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground">
+                      <span className="font-medium">서브레딧:</span>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {Object.entries(stats.bySubreddit || {})
+                          .sort(([, a], [, b]) => (b as number) - (a as number))
+                          .slice(0, 4)
+                          .map(([sub, count]) => {
+                            const isSelected = selectedSubreddits.has(sub);
+                            return (
+                              <button
+                                key={sub}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSubreddits(prev => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(sub)) {
+                                      newSet.delete(sub);
+                                    } else {
+                                      newSet.add(sub);
+                                    }
+                                    return newSet;
+                                  });
+                                  setSubredditFilter('all');
+                                }}
+                                className={`px-2 py-0.5 rounded-full text-[10px] transition-all duration-300 cursor-pointer font-medium ${
+                                  isSelected 
+                                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                                    : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50'
+                                }`}
+                              >
+                                r/{sub} ({count})
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -560,10 +561,11 @@ function HomePage() {
           <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
             <div 
               id="filtered-ideas-grid"
-              className="mt-4 sm:mt-6 p-2 sm:p-4 bg-gradient-to-br from-background via-background to-muted/10 rounded-xl border border-border/50 shadow-lg"
+              className="mt-4 sm:mt-6 p-3 sm:p-5 bg-gradient-to-br from-muted/30 via-muted/20 to-muted/40 rounded-xl border-2 border-border/60 shadow-2xl backdrop-blur-sm"
               style={{ 
                 opacity: loading ? 0.5 : 1,
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05)'
               }}
             >
               <div className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 transition-all duration-500 w-full max-w-full">
