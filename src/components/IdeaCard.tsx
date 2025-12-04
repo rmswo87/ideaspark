@@ -16,7 +16,7 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
   return (
     <Card 
       className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer w-full max-w-full overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm min-w-0 box-border h-full flex flex-col"
-      style={{ boxSizing: 'border-box', minHeight: '280px' }}
+      style={{ boxSizing: 'border-box', minHeight: '186px' }}
       onClick={(e) => {
         // 버튼이나 링크 클릭이 아닌 경우에만 상세 페이지로 이동
         const target = e.target as HTMLElement;
@@ -26,13 +26,13 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
         onCardClick();
       }}
     >
-      <CardHeader className="relative pb-3 space-y-2 min-w-0 overflow-hidden pt-4 sm:pt-5">
+      <CardHeader className="relative pb-2 space-y-1.5 min-w-0 overflow-hidden pt-3 sm:pt-4">
         {recommendationReason && (
-          <div className="absolute top-2 left-3 sm:top-3 bg-primary/15 text-primary text-[10px] sm:text-xs px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full backdrop-blur-sm z-10 max-w-[calc(100%-1rem)] truncate border border-primary/20 shadow-sm">
+          <div className="absolute top-1.5 left-2 sm:top-2 bg-primary/15 text-primary text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm z-10 max-w-[calc(100%-1rem)] truncate border border-primary/20 shadow-sm">
             {recommendationReason}
           </div>
         )}
-        <CardTitle className="line-clamp-2 mt-10 sm:mt-12 text-base sm:text-lg break-words group-hover:text-primary transition-colors duration-300 font-semibold min-w-0 overflow-hidden">
+        <CardTitle className="line-clamp-2 mt-6 sm:mt-8 text-sm sm:text-base break-words group-hover:text-primary transition-colors duration-300 font-semibold min-w-0 overflow-hidden">
           {idea.title}
         </CardTitle>
         <CardDescription className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm flex-wrap text-muted-foreground/80 min-w-0 overflow-hidden">
@@ -42,8 +42,8 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
           <span className="truncate text-primary/70 min-w-0">r/{idea.subreddit}</span>
         </CardDescription>
       </CardHeader>
-      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6 min-w-0 overflow-hidden">
-        <div className="mb-3 sm:mb-4 h-[80px] sm:h-[100px] min-w-0 overflow-hidden">
+      <CardContent className="px-3 sm:px-4 pb-2 sm:pb-3 min-w-0 overflow-hidden">
+        <div className="mb-2 sm:mb-3 h-[60px] sm:h-[70px] min-w-0 overflow-hidden">
           <p className="text-xs sm:text-sm text-muted-foreground line-clamp-5 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
             {idea.content || '내용 없음'}
           </p>
@@ -58,7 +58,7 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
           </div>
         </div>
         
-        <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2 min-w-0 overflow-hidden">
+        <div className="flex items-center justify-between mb-2 sm:mb-3 flex-wrap gap-1.5 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap min-w-0 overflow-hidden">
             <span className="flex items-center gap-1.5 opacity-70">
               <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />

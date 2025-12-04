@@ -304,13 +304,7 @@ function HomePage() {
 
       {/* Main Content - 모바일 최적화 */}
       <main className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-6 pb-20 md:pb-8 overflow-x-hidden max-w-6xl">
-        <div className="mb-4 sm:mb-5 space-y-3 sm:space-y-4">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              아이디어 대시보드
-            </h2>
-          </div>
-
+        <div className="mb-2 sm:mb-3 space-y-3 sm:space-y-4">
           {/* Search and Filter - 통합된 컴팩트 디자인 */}
           <div className="space-y-2.5">
             {/* 검색 및 수집 버튼 */}
@@ -435,9 +429,9 @@ function HomePage() {
 
               {/* 통계 정보 - 컴팩트하게 표시 */}
               {stats.total > 0 && (
-                <div className="flex flex-col gap-2 pt-2 border-t border-border/30">
+                <div className="flex flex-col gap-2.5 pt-2 border-t border-border/30">
                   {/* 첫 번째 줄: 총 개수 및 카테고리 */}
-                  <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm text-muted-foreground">
                     <span className="font-semibold text-foreground">총 {stats.total}개</span>
                     {Object.entries(stats.byCategory).length > 0 && (
                       <>
@@ -462,7 +456,7 @@ function HomePage() {
                                   });
                                   setCategoryFilter('all');
                                 }}
-                                className={`px-2 py-0.5 rounded-full text-[10px] transition-all duration-300 cursor-pointer font-medium ${
+                                className={`px-2.5 py-1 rounded-full text-xs transition-all duration-300 cursor-pointer font-medium ${
                                   isSelected 
                                     ? 'bg-primary text-primary-foreground shadow-sm' 
                                     : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50'
@@ -478,7 +472,7 @@ function HomePage() {
                   </div>
                   {/* 두 번째 줄: 서브레딧 (별도 줄) */}
                   {Object.entries(stats.bySubreddit || {}).length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm text-muted-foreground">
                       <span className="font-medium">서브레딧:</span>
                       <div className="flex gap-1.5 flex-wrap">
                         {Object.entries(stats.bySubreddit || {})
@@ -502,7 +496,7 @@ function HomePage() {
                                   });
                                   setSubredditFilter('all');
                                 }}
-                                className={`px-2 py-0.5 rounded-full text-[10px] transition-all duration-300 cursor-pointer font-medium ${
+                                className={`px-2.5 py-1 rounded-full text-xs transition-all duration-300 cursor-pointer font-medium ${
                                   isSelected 
                                     ? 'bg-primary text-primary-foreground shadow-sm' 
                                     : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50'
