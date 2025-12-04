@@ -17,11 +17,13 @@ export interface Proposal {
 /**
  * 아이디어를 기반으로 제안서 생성
  * 기존 아이디어를 분석하여 개선된 제안서 작성
+ * @param existingProposalContent 기존 제안서 내용 (있으면 이를 기반으로 개선)
  */
 export async function generateProposal(
   ideaId: string,
   userId: string,
-  userPrompt?: string
+  userPrompt?: string,
+  existingProposalContent?: string
 ): Promise<Proposal> {
   // 아이디어 조회
   const { data: idea, error: ideaError } = await supabase
@@ -37,7 +39,7 @@ export async function generateProposal(
   // AI로 제안서 생성
   let proposalContent: string;
   try {
-    proposalContent = await aiClient.generateProposal(idea as Idea, userPrompt);
+    proposalContent = await aiClient.generateProposal(idea as Idea, userPrompt, existingProposalContent);
   } catch (error) {
     console.error('Proposal generation error:', error);
     throw new Error(`제안서 생성 실패: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -290,12 +290,19 @@ function IdeaDetailPage() {
     if (!isMountedRef.current) return;
 
     // 기존 제안서 확인
+    let existingProposalContent: string | undefined;
     try {
       const existingProposals = await getProposals({ ideaId: id, userId: user.id, limit: 1 });
-      if (existingProposals.length > 0 && !customPrompt) {
-        const confirmMessage = '이미 이 아이디어에 대한 제안서가 있습니다. 새로 생성하시겠습니까? (기존 제안서는 유지됩니다)';
-        if (!confirm(confirmMessage)) {
-          return;
+      if (existingProposals.length > 0) {
+        if (customPrompt) {
+          // 사용자 프롬프트가 있으면 기존 제안서를 기반으로 개선
+          existingProposalContent = existingProposals[0].content;
+        } else {
+          // 사용자 프롬프트가 없으면 확인 메시지 표시
+          const confirmMessage = '이미 이 아이디어에 대한 제안서가 있습니다. 새로 생성하시겠습니까? (기존 제안서는 유지됩니다)';
+          if (!confirm(confirmMessage)) {
+            return;
+          }
         }
       }
     } catch (error) {
@@ -306,7 +313,7 @@ function IdeaDetailPage() {
     setError(null);
     
     try {
-      const newProposal = await generateProposal(id, user.id, customPrompt);
+      const newProposal = await generateProposal(id, user.id, customPrompt, existingProposalContent);
       
       if (!isMountedRef.current) return;
       
@@ -657,7 +664,7 @@ function IdeaDetailPage() {
                           제안서 개선 프롬프트 (선택사항)
                         </Label>
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
                           onClick={() => {
                             setShowProposalPromptInput(!showProposalPromptInput);

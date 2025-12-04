@@ -269,10 +269,11 @@ class AIClient {
 
   /**
    * 아이디어를 기반으로 개선된 제안서 생성
+   * @param existingProposalContent 기존 제안서 내용 (있으면 이를 기반으로 개선)
    */
-  async generateProposal(idea: Idea, userPrompt?: string): Promise<string> {
+  async generateProposal(idea: Idea, userPrompt?: string, existingProposalContent?: string): Promise<string> {
     try {
-      const prompt = this.buildProposalPrompt(idea, userPrompt);
+      const prompt = this.buildProposalPrompt(idea, userPrompt, existingProposalContent);
 
       let result: string;
       if (this.config.provider === 'openrouter') {
@@ -335,9 +336,18 @@ class AIClient {
       
       parts.push(partContent);
       
-      // 각 부분 완료 시 진행률 업데이트 (각 부분은 약 20%씩, 마지막 합치기는 20%)
-      const partProgress = Math.floor((partNum / totalParts) * 80);
-      if (onProgress) onProgress(partProgress);
+      // 각 부분 완료 시 진행률 업데이트 (부드럽게 증가하도록 작은 단위로)
+      // 각 부분은 약 80/totalParts%씩, 합치기는 20%
+      // 부드러운 진행을 위해 여러 단계로 나눠서 업데이트
+      if (onProgress) {
+        const steps = 10; // 각 부분을 10단계로 나눔
+        for (let step = 1; step <= steps; step++) {
+          const stepProgress = Math.floor(((partNum - 1) / totalParts) * 80 + (step / steps) * (80 / totalParts));
+          setTimeout(() => {
+            if (onProgress) onProgress(stepProgress);
+          }, step * 50); // 50ms 간격으로 업데이트
+        }
+      }
       
       // 마지막 부분이 아니면 잠시 대기 (API rate limit 방지)
       if (partNum < totalParts) {
@@ -1245,13 +1255,23 @@ ${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요�
   /**
    * 제안서 생성 프롬프트 작성
    * 기존 아이디어를 분석하여 개선된 제안서 작성
+   * @param existingProposalContent 기존 제안서 내용 (있으면 이를 기반으로 개선)
    */
-  private buildProposalPrompt(idea: Idea, userPrompt?: string): string {
-    const userPromptSection = userPrompt 
-      ? `\n\n## 사용자 추가 요구사항\n**사용자가 추가로 요청한 개선 사항:**\n${userPrompt}\n\n**⚠️ 중요**: 위 사용자 요구사항을 반드시 반영하여 제안서를 작성하세요. 사용자의 의도를 정확히 파악하고, 기존 제안서보다 더 구체적이고 개선된 내용으로 작성하세요.\n`
+  private buildProposalPrompt(idea: Idea, userPrompt?: string, existingProposalContent?: string): string {
+    // 기존 제안서 섹션
+    const existingProposalSection = existingProposalContent
+      ? `\n\n## 기존 제안서 내용\n**⚠️ CRITICAL: 아래 기존 제안서를 반드시 기반으로 하여 개선하세요. 기존 제안서의 핵심 내용과 구조를 유지하면서 사용자 요구사항을 반영하여 개선하세요.**\n\n${existingProposalContent}\n\n**⚠️ 중요**: 위 기존 제안서를 완전히 무시하고 새로운 아이디어를 만들지 마세요. 기존 제안서의 내용을 기반으로 하되, 사용자 요구사항을 반영하여 개선하세요.\n`
       : '';
 
-    return `당신은 전문적인 제품 기획자이자 서비스 설계 전문가입니다. 다음 Reddit 아이디어를 분석하여 **실제로 상품으로 판매할 수 있을 정도로 재밌고 신선하고 유용하고 효율적인 서비스**로 발전시킨 제안서를 작성해주세요.
+    const userPromptSection = userPrompt 
+      ? `\n\n## 사용자 추가 요구사항\n**사용자가 추가로 요청한 개선 사항:**\n${userPrompt}\n\n**⚠️ 중요**: 위 사용자 요구사항을 반드시 반영하여 제안서를 작성하세요. 사용자의 의도를 정확히 파악하고, 기존 제안서를 기반으로 하되 더 구체적이고 개선된 내용으로 작성하세요.\n`
+      : '';
+
+    const baseInstruction = existingProposalContent
+      ? `당신은 전문적인 제품 기획자이자 서비스 설계 전문가입니다. **기존 제안서를 기반으로** 사용자 요구사항을 반영하여 개선된 제안서를 작성해주세요. 기존 제안서의 핵심 내용과 구조를 유지하면서 사용자가 요청한 개선 사항을 반영하세요.`
+      : `당신은 전문적인 제품 기획자이자 서비스 설계 전문가입니다. 다음 Reddit 아이디어를 분석하여 **실제로 상품으로 판매할 수 있을 정도로 재밌고 신선하고 유용하고 효율적인 서비스**로 발전시킨 제안서를 작성해주세요.`;
+
+    return `${baseInstruction}
 
 ## 원본 아이디어 정보
 - **제목**: ${idea.title}
@@ -1259,7 +1279,7 @@ ${this.buildPRDPrompt(idea, partNumber, previousParts).split('## PRD 작성 요�
 - **서브레딧**: r/${idea.subreddit}
 - **작성자**: ${idea.author}
 - **업보트**: ${idea.upvotes}
-${userPromptSection}
+${existingProposalSection}${userPromptSection}
 ## 제안서 작성 목표
 
 **⚠️ CRITICAL: 이 제안서는 단순히 아이디어를 정리하는 수준이 아닙니다.**
