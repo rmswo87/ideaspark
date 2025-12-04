@@ -311,213 +311,212 @@ function HomePage() {
             </h2>
           </div>
 
-          {/* Stats */}
-          {stats.total > 0 && (
-            <div className="flex flex-col gap-2 sm:gap-3 text-xs sm:text-sm mb-3 sm:mb-4 p-3 sm:p-4 bg-muted/30 rounded-lg border border-border/50 backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-foreground">총 {stats.total}개 아이디어</span>
-              </div>
-              {Object.entries(stats.byCategory).length > 0 && (
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                  <span className="font-medium whitespace-nowrap text-foreground/80">카테고리:</span>
-                  <div className="flex gap-2 flex-wrap">
-                    {Object.entries(stats.byCategory).map(([cat, count]) => {
-                      const isSelected = selectedCategories.has(cat);
-                      return (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategories(prev => {
-                              const newSet = new Set(prev);
-                              if (newSet.has(cat)) {
-                                newSet.delete(cat);
-                              } else {
-                                newSet.add(cat);
-                              }
-                              return newSet;
-                            });
-                            // 드롭다운 필터 초기화
-                            setCategoryFilter('all');
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-xs transition-all duration-300 cursor-pointer min-h-[32px] sm:min-h-0 font-medium ${
-                            isSelected 
-                              ? 'bg-primary text-primary-foreground shadow-sm scale-105' 
-                              : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary hover:scale-105 border border-border/50'
-                          }`}
-                        >
-                          {cat} <span className="opacity-70">({count})</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {Object.entries(stats.bySubreddit || {}).length > 0 && (
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                  <span className="font-medium whitespace-nowrap text-foreground/80">서브레딧:</span>
-                  <div className="flex gap-2 flex-wrap">
-                    {Object.entries(stats.bySubreddit || {})
-                      .sort(([, a], [, b]) => (b as number) - (a as number))
-                      .slice(0, 5)
-                      .map(([sub, count]) => {
-                        const isSelected = selectedSubreddits.has(sub);
-                        return (
-                          <button
-                            key={sub}
-                            type="button"
-                            onClick={() => {
-                              setSelectedSubreddits(prev => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(sub)) {
-                                  newSet.delete(sub);
-                                } else {
-                                  newSet.add(sub);
-                                }
-                                return newSet;
-                              });
-                              // 드롭다운 필터 초기화
-                              setSubredditFilter('all');
-                            }}
-                            className={`px-3 py-1.5 rounded-full text-xs transition-all duration-300 cursor-pointer min-h-[32px] sm:min-h-0 font-medium ${
-                              isSelected 
-                                ? 'bg-primary text-primary-foreground shadow-sm scale-105' 
-                                : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary hover:scale-105 border border-border/50'
-                            }`}
-                          >
-                            r/{sub} <span className="opacity-70">({count})</span>
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Search and Filter */}
-          <div className="space-y-3">
-            {/* 검색 및 기본 필터 */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          {/* Search and Filter - 통합된 컴팩트 디자인 */}
+          <div className="space-y-2.5">
+            {/* 검색 및 수집 버튼 */}
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
                 <Input
                   placeholder="아이디어 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 min-h-[44px] text-base sm:text-sm border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm"
+                  className="pl-10 min-h-[40px] text-sm border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm"
                 />
               </div>
               <Button 
                 onClick={handleCollectIdeas} 
                 disabled={collecting}
                 variant="outline"
-                className="border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 min-h-[44px]"
+                size="sm"
+                className="border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 min-h-[40px]"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${collecting ? 'animate-spin' : ''}`} />
                 {collecting ? '수집 중...' : '아이디어 수집'}
               </Button>
             </div>
 
-            {/* 필터 그룹 - 모바일 최적화 */}
-            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-3">
-              {/* 카테고리 필터 */}
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-[160px] min-h-[44px] touch-manipulation border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
-                  <SelectValue placeholder="카테고리" />
-                </SelectTrigger>
-                <SelectContent className="bg-background/95 backdrop-blur-sm border-border/50">
-                  <SelectItem value="all" className="focus:bg-primary/10">전체 카테고리</SelectItem>
-                  <SelectItem value="development" className="focus:bg-primary/10">개발</SelectItem>
-                  <SelectItem value="design" className="focus:bg-primary/10">디자인</SelectItem>
-                  <SelectItem value="business" className="focus:bg-primary/10">비즈니스</SelectItem>
-                  <SelectItem value="education" className="focus:bg-primary/10">교육</SelectItem>
-                  <SelectItem value="product" className="focus:bg-primary/10">제품</SelectItem>
-                  <SelectItem value="general" className="focus:bg-primary/10">일반</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* 통합된 필터 및 통계 섹션 */}
+            <div className="flex flex-col gap-2.5 p-2.5 sm:p-3 bg-muted/20 rounded-lg border border-border/30">
+              {/* 필터 그룹 - 한 줄로 통합 */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5 flex-wrap">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-[140px] h-[36px] text-xs border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
+                    <SelectValue placeholder="카테고리" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background/95 backdrop-blur-sm border-border/50">
+                    <SelectItem value="all" className="focus:bg-primary/10 text-xs">전체 카테고리</SelectItem>
+                    <SelectItem value="development" className="focus:bg-primary/10 text-xs">개발</SelectItem>
+                    <SelectItem value="design" className="focus:bg-primary/10 text-xs">디자인</SelectItem>
+                    <SelectItem value="business" className="focus:bg-primary/10 text-xs">비즈니스</SelectItem>
+                    <SelectItem value="education" className="focus:bg-primary/10 text-xs">교육</SelectItem>
+                    <SelectItem value="product" className="focus:bg-primary/10 text-xs">제품</SelectItem>
+                    <SelectItem value="general" className="focus:bg-primary/10 text-xs">일반</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              {/* 서브레딧 필터 */}
-              <Select value={subredditFilter} onValueChange={setSubredditFilter}>
-                <SelectTrigger className="w-full sm:w-[180px] min-h-[44px] touch-manipulation border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
-                  <SelectValue placeholder="서브레딧" />
-                </SelectTrigger>
-                <SelectContent className="bg-background/95 backdrop-blur-sm border-border/50">
-                  <SelectItem value="all" className="focus:bg-primary/10">전체 서브레딧</SelectItem>
-                  {subreddits.map((subreddit) => (
-                    <SelectItem key={subreddit} value={subreddit} className="focus:bg-primary/10">
-                      r/{subreddit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Select value={subredditFilter} onValueChange={setSubredditFilter}>
+                  <SelectTrigger className="w-full sm:w-[160px] h-[36px] text-xs border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
+                    <SelectValue placeholder="서브레딧" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background/95 backdrop-blur-sm border-border/50">
+                    <SelectItem value="all" className="focus:bg-primary/10 text-xs">전체 서브레딧</SelectItem>
+                    {subreddits.map((subreddit) => (
+                      <SelectItem key={subreddit} value={subreddit} className="focus:bg-primary/10 text-xs">
+                        r/{subreddit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              {/* 정렬 옵션 */}
-              <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'subreddit') => setSortOption(value)}>
-                <SelectTrigger className="w-full sm:w-[140px] min-h-[44px] touch-manipulation border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
-                  <SelectValue placeholder="정렬" />
-                </SelectTrigger>
-                <SelectContent className="bg-background/95 backdrop-blur-sm border-border/50">
-                  <SelectItem value="latest" className="focus:bg-primary/10">최신순</SelectItem>
-                  <SelectItem value="popular" className="focus:bg-primary/10">추천순</SelectItem>
-                  <SelectItem value="subreddit" className="focus:bg-primary/10">서브레딧순</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'subreddit') => setSortOption(value)}>
+                  <SelectTrigger className="w-full sm:w-[120px] h-[36px] text-xs border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
+                    <SelectValue placeholder="정렬" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background/95 backdrop-blur-sm border-border/50">
+                    <SelectItem value="latest" className="focus:bg-primary/10 text-xs">최신순</SelectItem>
+                    <SelectItem value="popular" className="focus:bg-primary/10 text-xs">추천순</SelectItem>
+                    <SelectItem value="subreddit" className="focus:bg-primary/10 text-xs">서브레딧순</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* 검색 결과 및 액션 버튼 */}
+                <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                  <span className="text-xs sm:text-sm font-medium text-foreground whitespace-nowrap">
+                    {loading ? (
+                      <span className="flex items-center gap-1.5">
+                        <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                        <span>필터링 중...</span>
+                      </span>
+                    ) : (
+                      <span>결과: <span className="text-primary font-semibold">{ideas.length}개</span></span>
+                    )}
+                  </span>
+                  {user && (
+                    <Button
+                      onClick={() => {
+                        setShowRecommended(!showRecommended);
+                        if (!showRecommended) {
+                          setTimeout(() => {
+                            const recommendedSection = document.getElementById('recommended-ideas-section');
+                            if (recommendedSection) {
+                              recommendedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }, 100);
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="h-[36px] text-xs border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+                    >
+                      <Sparkles className="h-3 w-3 mr-1.5" />
+                      {showRecommended ? '추천 숨기기' : '추천'}
+                    </Button>
+                  )}
+                  {(categoryFilter !== 'all' || subredditFilter !== 'all' || sortOption !== 'latest' || searchQuery) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCategoryFilter('all');
+                        setSubredditFilter('all');
+                        setSortOption('latest');
+                        setSearchQuery('');
+                        setSelectedCategories(new Set());
+                        setSelectedSubreddits(new Set());
+                      }}
+                      className="h-[36px] text-xs hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
+                    >
+                      초기화
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* 통계 정보 - 컴팩트하게 표시 */}
+              {stats.total > 0 && (
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-border/30">
+                  <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">총 {stats.total}개</span>
+                    {Object.entries(stats.byCategory).length > 0 && (
+                      <>
+                        <span className="opacity-50">·</span>
+                        <span className="font-medium">카테고리:</span>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {Object.entries(stats.byCategory).map(([cat, count]) => {
+                            const isSelected = selectedCategories.has(cat);
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategories(prev => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(cat)) {
+                                      newSet.delete(cat);
+                                    } else {
+                                      newSet.add(cat);
+                                    }
+                                    return newSet;
+                                  });
+                                  setCategoryFilter('all');
+                                }}
+                                className={`px-2 py-0.5 rounded-full text-[10px] transition-all duration-300 cursor-pointer font-medium ${
+                                  isSelected 
+                                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                                    : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50'
+                                }`}
+                              >
+                                {cat} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                    {Object.entries(stats.bySubreddit || {}).length > 0 && (
+                      <>
+                        <span className="opacity-50">·</span>
+                        <span className="font-medium">서브레딧:</span>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {Object.entries(stats.bySubreddit || {})
+                            .sort(([, a], [, b]) => (b as number) - (a as number))
+                            .slice(0, 4)
+                            .map(([sub, count]) => {
+                              const isSelected = selectedSubreddits.has(sub);
+                              return (
+                                <button
+                                  key={sub}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSubreddits(prev => {
+                                      const newSet = new Set(prev);
+                                      if (newSet.has(sub)) {
+                                        newSet.delete(sub);
+                                      } else {
+                                        newSet.add(sub);
+                                      }
+                                      return newSet;
+                                    });
+                                    setSubredditFilter('all');
+                                  }}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] transition-all duration-300 cursor-pointer font-medium ${
+                                    isSelected 
+                                      ? 'bg-primary text-primary-foreground shadow-sm' 
+                                      : 'bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50'
+                                  }`}
+                                >
+                                  r/{sub} ({count})
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* 필터링된 결과 헤더 */}
-        <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-3 bg-muted/20 rounded-lg border border-border/30">
-          <h3 className="text-base sm:text-lg font-semibold text-foreground">
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                <span>필터링 중...</span>
-              </span>
-            ) : (
-              <span>검색 결과: <span className="text-primary">{ideas.length}개</span></span>
-            )}
-          </h3>
-          <div className="flex items-center gap-2 flex-wrap">
-            {user && (
-              <Button
-                onClick={() => {
-                  setShowRecommended(!showRecommended);
-                  if (!showRecommended) {
-                    setTimeout(() => {
-                      const recommendedSection = document.getElementById('recommended-ideas-section');
-                      if (recommendedSection) {
-                        recommendedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }, 100);
-                  }
-                }}
-                variant="outline"
-                size="sm"
-                className="text-xs border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
-              >
-                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                {showRecommended ? '추천 숨기기' : '당신의 알고리즘'}
-              </Button>
-            )}
-            {(categoryFilter !== 'all' || subredditFilter !== 'all' || sortOption !== 'latest' || searchQuery) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCategoryFilter('all');
-                  setSubredditFilter('all');
-                  setSortOption('latest');
-                  setSearchQuery('');
-                  setSelectedCategories(new Set());
-                  setSelectedSubreddits(new Set());
-                }}
-                className="text-xs hover:bg-destructive/10 hover:text-destructive transition-all duration-300"
-              >
-                필터 초기화
-              </Button>
-            )}
           </div>
         </div>
 
@@ -561,29 +560,31 @@ function HomePage() {
           <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
             <div 
               id="filtered-ideas-grid"
-              className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 transition-all duration-500 w-full max-w-full overflow-x-hidden" 
+              className="mt-4 sm:mt-6 p-2 sm:p-4 bg-gradient-to-br from-background via-background to-muted/10 rounded-xl border border-border/50 shadow-lg"
               style={{ 
                 opacity: loading ? 0.5 : 1,
                 boxSizing: 'border-box'
               }}
             >
-              {ideas.map((idea, index) => (
-                <div
-                  key={idea.id}
-                  className="animate-in fade-in slide-in-from-bottom-4 w-full min-w-0 max-w-full"
-                  style={{
-                    animationDelay: `${index * 50}ms`,
-                    animationFillMode: 'both',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <IdeaCard
-                    idea={idea}
-                    onCardClick={() => navigate(`/idea/${idea.id}`)}
-                    formatDate={formatDate}
-                  />
-                </div>
-              ))}
+              <div className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 transition-all duration-500 w-full max-w-full">
+                {ideas.map((idea, index) => (
+                  <div
+                    key={idea.id}
+                    className="animate-in fade-in slide-in-from-bottom-4 w-full min-w-0 max-w-full"
+                    style={{
+                      animationDelay: `${index * 50}ms`,
+                      animationFillMode: 'both',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <IdeaCard
+                      idea={idea}
+                      onCardClick={() => navigate(`/idea/${idea.id}`)}
+                      formatDate={formatDate}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </PullToRefresh>
         )}

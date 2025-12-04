@@ -15,8 +15,8 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
 
   return (
     <Card 
-      className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer w-full max-w-full overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm min-w-0 box-border"
-      style={{ boxSizing: 'border-box' }}
+      className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer w-full max-w-full overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm min-w-0 box-border h-full flex flex-col"
+      style={{ boxSizing: 'border-box', minHeight: '420px' }}
       onClick={(e) => {
         // 버튼이나 링크 클릭이 아닌 경우에만 상세 페이지로 이동
         const target = e.target as HTMLElement;
@@ -43,9 +43,9 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
         </CardDescription>
       </CardHeader>
       <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6 min-w-0 overflow-hidden">
-        <div className="mb-3 sm:mb-4 min-h-[100px] sm:min-h-[140px] min-w-0 overflow-hidden">
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-4 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
-            {idea.content}
+        <div className="mb-3 sm:mb-4 h-[120px] sm:h-[140px] min-w-0 overflow-hidden">
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-5 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
+            {idea.content || '내용 없음'}
           </p>
           <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-lg p-2 sm:p-2.5 text-[10px] sm:text-xs mt-3 shadow-sm">
             <p className="font-medium text-primary mb-1 sm:mb-1.5 flex items-center gap-1.5">
