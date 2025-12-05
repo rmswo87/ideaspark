@@ -11,7 +11,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
 import { PremiumRecommendedIdeas } from '@/components/PremiumRecommendedIdeas'
-import { DevNewsSidebar } from '@/components/DevNewsSidebar'
 import { IdeaCardSkeleton } from '@/components/IdeaCardSkeleton'
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
@@ -349,9 +348,9 @@ function HomePage() {
 
       {/* Main Content - 모바일 최적화 */}
       <main className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-6 pb-20 md:pb-8 overflow-x-hidden max-w-6xl">
-          {/* 메인 콘텐츠 */}
-          <div className="w-full max-w-full">
-        <div className="mb-1 sm:mb-2 space-y-1.5 sm:space-y-3">
+        {/* 메인 콘텐츠 */}
+        <div className="w-full max-w-full">
+          <div className="mb-1 sm:mb-2 space-y-1.5 sm:space-y-3">
           {/* Search and Filter - 모바일 최적화 컴팩트 디자인 */}
           <div className="space-y-1.5 sm:space-y-2.5">
             {/* 검색 및 수집 버튼 - 모바일에서 더 컴팩트 */}
@@ -836,6 +835,7 @@ function HomePage() {
           </PullToRefresh>
         )}
           </div>
+        </div>
       </main>
       
       {/* Footer */}

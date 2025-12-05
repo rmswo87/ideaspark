@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
@@ -15,8 +15,7 @@ import {
   ChevronDown,
   Loader2
 } from 'lucide-react';
-import { getDevNews, getDailyDevNews, getWeeklyDevNews, getMonthlyDevNews, type DevNews } from '@/services/devNewsService';
-import { Skeleton } from '@/components/ui/skeleton';
+import { getDailyDevNews, getWeeklyDevNews, getMonthlyDevNews, type DevNews } from '@/services/devNewsService';
 
 export function DevNewsFeedPage() {
   const navigate = useNavigate();
