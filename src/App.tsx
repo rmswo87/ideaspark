@@ -522,32 +522,56 @@ function HomePage() {
                         </div>
                       )}
                       {/* 액션 버튼 */}
-                      <div className="flex gap-2 pt-2 border-t">
-                        {(categoryFilter !== 'all' || subredditFilter !== 'all' || sortOption !== 'latest' || searchQuery || selectedCategories.size > 0 || selectedSubreddits.size > 0) && (
+                      <div className="flex flex-col gap-2 pt-2 border-t">
+                        {user && (
                           <Button
-                            variant="ghost"
-                            size="sm"
                             onClick={() => {
-                              setCategoryFilter('all');
-                              setSubredditFilter('all');
-                              setSortOption('latest');
-                              setSearchQuery('');
-                              setSelectedCategories(new Set());
-                              setSelectedSubreddits(new Set());
+                              setShowRecommended(!showRecommended);
+                              setShowMobileFilters(false);
+                              if (!showRecommended) {
+                                setTimeout(() => {
+                                  const recommendedSection = document.getElementById('recommended-ideas-section');
+                                  if (recommendedSection) {
+                                    recommendedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }
+                                }, 100);
+                              }
                             }}
-                            className="h-8 text-xs flex-1"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs w-full border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
                           >
-                            초기화
+                            <Sparkles className="h-3 w-3 mr-1.5" />
+                            {showRecommended ? '추천 숨기기' : '추천 보기'}
                           </Button>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowMobileFilters(false)}
-                          className="h-8 text-xs flex-1"
-                        >
-                          닫기
-                        </Button>
+                        <div className="flex gap-2">
+                          {(categoryFilter !== 'all' || subredditFilter !== 'all' || sortOption !== 'latest' || searchQuery || selectedCategories.size > 0 || selectedSubreddits.size > 0) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setCategoryFilter('all');
+                                setSubredditFilter('all');
+                                setSortOption('latest');
+                                setSearchQuery('');
+                                setSelectedCategories(new Set());
+                                setSelectedSubreddits(new Set());
+                              }}
+                              className="h-8 text-xs flex-1"
+                            >
+                              초기화
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowMobileFilters(false)}
+                            className="h-8 text-xs flex-1"
+                          >
+                            닫기
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </DropdownMenuContent>

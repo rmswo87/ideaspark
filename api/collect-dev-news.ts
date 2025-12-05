@@ -1,28 +1,42 @@
 // Vercel Edge Function: 개발 소식 수집 (Reddit API 호출)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// 개발 관련 서브레딧 목록
+// 개발 관련 서브레딧 목록 (AI, 개발 팁, 최신 트렌드 중심)
 const DEV_SUBREDDITS = [
-  'webdev',           // 웹 개발
-  'programming',      // 프로그래밍 일반
-  'learnprogramming', // 프로그래밍 학습
-  'MachineLearning',  // 머신러닝
-  'artificial',       // AI
-  'javascript',       // JavaScript
-  'reactjs',          // React
-  'node',             // Node.js
-  'Python',           // Python
-  'golang',           // Go
-  'rust',             // Rust
-  'cpp',              // C++
-  'cscareerquestions', // 개발자 커리어
-  'ExperiencedDevs',  // 경험 있는 개발자
-  'devops',           // DevOps
-  'aws',              // AWS
-  'kubernetes',       // Kubernetes
-  'docker',           // Docker
-  'linux',            // Linux
-  'git',              // Git
+  // AI 관련 (우선순위 높음)
+  'artificial',           // AI 일반
+  'MachineLearning',      // 머신러닝
+  'OpenAI',               // OpenAI
+  'ChatGPT',              // ChatGPT
+  'ClaudeAI',             // Claude AI
+  'LocalLLaMA',           // LLaMA
+  'singularity',          // AI 미래/특이점
+  'agi',                  // AGI (Artificial General Intelligence)
+  
+  // 개발 팁 및 최신 트렌드
+  'webdev',               // 웹 개발
+  'programming',          // 프로그래밍 일반
+  'learnprogramming',     // 프로그래밍 학습
+  'ExperiencedDevs',      // 경험 있는 개발자
+  'cscareerquestions',    // 개발자 커리어
+  
+  // 주요 기술 스택
+  'javascript',           // JavaScript
+  'reactjs',              // React
+  'node',                 // Node.js
+  'Python',               // Python
+  'golang',               // Go
+  'rust',                 // Rust
+  'cpp',                  // C++
+  'typescript',           // TypeScript
+  
+  // 인프라 및 DevOps
+  'devops',               // DevOps
+  'aws',                  // AWS
+  'kubernetes',           // Kubernetes
+  'docker',               // Docker
+  'linux',                // Linux
+  'git',                  // Git
 ];
 
 export default async function handler(
@@ -89,8 +103,8 @@ export default async function handler(
 
     const allPosts: any[] = [];
 
-    // 각 서브레딧에서 게시물 수집 (최대 10개 서브레딧, 각 10개 게시물)
-    const subredditsToCollect = DEV_SUBREDDITS.slice(0, 10);
+    // 각 서브레딧에서 게시물 수집 (AI 관련 우선, 최대 15개 서브레딧, 각 10개 게시물)
+    const subredditsToCollect = DEV_SUBREDDITS.slice(0, 15);
     
     for (const subreddit of subredditsToCollect) {
       try {
@@ -184,50 +198,105 @@ export default async function handler(
   }
 }
 
-// 게시글 카테고리 분류
+// 게시글 카테고리 분류 (AI, 개발 팁 중심)
 function categorizePost(post: any): string {
   const title = (post.title || '').toLowerCase();
   const content = (post.selftext || '').toLowerCase();
   const text = `${title} ${content}`;
 
-  if (text.includes('tutorial') || text.includes('how to') || text.includes('guide')) {
+  // AI 관련 카테고리 우선 검색
+  if (text.includes('openai') || text.includes('chatgpt') || text.includes('claude') || 
+      text.includes('gemini') || text.includes('llm') || text.includes('prompt engineering') ||
+      text.includes('vibecoding') || text.includes('vibe coding') || text.includes('copilot')) {
+    return 'ai';
+  }
+
+  // 개발 팁 및 튜토리얼
+  if (text.includes('tutorial') || text.includes('how to') || text.includes('guide') ||
+      text.includes('learn') || text.includes('getting started')) {
     return 'tutorial';
   }
-  if (text.includes('tip') || text.includes('trick') || text.includes('hack')) {
+  
+  // 개발 팁 및 노하우
+  if (text.includes('tip') || text.includes('trick') || text.includes('hack') ||
+      text.includes('best practice') || text.includes('pattern') || text.includes('노하우') ||
+      text.includes('꿀팁')) {
     return 'tip';
   }
-  if (text.includes('news') || text.includes('announcement') || text.includes('release')) {
+  
+  // 최신 소식 및 릴리즈
+  if (text.includes('news') || text.includes('announcement') || text.includes('release') ||
+      text.includes('update') || text.includes('launch') || text.includes('new feature')) {
     return 'news';
   }
-  if (text.includes('discussion') || text.includes('opinion') || text.includes('thought')) {
+  
+  // 토론 및 의견
+  if (text.includes('discussion') || text.includes('opinion') || text.includes('thought') ||
+      text.includes('question') || text.includes('ask') || text.includes('질문')) {
     return 'discussion';
   }
-  if (text.includes('resource') || text.includes('tool') || text.includes('library')) {
+  
+  // 리소스 및 도구
+  if (text.includes('resource') || text.includes('tool') || text.includes('library') ||
+      text.includes('framework') || text.includes('package') || text.includes('plugin')) {
     return 'resource';
   }
   
   return 'general';
 }
 
-// 태그 추출
+// 태그 추출 (AI, 개발 팁, 최신 트렌드 중심)
 function extractTags(post: any): string[] {
   const tags: string[] = [];
   const title = (post.title || '').toLowerCase();
   const content = (post.selftext || '').toLowerCase();
   const text = `${title} ${content}`;
 
-  // 기술 스택 태그
-  const techKeywords = [
-    'react', 'vue', 'angular', 'svelte',
-    'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp',
-    'node', 'express', 'nextjs', 'nuxt',
-    'aws', 'azure', 'gcp', 'docker', 'kubernetes',
-    'ai', 'ml', 'machine learning', 'deep learning',
-    'database', 'sql', 'mongodb', 'postgresql',
+  // AI 관련 키워드 (우선순위 높음)
+  const aiKeywords = [
+    'openai', 'chatgpt', 'gpt-4', 'gpt-3', 'gpt',
+    'claude', 'anthropic', 'gemini', 'google ai',
+    'llama', 'llm', 'large language model',
+    'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
+    'neural network', 'transformer', 'attention',
+    'prompt engineering', 'fine-tuning', 'rag', 'retrieval augmented generation',
+    'copilot', 'github copilot', 'cursor', 'vibecoding', 'vibe coding',
   ];
 
-  techKeywords.forEach(keyword => {
+  // 개발 팁 및 최신 트렌드
+  const devTipKeywords = [
+    'tip', 'trick', 'hack', 'best practice', 'pattern',
+    'tutorial', 'guide', 'how to', 'learn',
+    'trend', 'latest', 'new', 'update', 'release',
+    'productivity', 'efficiency', 'optimization',
+  ];
+
+  // 기술 스택 태그
+  const techKeywords = [
+    'react', 'vue', 'angular', 'svelte', 'nextjs', 'nuxt',
+    'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp',
+    'node', 'express', 'fastapi', 'django', 'flask',
+    'aws', 'azure', 'gcp', 'docker', 'kubernetes',
+    'database', 'sql', 'mongodb', 'postgresql', 'redis',
+  ];
+
+  // AI 키워드 우선 검색
+  aiKeywords.forEach(keyword => {
     if (text.includes(keyword)) {
+      tags.push(keyword.replace(/\s+/g, '-'));
+    }
+  });
+
+  // 개발 팁 키워드 검색
+  devTipKeywords.forEach(keyword => {
+    if (text.includes(keyword) && tags.length < 5) {
+      tags.push(keyword.replace(/\s+/g, '-'));
+    }
+  });
+
+  // 기술 스택 키워드 검색
+  techKeywords.forEach(keyword => {
+    if (text.includes(keyword) && tags.length < 5) {
       tags.push(keyword);
     }
   });

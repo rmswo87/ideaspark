@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Send, Building2, MessageSquare, Check, User as UserIcon, LogOut, Shield } from 'lucide-react';
+import { Send, Building2, MessageSquare, Check, User as UserIcon, LogOut, Shield, Newspaper } from 'lucide-react';
 import { createContactInquiry } from '@/services/contactService';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -178,6 +178,20 @@ export function ContactPage() {
                   }`}
                 >
                   아이디어
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/news')}
+                  className={`text-xs sm:text-sm transition-all duration-300 ${
+                    location.pathname.includes('/news') 
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                      : 'hover:bg-primary/5 hover:text-primary'
+                  }`}
+                >
+                  <Newspaper className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">개발 소식</span>
+                  <span className="sm:hidden">소식</span>
                 </Button>
                 <Button
                   variant="ghost"

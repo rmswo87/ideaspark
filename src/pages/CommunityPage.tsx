@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getPosts, createPost } from '@/services/postService';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, Search, X, Tag, Loader2, Image as ImageIcon, Shield, LogOut, MoreVertical } from 'lucide-react';
+import { Plus, MessageSquare, Heart, Bookmark, User as UserIcon, UserPlus, Ban, Search, X, Tag, Loader2, Image as ImageIcon, Shield, LogOut, MoreVertical, Newspaper } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -532,6 +532,20 @@ function CommunityPage() {
                   }`}
                 >
                   아이디어
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/news')}
+                  className={`text-xs sm:text-sm transition-all duration-300 ${
+                    location.pathname.includes('/news') 
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                      : 'hover:bg-primary/5 hover:text-primary'
+                  }`}
+                >
+                  <Newspaper className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">개발 소식</span>
+                  <span className="sm:hidden">소식</span>
                 </Button>
                 <Button
                   variant="ghost"
