@@ -26,12 +26,16 @@ import type { Post } from '@/services/postService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useToast } from '@/components/ui/toast';
+import { usePremium } from '@/hooks/usePremium';
+import { PremiumBadge } from '@/components/PremiumBadge';
+import { Crown, Sparkles, CheckCircle2 } from 'lucide-react';
 
 function ProfilePage() {
   const params = useParams<{ userId?: string }>();
   const urlUserId = params?.userId;
   const { user, loading } = useAuth();
   const { addToast } = useToast();
+  const { isPremium } = usePremium();
   const navigate = useNavigate();
   // URL에 userId가 있으면 해당 사용자의 프로필, 없으면 로그인한 사용자의 프로필
   const targetUserId = urlUserId || user?.id;
@@ -952,15 +956,66 @@ function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* 오른쪽: 도네이션 박스 (같은 사이즈) */}
+          {/* 오른쪽: 프리미엄 상태 및 도네이션 박스 */}
           {isOwnProfile && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl mb-2 font-sans">개발자를 위한 커피 한 잔 ☕</CardTitle>
-                <p className="text-sm text-muted-foreground font-sans">
-                  IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
-                </p>
-              </CardHeader>
+            <div className="space-y-4">
+              {/* 프리미엄 상태 카드 */}
+              <Card className={isPremium ? 'border-primary/50 bg-primary/5' : ''}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl mb-2 font-sans">
+                    {isPremium ? (
+                      <>
+                        <Crown className="h-5 w-5 text-yellow-500" />
+                        프리미엄 회원
+                        <PremiumBadge className="ml-auto" />
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        프리미엄 회원 가입
+                      </>
+                    )}
+                  </CardTitle>
+                  {isPremium ? (
+                    <p className="text-sm text-muted-foreground font-sans">
+                      프리미엄 회원으로 AI 아이디어 평가 기능을 사용할 수 있습니다.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground font-sans">
+                      후원하시면 프리미엄 회원이 되어 AI 아이디어 평가 기능을 사용할 수 있습니다.
+                    </p>
+                  )}
+                </CardHeader>
+                {!isPremium && (
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="text-sm">
+                          <div className="font-medium mb-1">프리미엄 기능</div>
+                          <ul className="text-muted-foreground space-y-1 text-xs">
+                            <li>• AI 기반 아이디어 평가 (비타민/경쟁율/섹시함 점수)</li>
+                            <li>• 최근 검색 아이디어 중 상위 3개 자동 추천</li>
+                            <li>• 업무 난이도 평가 및 AI 분석 결과</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        아래 후원 방법으로 후원하시면 관리자가 확인 후 프리미엄 회원으로 등록해드립니다.
+                      </p>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+
+              {/* 도네이션 박스 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl mb-2 font-sans">개발자를 위한 커피 한 잔 ☕</CardTitle>
+                  <p className="text-sm text-muted-foreground font-sans">
+                    IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
+                  </p>
+                </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div>
@@ -1023,6 +1078,7 @@ function ProfilePage() {
                 </div>
               </CardContent>
             </Card>
+            </div>
           )}
         </div>
       </div>

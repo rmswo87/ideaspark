@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { PRDViewer } from '@/components/PRDViewer';
 import { generatePRD, getPRD, getPRDs } from '@/services/prdService';
-import { generateProposal, getProposals, type Proposal } from '@/services/proposalService';
+import { generateProposal, getProposals, deleteProposal, type Proposal } from '@/services/proposalService';
 import { getIdea, fetchRedditPostContent, updateIdeaContent } from '@/services/ideaService';
 import { supabase } from '@/lib/supabase';
 import { trackIdeaView, trackUserBehavior } from '@/services/recommendationService';
@@ -11,6 +11,9 @@ import { ImplementationButton } from '@/components/ImplementationButton';
 import { SimilarImplementationCard } from '@/components/SimilarImplementationCard';
 import { getSimilarImplementations } from '@/services/implementationService';
 import type { IdeaImplementation } from '@/services/implementationService';
+import { IdeaScoringButton } from '@/components/IdeaScoringButton';
+import { IdeaScoreCard } from '@/components/IdeaScoreCard';
+import { getIdeaScore, type IdeaScore } from '@/services/ideaScoringService';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,6 +47,7 @@ function IdeaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [similarImplementations, setSimilarImplementations] = useState<IdeaImplementation[]>([]);
+  const [ideaScore, setIdeaScore] = useState<IdeaScore | null>(null);
   const isMountedRef = useRef(true);
 
   // 아이디어와 사용자 정보 가져오기 (id 변경 시에만)
@@ -98,6 +102,24 @@ function IdeaDetailPage() {
     }
 
     fetchSimilarImplementations();
+  }, [id]);
+
+  // 아이디어 점수 조회
+  useEffect(() => {
+    if (!id) return;
+
+    async function fetchScore() {
+      try {
+        const score = await getIdeaScore(id!);
+        if (isMountedRef.current) {
+          setIdeaScore(score);
+        }
+      } catch (error) {
+        console.error('점수 조회 실패:', error);
+      }
+    }
+
+    fetchScore();
   }, [id]);
 
   async function fetchIdea() {
@@ -342,7 +364,6 @@ function IdeaDetailPage() {
     }
 
     try {
-      const { deleteProposal } = await import('@/services/proposalService');
       await deleteProposal(proposalId);
       
       const updatedProposals = proposals.filter(p => p.id !== proposalId);
@@ -484,17 +505,25 @@ function IdeaDetailPage() {
                   </a>
                 </Button>
                 {user && (
-                  <ImplementationButton 
-                    ideaId={id!} 
-                    onUpdate={() => {
-                      // 구현 사례 업데이트 시 비슷한 구현 사례 다시 조회
-                      if (id) {
-                        getSimilarImplementations(id, 5)
-                          .then(setSimilarImplementations)
-                          .catch(console.error);
-                      }
-                    }}
-                  />
+                  <>
+                    <ImplementationButton 
+                      ideaId={id!} 
+                      onUpdate={() => {
+                        // 구현 사례 업데이트 시 비슷한 구현 사례 다시 조회
+                        if (id) {
+                          getSimilarImplementations(id, 5)
+                            .then(setSimilarImplementations)
+                            .catch(console.error);
+                        }
+                      }}
+                    />
+                    <IdeaScoringButton 
+                      ideaId={id!}
+                      onScoreUpdated={(score) => {
+                        setIdeaScore(score);
+                      }}
+                    />
+                  </>
                 )}
               </div>
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3 text-sm">
@@ -511,6 +540,13 @@ function IdeaDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* AI 평가 점수 표시 */}
+      {ideaScore && (
+        <div className="mb-6">
+          <IdeaScoreCard score={ideaScore} showDetails={true} />
+        </div>
+      )}
 
       {/* 비슷한 구현 사례 섹션 */}
       {similarImplementations.length > 0 && (
