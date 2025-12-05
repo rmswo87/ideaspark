@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/collect-ideas",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/collect-dev-news",
+      "schedule": "0 0 * * *"
     }
   ],
   "rewrites": [

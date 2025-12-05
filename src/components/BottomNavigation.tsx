@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, User, MessageSquare } from 'lucide-react'
+import { Home, Users, User, MessageSquare, Newspaper } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 
@@ -22,14 +22,14 @@ export function BottomNavigation() {
       label: '아이디어',
     },
     {
+      path: '/news',
+      icon: Newspaper,
+      label: '소식',
+    },
+    {
       path: '/community',
       icon: Users,
       label: '커뮤니티',
-    },
-    {
-      path: '/contact',
-      icon: MessageSquare,
-      label: '문의',
     },
     {
       path: user ? '/profile' : '/auth',

@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Search, RefreshCw, Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react"
+import { Search, RefreshCw, Sparkles, Loader2, ChevronDown, ChevronUp, Filter, Newspaper } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
 import { PremiumRecommendedIdeas } from '@/components/PremiumRecommendedIdeas'
@@ -19,6 +20,7 @@ import { AuthPage } from '@/pages/AuthPage'
 import { ContactPage } from '@/pages/ContactPage'
 import TermsPage from '@/pages/TermsPage'
 import PrivacyPage from '@/pages/PrivacyPage'
+import { DevNewsFeedPage } from '@/pages/DevNewsFeedPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
 import { LogOut, User as UserIcon, Shield } from 'lucide-react'
@@ -67,6 +69,7 @@ function HomePage() {
   const [subreddits, setSubreddits] = useState<string[]>([])
   const [showRecommended, setShowRecommended] = useState(false) // 추천 아이디어 섹션 토글
   const [showStats, setShowStats] = useState(false) // 모바일에서 통계 섹션 토글 (데스크톱에서는 항상 열림)
+  const [showMobileFilters, setShowMobileFilters] = useState(false) // 모바일 필터 드롭다운
   const navigate = useNavigate()
 
   // 데스크톱에서는 통계가 항상 열려있도록
@@ -254,6 +257,20 @@ function HomePage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => navigate('/news')}
+                  className={`text-xs sm:text-sm transition-all duration-300 ${
+                    location.pathname.includes('/news') 
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                      : 'hover:bg-primary/5 hover:text-primary'
+                  }`}
+                >
+                  <Newspaper className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">개발 소식</span>
+                  <span className="sm:hidden">소식</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => navigate('/community')}
                   className={`text-xs sm:text-sm transition-all duration-300 ${
                     location.pathname.includes('/community') 
@@ -331,15 +348,9 @@ function HomePage() {
       </header>
 
       {/* Main Content - 모바일 최적화 */}
-      <main className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-6 pb-20 md:pb-8 overflow-x-hidden max-w-7xl">
-        <div className="flex gap-4 lg:gap-6">
-          {/* 좌측 사이드바 (데스크톱만 표시) */}
-          <aside className="hidden lg:block flex-shrink-0">
-            <DevNewsSidebar position="left" />
-          </aside>
-
+      <main className="container mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-6 pb-20 md:pb-8 overflow-x-hidden max-w-6xl">
           {/* 메인 콘텐츠 */}
-          <div className="flex-1 min-w-0">
+          <div className="w-full max-w-full">
         <div className="mb-1 sm:mb-2 space-y-1.5 sm:space-y-3">
           {/* Search and Filter - 모바일 최적화 컴팩트 디자인 */}
           <div className="space-y-1.5 sm:space-y-2.5">
@@ -366,10 +377,188 @@ function HomePage() {
               </Button>
             </div>
 
-            {/* 통합된 필터 및 통계 섹션 - 모바일에서 더 컴팩트 */}
-            <div className="flex flex-col gap-1.5 sm:gap-2.5 p-1.5 sm:p-2.5 md:p-3 bg-muted/20 rounded-lg border border-border/30">
-              {/* 필터 그룹 - 모바일에서 더 컴팩트 */}
-              <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2 flex-wrap">
+            {/* 통합된 필터 및 통계 섹션 - 모바일에서 드롭다운으로 통합 */}
+            <div className="flex flex-col gap-1.5 sm:gap-2.5">
+              {/* 모바일: 필터 드롭다운 버튼 */}
+              <div className="sm:hidden">
+                <DropdownMenu open={showMobileFilters} onOpenChange={setShowMobileFilters}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full h-9 text-xs justify-between">
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-3.5 w-3.5" />
+                        <span>필터 및 통계</span>
+                        {(categoryFilter !== 'all' || subredditFilter !== 'all' || sortOption !== 'latest' || searchQuery || selectedCategories.size > 0 || selectedSubreddits.size > 0) && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] rounded-full">
+                            {[categoryFilter !== 'all' ? 1 : 0, subredditFilter !== 'all' ? 1 : 0, sortOption !== 'latest' ? 1 : 0, searchQuery ? 1 : 0, selectedCategories.size, selectedSubreddits.size].reduce((a, b) => a + b, 0)}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto">
+                    <div className="p-2 space-y-3">
+                      {/* 필터 그룹 */}
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground">필터</div>
+                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                          <SelectTrigger className="w-full h-9 text-xs">
+                            <SelectValue placeholder="카테고리" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all" className="text-xs">전체 카테고리</SelectItem>
+                            <SelectItem value="development" className="text-xs">개발</SelectItem>
+                            <SelectItem value="design" className="text-xs">디자인</SelectItem>
+                            <SelectItem value="business" className="text-xs">비즈니스</SelectItem>
+                            <SelectItem value="education" className="text-xs">교육</SelectItem>
+                            <SelectItem value="product" className="text-xs">제품</SelectItem>
+                            <SelectItem value="general" className="text-xs">일반</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={subredditFilter} onValueChange={setSubredditFilter}>
+                          <SelectTrigger className="w-full h-9 text-xs">
+                            <SelectValue placeholder="서브레딧" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all" className="text-xs">전체 서브레딧</SelectItem>
+                            {subreddits.map((subreddit) => (
+                              <SelectItem key={subreddit} value={subreddit} className="text-xs">
+                                r/{subreddit}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={sortOption} onValueChange={(value: 'latest' | 'popular' | 'subreddit') => setSortOption(value)}>
+                          <SelectTrigger className="w-full h-9 text-xs">
+                            <SelectValue placeholder="정렬" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="latest" className="text-xs">최신순</SelectItem>
+                            <SelectItem value="popular" className="text-xs">추천순</SelectItem>
+                            <SelectItem value="subreddit" className="text-xs">서브레딧순</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="text-xs text-muted-foreground pt-1">
+                          결과: <span className="text-primary font-semibold">{ideas.length}개</span>
+                        </div>
+                      </div>
+                      {/* 통계 */}
+                      {stats.total > 0 && (
+                        <div className="space-y-2 pt-2 border-t">
+                          <div className="text-xs font-semibold text-muted-foreground">통계</div>
+                          <div className="text-xs text-foreground font-semibold">총 {stats.total}개</div>
+                          {Object.entries(stats.byCategory).length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="text-[10px] text-muted-foreground">카테고리:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(stats.byCategory).map(([cat, count]) => {
+                                  const isSelected = selectedCategories.has(cat);
+                                  return (
+                                    <button
+                                      key={cat}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCategories(prev => {
+                                          const newSet = new Set(prev);
+                                          if (newSet.has(cat)) {
+                                            newSet.delete(cat);
+                                          } else {
+                                            newSet.add(cat);
+                                          }
+                                          return newSet;
+                                        });
+                                        setCategoryFilter('all');
+                                      }}
+                                      className={`px-2 py-1 rounded-full text-[10px] transition-all ${
+                                        isSelected 
+                                          ? 'bg-primary text-primary-foreground' 
+                                          : 'bg-secondary/80 text-secondary-foreground'
+                                      }`}
+                                    >
+                                      {cat} ({count})
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {Object.entries(stats.bySubreddit || {}).length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="text-[10px] text-muted-foreground">서브레딧:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(stats.bySubreddit || {})
+                                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                                  .slice(0, 4)
+                                  .map(([sub, count]) => {
+                                    const isSelected = selectedSubreddits.has(sub);
+                                    return (
+                                      <button
+                                        key={sub}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedSubreddits(prev => {
+                                            const newSet = new Set(prev);
+                                            if (newSet.has(sub)) {
+                                              newSet.delete(sub);
+                                            } else {
+                                              newSet.add(sub);
+                                            }
+                                            return newSet;
+                                          });
+                                          setSubredditFilter('all');
+                                        }}
+                                        className={`px-2 py-1 rounded-full text-[10px] transition-all ${
+                                          isSelected 
+                                            ? 'bg-primary text-primary-foreground' 
+                                            : 'bg-secondary/80 text-secondary-foreground'
+                                        }`}
+                                      >
+                                        r/{sub} ({count})
+                                      </button>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {/* 액션 버튼 */}
+                      <div className="flex gap-2 pt-2 border-t">
+                        {(categoryFilter !== 'all' || subredditFilter !== 'all' || sortOption !== 'latest' || searchQuery || selectedCategories.size > 0 || selectedSubreddits.size > 0) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setCategoryFilter('all');
+                              setSubredditFilter('all');
+                              setSortOption('latest');
+                              setSearchQuery('');
+                              setSelectedCategories(new Set());
+                              setSelectedSubreddits(new Set());
+                            }}
+                            className="h-8 text-xs flex-1"
+                          >
+                            초기화
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowMobileFilters(false)}
+                          className="h-8 text-xs flex-1"
+                        >
+                          닫기
+                        </Button>
+                      </div>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* 데스크톱: 기존 필터 UI */}
+              <div className="hidden sm:flex flex-col gap-1.5 sm:gap-2.5 p-1.5 sm:p-2.5 md:p-3 bg-muted/20 rounded-lg border border-border/30">
+                {/* 필터 그룹 - 모바일에서 더 컴팩트 */}
+                <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2 flex-wrap">
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full sm:w-[120px] md:w-[140px] h-8 sm:h-[36px] text-xs border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm hover:bg-background/80">
                     <SelectValue placeholder="카테고리" />
@@ -647,12 +836,6 @@ function HomePage() {
           </PullToRefresh>
         )}
           </div>
-
-          {/* 우측 사이드바 (데스크톱만 표시) */}
-          <aside className="hidden xl:block flex-shrink-0">
-            <DevNewsSidebar position="right" />
-          </aside>
-        </div>
       </main>
       
       {/* Footer */}
@@ -720,6 +903,7 @@ function App() {
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/community/:id" element={<PostDetailPage />} />
             <Route path="/implementations" element={<ImplementationGallery />} />
+            <Route path="/news" element={<DevNewsFeedPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
