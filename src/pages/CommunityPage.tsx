@@ -555,7 +555,6 @@ function CommunityPage() {
                       ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
                       : 'hover:bg-primary/5 hover:text-primary'
                   }`}
-                  disabled
                 >
                   커뮤니티
                 </Button>
