@@ -1,7 +1,7 @@
 # 현재 프로젝트 상태 및 다음 단계
 
 **작성일**: 2025년 12월 3일  
-**최종 업데이트**: 2025년 12월 4일
+**최종 업데이트**: 2025년 12월 5일
 
 ---
 
@@ -55,8 +55,39 @@
 - ✅ AI 클라이언트 확장 (`scoreIdea()`, `summarizeIdeaForNotification()`)
 - ✅ 3가지 평가 기준 구현 (비타민/경쟁율/섹시함 점수, 각 0-10점)
 - ✅ 최근 검색 아이디어 중 상위 3개 추천 및 알림 기능
-- ✅ GitHub push 완료, 배포 진행 중
+- ✅ UI 구현 완료 (IdeaScoreCard, IdeaScoringButton, PremiumBadge)
 - ✅ 참고: `docs/development/AI_IDEA_SCORING_IMPLEMENTATION.md`
+
+### 6. 사용자 관심 카테고리 기반 AI 점수 추천 시스템 ✅
+**상태**: 완료  
+**완료일**: 2025년 12월 5일
+
+- ✅ 카테고리 기반 추천 알고리즘 구현 (`categoryBasedScoringRecommendation.ts`)
+- ✅ 사용자 행동 분석 기반 카테고리 선호도 계산
+- ✅ AI 점수와 카테고리 선호도 결합 추천
+- ✅ PremiumRecommendedIdeas 컴포넌트 개선
+- ✅ 참고: `docs/development/CATEGORY_BASED_RECOMMENDATION_AND_DEV_NEWS.md`
+
+### 7. 레딧 개발 소식 수집 및 표시 시스템 ✅
+**상태**: 완료  
+**완료일**: 2025년 12월 5일
+
+- ✅ `dev_news` 테이블 마이그레이션 추가
+- ✅ Reddit 개발 소식 수집 API (`collect-dev-news.ts`)
+- ✅ 개발 소식 서비스 (`devNewsService.ts`, `devNewsCollector.ts`)
+- ✅ DevNewsSidebar 컴포넌트 구현 (Daily/Weekly/Monthly 탭)
+- ✅ 홈페이지 사이드바 통합
+- ✅ 참고: `docs/development/CATEGORY_BASED_RECOMMENDATION_AND_DEV_NEWS.md`
+
+### 8. 모바일 최적화 개선 ✅
+**상태**: 완료  
+**완료일**: 2025년 12월 5일
+
+- ✅ 카테고리/검색 구간 컴팩트화
+- ✅ 통계 섹션 접기 기능 추가 (Collapsible)
+- ✅ 필터 및 버튼 크기 최적화
+- ✅ 데스크톱에서는 통계 항상 표시
+- ✅ 모바일에서 아이디어 카드 가시성 개선
 
 ---
 
