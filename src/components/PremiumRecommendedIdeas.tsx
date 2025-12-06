@@ -31,6 +31,12 @@ export function PremiumRecommendedIdeas() {
     }
 
     async function fetchTopScoredIdeas() {
+      if (!user?.id) {
+        setLoading(false);
+        setTopScoredIdeas([]);
+        return;
+      }
+      
       setLoading(true);
       try {
         // 사용자 관심 카테고리 기반 AI 점수 추천 사용

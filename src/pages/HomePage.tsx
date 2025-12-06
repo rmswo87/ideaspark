@@ -26,9 +26,8 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 export function HomePage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user } = useAuth()
   const { isAdmin } = useAdmin()
-  const { isPremium, loading: premiumLoading } = usePremium()
   const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
