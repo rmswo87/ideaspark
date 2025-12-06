@@ -458,12 +458,39 @@ function extractImageUrl(post: any): string | null {
   try {
     // 0. post.url이 직접 이미지 URL인 경우 (최우선 - 가장 확실한 방법)
     if (post.url) {
-      const url = post.url.toLowerCase();
-      const urlWithoutQuery = url.split('?')[0];
+      const url = post.url;
+      const urlLower = url.toLowerCase();
+      const urlWithoutQuery = urlLower.split('?')[0];
       
-      // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지
-      if (url.includes('preview.redd.it') || url.includes('i.redd.it')) {
-        console.log('Found Reddit image URL (preview/i.redd.it):', post.url);
+      // preview.redd.it URL인 경우 -> i.redd.it 원본 URL로 변환
+      if (url.includes('preview.redd.it')) {
+        // preview.redd.it URL에서 파일명 추출 (예: trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png)
+        // 패턴: preview.redd.it/파일명?width=...
+        const match = url.match(/preview\.redd\.it\/([^?]+)/);
+        if (match && match[1]) {
+          // 파일명에서 실제 이미지 ID 추출 (v0-로 시작하는 부분 제거)
+          // 예: trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png -> 2f6bfp2hjj5g1.png
+          const filename = match[1];
+          const imageIdMatch = filename.match(/v0-([a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp))/);
+          if (imageIdMatch && imageIdMatch[1]) {
+            const imageId = imageIdMatch[1];
+            const originalUrl = `https://i.redd.it/${imageId}`;
+            console.log('Converted preview.redd.it to i.redd.it:', originalUrl);
+            return originalUrl;
+          }
+          // v0- 패턴이 없으면 파일명 그대로 사용
+          const originalUrl = `https://i.redd.it/${filename}`;
+          console.log('Converted preview.redd.it to i.redd.it (no v0):', originalUrl);
+          return originalUrl;
+        }
+        // 매칭 실패 시 원본 URL 반환
+        console.log('Found preview.redd.it URL (keeping original):', post.url);
+        return post.url;
+      }
+      
+      // i.redd.it 도메인인 경우 그대로 반환
+      if (url.includes('i.redd.it')) {
+        console.log('Found i.redd.it image URL:', post.url);
         return post.url;
       }
       
