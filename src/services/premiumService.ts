@@ -27,7 +27,7 @@ export async function isPremiumUser(userId: string): Promise<boolean> {
       .select('is_active, expires_at')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -70,9 +70,9 @@ export async function getPremiumUser(userId: string): Promise<PremiumUser | null
   try {
     const { data, error } = await supabase
       .from('premium_users')
-      .select('*')
+      .select('id, user_id, sponsor_amount, sponsor_date, is_active, expires_at, created_at, updated_at')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       if (error.code === 'PGRST116') {
