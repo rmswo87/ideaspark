@@ -490,9 +490,27 @@ function IdeaDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{idea.content}</p>
-            </div>
+            {/* 이미지 표시 */}
+            {idea.image_url && (
+              <div className="mb-4 rounded-lg overflow-hidden">
+                <img 
+                  src={idea.image_url} 
+                  alt={idea.title}
+                  className="w-full h-auto max-h-96 object-contain bg-muted"
+                  loading="lazy"
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 숨김
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            {/* 내용 표시 - 이미지가 있으면 내용이 없어도 표시하지 않음 */}
+            {(!idea.image_url && idea.content) && (
+              <div className="mb-4">
+                <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{idea.content}</p>
+              </div>
+            )}
             <div className="mt-4 flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button variant="outline" size="sm" asChild className="flex-1">
@@ -525,16 +543,6 @@ function IdeaDetailPage() {
                     />
                   </>
                 )}
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3 text-sm">
-                <p className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                  💡 Chrome 자동 번역 사용하기
-                </p>
-                <ul className="text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside text-xs">
-                  <li>보시는 페이지에서 우측 상단 번역 아이콘 클릭</li>
-                  <li>또는 마우스 우클릭 → "한국어로 번역" 선택</li>
-                  <li>Chrome의 자동 번역 기능이 가장 정확하고 빠릅니다</li>
-                </ul>
               </div>
             </div>
           </CardContent>

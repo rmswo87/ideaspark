@@ -43,20 +43,29 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
         </CardDescription>
       </CardHeader>
       <CardContent className="px-3 sm:px-4 pb-2 sm:pb-3 min-w-0 overflow-hidden">
-        <div className="mb-2 sm:mb-3 h-[60px] sm:h-[70px] min-w-0 overflow-hidden">
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-5 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
-            {idea.content || '내용 없음'}
-          </p>
-          <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-lg p-2 sm:p-2.5 text-[10px] sm:text-xs mt-3 shadow-sm">
-            <p className="font-medium text-primary mb-1 sm:mb-1.5 flex items-center gap-1.5">
-              <span>💡</span>
-              <span>Chrome 자동 번역 사용하기</span>
-            </p>
-            <p className="text-muted-foreground text-[10px] sm:text-xs leading-relaxed">
-              우측 상단 번역 아이콘을 클릭하거나 우클릭 → "한국어로 번역"을 선택하세요.
+        {/* 이미지 표시 */}
+        {idea.image_url && (
+          <div className="mb-2 sm:mb-3 rounded-lg overflow-hidden">
+            <img 
+              src={idea.image_url} 
+              alt={idea.title}
+              className="w-full h-auto max-h-48 sm:max-h-64 object-contain bg-muted"
+              loading="lazy"
+              onError={(e) => {
+                // 이미지 로드 실패 시 숨김
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+        {/* 내용 표시 - 이미지가 있으면 내용이 없어도 표시하지 않음 */}
+        {(!idea.image_url && idea.content) && (
+          <div className="mb-2 sm:mb-3 h-[60px] sm:h-[70px] min-w-0 overflow-hidden">
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-5 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
+              {idea.content}
             </p>
           </div>
-        </div>
+        )}
         
         <div className="flex items-center justify-between mb-2 sm:mb-3 flex-wrap gap-1.5 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap min-w-0 overflow-hidden">

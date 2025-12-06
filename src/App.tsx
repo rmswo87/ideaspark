@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ToastProvider } from '@/components/ui/toast'
@@ -31,13 +31,13 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage'))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage'))
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'))
-const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(m => ({ default: m.ImplementationGallery })))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(module => ({ default: module.default })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(module => ({ default: module.default })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(module => ({ default: module.default })))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(module => ({ default: module.default })))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(module => ({ default: module.default })))
+const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(module => ({ default: module.ImplementationGallery })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(module => ({ default: module.default })))
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
@@ -871,6 +871,17 @@ function HomePage() {
   )
 }
 
+// 페이지 전환 시 스크롤 최상단으로 이동하는 컴포넌트
+function ScrollToTop() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+  
+  return null;
+}
+
 function App() {
   // Vercel과 GitHub Pages 배포 환경 구분
   // Vercel: 루트 경로 (/) - 프로덕션 환경
@@ -916,6 +927,7 @@ function App() {
     <ErrorBoundary>
       <ToastProvider>
         <BrowserRouter basename={basename}>
+          <ScrollToTop />
           <Suspense fallback={<PageLoadingFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
