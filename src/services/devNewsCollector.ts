@@ -109,10 +109,20 @@ async function saveDevNews(posts: any[]): Promise<void> {
       period_date: post.period_date,
     }));
 
+    // 중복 제거: 같은 reddit_id와 period_type 조합이 있으면 제거
+    const uniquePosts = new Map<string, any>();
+    for (const post of newsToInsert) {
+      const key = `${post.reddit_id}_${post.period_type}`;
+      if (!uniquePosts.has(key)) {
+        uniquePosts.set(key, post);
+      }
+    }
+    const deduplicatedPosts = Array.from(uniquePosts.values());
+
     const { error } = await supabase
       .from('dev_news')
-      .upsert(newsToInsert, {
-        onConflict: 'reddit_id',
+      .upsert(deduplicatedPosts, {
+        onConflict: 'reddit_id,period_type',
         ignoreDuplicates: false,
       });
 

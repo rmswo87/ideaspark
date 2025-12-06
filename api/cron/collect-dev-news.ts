@@ -1,4 +1,4 @@
-// Vercel Cron Job용 API 엔드포인트: 개발 소식 자동 수집
+// Vercel Edge Function: 개발 소식 자동 수집 (Cron Job)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
@@ -49,37 +49,32 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // 보안: CRON_SECRET 확인 (Vercel Cron은 Authorization 헤더에 자동으로 추가)
-  const authHeader = req.headers.authorization;
+  // 보안: CRON_SECRET 확인 (선택사항)
   const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    const clientId = process.env.REDDIT_CLIENT_ID;
-    const clientSecret = process.env.REDDIT_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      return res.status(500).json({ 
-        success: false,
-        error: 'Reddit API credentials not configured',
-      });
-    }
-
-    // Supabase 클라이언트 초기화
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      return res.status(500).json({
-        success: false,
+      return res.status(500).json({ 
         error: 'Supabase credentials not configured',
       });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const clientId = process.env.REDDIT_CLIENT_ID;
+    const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ 
+        error: 'Reddit API credentials not configured',
+      });
+    }
 
     // OAuth2 토큰 가져오기
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -168,10 +163,20 @@ export default async function handler(
         period_date: post.period_date,
       }));
 
+      // 중복 제거: 같은 reddit_id와 period_type 조합이 있으면 제거
+      const uniquePosts = new Map<string, any>();
+      for (const post of newsToInsert) {
+        const key = `${post.reddit_id}_${post.period_type}`;
+        if (!uniquePosts.has(key)) {
+          uniquePosts.set(key, post);
+        }
+      }
+      const deduplicatedPosts = Array.from(uniquePosts.values());
+
       const { error: insertError } = await supabase
         .from('dev_news')
-        .upsert(newsToInsert, {
-          onConflict: 'reddit_id',
+        .upsert(deduplicatedPosts, {
+          onConflict: 'reddit_id,period_type',
           ignoreDuplicates: false,
         });
 
@@ -404,4 +409,3 @@ async function collectFromUrl(
     console.error(`Error fetching ${url}:`, error);
   }
 }
-
