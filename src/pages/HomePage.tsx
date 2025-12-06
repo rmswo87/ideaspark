@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Search, RefreshCw, Sparkles, Loader2, ChevronDown, ChevronUp, Filter, Newspaper } from "lucide-react"
+import { Search, RefreshCw, Sparkles, ChevronDown, ChevronUp, Filter, Newspaper } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'

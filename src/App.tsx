@@ -15,13 +15,13 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { ScrollToTop } from '@/components/ScrollToTop'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(module => ({ default: module.default as ComponentType<any> })))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(module => ({ default: module.default as ComponentType<any> })))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(module => ({ default: module.default as ComponentType<any> })))
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(module => ({ default: module.default as ComponentType<any> })))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(module => ({ default: module.default as ComponentType<any> })))
-const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(module => ({ default: module.ImplementationGallery as ComponentType<any> })))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(module => ({ default: module.default as ComponentType<any> })))
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then((module: any) => ({ default: module.default as ComponentType<any> })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((module: any) => ({ default: module.default as ComponentType<any> })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then((module: any) => ({ default: module.default as ComponentType<any> })))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then((module: any) => ({ default: module.default as ComponentType<any> })))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then((module: any) => ({ default: module.default as ComponentType<any> })))
+const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then((module: any) => ({ default: module.ImplementationGallery as ComponentType<any> })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((module: any) => ({ default: module.default as ComponentType<any> })))
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
