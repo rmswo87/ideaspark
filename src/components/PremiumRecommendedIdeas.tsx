@@ -18,16 +18,21 @@ export function PremiumRecommendedIdeas() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (premiumLoading) return;
+    // premiumLoading이 true이면 아무것도 하지 않음
+    if (premiumLoading) {
+      return;
+    }
     
     if (!isPremium || !user) {
       setLoading(false);
+      setTopScoredIdeas([]);
       return;
     }
 
     async function fetchTopScoredIdeas() {
       if (!user?.id) {
         setLoading(false);
+        setTopScoredIdeas([]);
         return;
       }
       
@@ -51,6 +56,7 @@ export function PremiumRecommendedIdeas() {
           setTopScoredIdeas(ideas);
         } catch (fallbackError) {
           console.error('Error fetching fallback ideas:', fallbackError);
+          setTopScoredIdeas([]);
         }
       } finally {
         setLoading(false);
@@ -60,8 +66,8 @@ export function PremiumRecommendedIdeas() {
     fetchTopScoredIdeas();
   }, [isPremium, premiumLoading, user]);
 
-  // 프리미엄 사용자가 아니면 표시하지 않음
-  if (!isPremium || premiumLoading) {
+  // premiumLoading이 true이거나 프리미엄 사용자가 아니면 표시하지 않음
+  if (premiumLoading || !isPremium) {
     return null;
   }
 
