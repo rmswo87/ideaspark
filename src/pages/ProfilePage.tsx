@@ -26,16 +26,12 @@ import type { Post } from '@/services/postService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useToast } from '@/components/ui/toast';
-import { usePremium } from '@/hooks/usePremium';
-import { PremiumBadge } from '@/components/PremiumBadge';
-import { Crown, Sparkles, CheckCircle2 } from 'lucide-react';
 
 function ProfilePage() {
   const params = useParams<{ userId?: string }>();
   const urlUserId = params?.userId;
   const { user, loading } = useAuth();
   const { addToast } = useToast();
-  const { isPremium } = usePremium();
   const navigate = useNavigate();
   // URL에 userId가 있으면 해당 사용자의 프로필, 없으면 로그인한 사용자의 프로필
   const targetUserId = urlUserId || user?.id;
@@ -75,9 +71,6 @@ function ProfilePage() {
   const [implementationsDialogOpen, setImplementationsDialogOpen] = useState(false);
   const [implementationsList, setImplementationsList] = useState<any[]>([]);
   const [loadingImplementations, setLoadingImplementations] = useState(false);
-  const [donationCopied, setDonationCopied] = useState(false);
-  const [donationShowQR, setDonationShowQR] = useState(false);
-  const [donationQrError, setDonationQrError] = useState(false);
   const [previewPosts, setPreviewPosts] = useState<Post[]>([]);
   const [previewComments, setPreviewComments] = useState<any[]>([]);
   const [friendStatuses, setFriendStatuses] = useState<Record<string, 'none' | 'pending' | 'accepted' | 'blocked'>>({});
@@ -86,15 +79,6 @@ function ProfilePage() {
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-
-  const donationAccountNumber = '3333258583773';
-  const donationBankName = '카카오뱅크';
-  const donationAccountHolder = '자취만렙';
-  // QR 코드 이미지는 public 폴더에 있으므로 루트 경로로 접근
-  // Vite에서 public 폴더의 파일은 빌드 시 루트로 복사되므로 절대 경로 사용
-  const donationQrUrl = typeof window !== 'undefined' 
-    ? new URL('/QR.png', window.location.origin).href 
-    : '/QR.png';
 
   function getImageProxyBase() {
     return (
@@ -960,130 +944,6 @@ function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* 오른쪽: 프리미엄 상태 및 도네이션 박스 */}
-          {isOwnProfile && (
-            <div className="space-y-4">
-              {/* 프리미엄 상태 카드 */}
-              <Card className={isPremium ? 'border-primary/50 bg-primary/5' : ''}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl mb-2 font-sans">
-                    {isPremium ? (
-                      <>
-                        <Crown className="h-5 w-5 text-yellow-500" />
-                        프리미엄 회원
-                        <PremiumBadge className="ml-auto" />
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        프리미엄 회원 가입
-                      </>
-                    )}
-                  </CardTitle>
-                  {isPremium ? (
-                    <p className="text-sm text-muted-foreground font-sans">
-                      프리미엄 회원으로 AI 아이디어 평가 기능을 사용할 수 있습니다.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground font-sans">
-                      후원하시면 프리미엄 회원이 되어 AI 아이디어 평가 기능을 사용할 수 있습니다.
-                    </p>
-                  )}
-                </CardHeader>
-                {!isPremium && (
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                        <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                        <div className="text-sm">
-                          <div className="font-medium mb-1">프리미엄 기능</div>
-                          <ul className="text-muted-foreground space-y-1 text-xs">
-                            <li>• AI 기반 아이디어 평가 (비타민/경쟁율/섹시함 점수)</li>
-                            <li>• 최근 검색 아이디어 중 상위 3개 자동 추천</li>
-                            <li>• 업무 난이도 평가 및 AI 분석 결과</li>
-                          </ul>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-center">
-                        아래 후원 방법으로 후원하시면 관리자가 확인 후 프리미엄 회원으로 등록해드립니다.
-                      </p>
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-
-              {/* 도네이션 박스 */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl mb-2 font-sans">개발자를 위한 커피 한 잔 ☕</CardTitle>
-                  <p className="text-sm text-muted-foreground font-sans">
-                    IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
-                  </p>
-                </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium font-sans">은행 및 계좌번호</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-base flex-1 font-sans">
-                        {donationBankName} {donationAccountNumber}
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="font-sans"
-                        onClick={() => {
-                          navigator.clipboard
-                            .writeText(donationAccountNumber)
-                            .then(() => {
-                              setDonationCopied(true);
-                              setTimeout(() => setDonationCopied(false), 2000);
-                            })
-                            .catch(() => {
-                              addToast({
-                                title: '복사 실패',
-                                description: '계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.',
-                                variant: 'destructive',
-                              });
-                            });
-                        }}
-                      >
-                        {donationCopied ? '복사됨' : '복사'}
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium font-sans">예금주</Label>
-                    <p className="text-sm text-muted-foreground mt-1 font-sans">{donationAccountHolder}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium font-sans mb-2 block">카카오페이 QR</Label>
-                    <a
-                      href="https://qr.kakaopay.com/Ej7sjRH31"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline font-sans"
-                    >
-                      https://qr.kakaopay.com/Ej7sjRH31
-                    </a>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="w-full font-sans"
-                    onClick={() => setDonationShowQR(true)}
-                  >
-                    QR 코드 보기
-                  </Button>
-                </div>
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground font-sans">
-                    피드백과 문의도 언제나 환영입니다.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            </div>
-          )}
         </div>
       </div>
 
@@ -2142,39 +2002,6 @@ function ProfilePage() {
         </DialogContent>
       </Dialog>
 
-      {/* 도네이션 QR 다이얼로그 (프로필 내 인라인) */}
-      {isOwnProfile && (
-        <Dialog open={donationShowQR} onOpenChange={setDonationShowQR}>
-          <DialogContent className="sm:max-w-md" showCloseButton={true}>
-            <DialogHeader>
-              <DialogTitle>QR 코드로 송금</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="w-56 h-56 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed overflow-hidden relative">
-                <img
-                  src={donationQrUrl}
-                  alt="도네이션 QR 코드"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={() => setDonationQrError(true)}
-                  onLoad={() => setDonationQrError(false)}
-                />
-                {donationQrError && (
-                  <div className="absolute text-center p-6 text-xs text-muted-foreground">
-                    QR 코드 이미지를 불러올 수 없습니다.
-                    <br />
-                    <code className="text-[10px]">public/QR.png</code> 위치를 확인해주세요.
-                  </div>
-                )}
-              </div>
-              <div className="text-center text-xs text-muted-foreground">
-                <p className="font-semibold text-sm text-foreground">{donationBankName}</p>
-                <p className="font-mono text-[11px]">{donationAccountNumber}</p>
-                <p className="mt-1">예금주: {donationAccountHolder}</p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
