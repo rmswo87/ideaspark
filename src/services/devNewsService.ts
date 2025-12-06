@@ -176,3 +176,4 @@ export async function getHotKeywords(limit: number = 10): Promise<Array<{ tag: s
 export async function getPopularBySubreddit(subreddit: string, limit: number = 5): Promise<DevNews[]> {
   return getDevNews({ subreddit, limit });
 }
+

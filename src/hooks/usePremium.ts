@@ -41,3 +41,4 @@ export function usePremium() {
 
   return { isPremium, loading };
 }
+
