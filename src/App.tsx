@@ -10,6 +10,7 @@ import TermsPage from '@/pages/TermsPage'
 import PrivacyPage from '@/pages/PrivacyPage'
 import { DevNewsFeedPage } from '@/pages/DevNewsFeedPage'
 import { HomePage } from '@/pages/HomePage'
+import { PremiumPage } from '@/pages/PremiumPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { BottomNavigation } from '@/components/BottomNavigation'
 import { ScrollToTop } from '@/components/ScrollToTop'
@@ -88,6 +89,7 @@ function App() {
             <Route path="/community/:id" element={<PostDetailPage />} />
             <Route path="/implementations" element={<ImplementationGallery />} />
             <Route path="/news" element={<DevNewsFeedPage />} />
+            <Route path="/premium" element={<PremiumPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
