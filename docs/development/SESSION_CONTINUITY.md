@@ -1,7 +1,7 @@
 # IdeaSpark 프로젝트 세션 연속성 문서
 
 **작성일**: 2025년 12월 5일  
-**최종 업데이트**: 2025년 12월 5일  
+**최종 업데이트**: 2025년 12월 6일  
 **목적**: 새 채팅 세션에서 프로젝트 맥락을 빠르게 파악하고 작업을 이어갈 수 있도록 전체 상황 정리  
 **대상**: AI Assistant 및 개발자
 
@@ -80,35 +80,39 @@
 
 ---
 
-## 📊 현재 진행 상황 (2025-12-05 기준)
+## 📊 현재 진행 상황 (2025-12-06 기준)
 
 ### 전체 완성도
 - **MVP (Epic 0-6)**: **98%** 완료 ✅
 - **모바일 최적화**: **100%** 완료 ✅
 - **UI 개선**: **95%** 완료 ✅
-- **개발 소식 시스템**: **100%** 완료 ✅
+- **개발 소식 시스템**: **90%** 완료 (개선 작업 진행 중)
 - **전체 (Epic 0-8)**: **95%** 완료
 
-### 최근 완료된 작업 (2025-12-05)
+### 최근 완료된 작업 (2025-12-05 ~ 2025-12-06)
 
 #### 1. 개발 소식 시스템 완성 ✅
 **완료일**: 2025년 12월 5일
 
 **구현 내용**:
 - ✅ `dev_news` 테이블 마이그레이션 (`20251205_create_dev_news_table.sql`)
-- ✅ Reddit 개발 소식 수집 API (`api/collect-dev-news.ts`)
+- ✅ Reddit 개발 소식 수집 API (`api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`)
   - AI 관련 서브레딧 우선 수집 (OpenAI, ChatGPT, Claude, Gemini 등)
   - 개발 팁 및 최신 트렌드 키워드 강화
   - 카테고리 자동 분류 (ai, tutorial, tip, news, discussion, resource)
   - 태그 자동 추출 (AI 키워드 우선, 개발 팁, 기술 스택)
+  - Daily/Weekly/Monthly 기간별 수집 지원
 - ✅ 개발 소식 서비스 (`devNewsService.ts`, `devNewsCollector.ts`)
 - ✅ 개발 소식 피드 페이지 (`DevNewsFeedPage.tsx`)
-  - 릴스/인스타그램 스타일 스와이프 네비게이션
-  - Daily/Weekly/Monthly 탭 지원
-  - 터치 스와이프 및 키보드 네비게이션
+  - Daily/Weekly/Monthly 탭 지원 (Select 드롭다운)
   - 관리자용 수집 버튼 (소식이 없을 때)
 - ✅ 모든 페이지 헤더 통일 (고정 헤더)
 - ✅ 커뮤니티 버튼 스타일 통일 (disabled 제거)
+- ✅ Vercel Cron Job 설정 (매일 오전 9시 자동 수집)
+- ✅ RLS 정책 수정 (`20251205_fix_dev_news_rls.sql`)
+- ✅ Unique 제약조건 수정 (`20251206_fix_dev_news_unique_constraint.sql`)
+  - `(reddit_id, period_type)` 복합 unique 제약조건으로 변경
+  - 같은 게시물이 daily, weekly, monthly로 각각 저장 가능
 
 **참고 문서**: `docs/development/CATEGORY_BASED_RECOMMENDATION_AND_DEV_NEWS.md`
 
@@ -184,11 +188,36 @@
 
 **참고 문서**: `docs/development/PROPOSAL_IMPROVEMENTS.md`
 
+#### 9. App.tsx 리팩토링 ✅
+**완료일**: 2025년 12월 6일
+
+**구현 내용**:
+- ✅ `App.tsx`를 988줄에서 136줄로 축소
+- ✅ `HomePage` 컴포넌트를 `src/pages/HomePage.tsx`로 분리
+- ✅ `ScrollToTop` 컴포넌트를 `src/components/ScrollToTop.tsx`로 분리
+- ✅ lazy loading 타입 에러 수정 (`ComponentType` 사용, fallback 추가)
+
+#### 10. 프리미엄 기능 별도 페이지 생성 ✅
+**완료일**: 2025년 12월 6일
+
+**구현 내용**:
+- ✅ `src/pages/PremiumPage.tsx` 생성
+- ✅ 프로필 페이지에서 프리미엄 관련 내용 분리
+- ✅ 프리미엄 기능 상세 설명 추가
+- ✅ `/premium` 라우트 추가
+
+#### 11. 관리자 권한으로 프리미엄 기능 테스트 가능 ✅
+**완료일**: 2025년 12월 6일
+
+**구현 내용**:
+- ✅ `usePremium` 훅 수정: 관리자는 자동으로 프리미엄 기능 사용 가능
+- ✅ `PremiumPage`에서 관리자 권한 표시
+
 ---
 
-## 📋 현재 진행 중인 작업
+## 🔄 현재 진행 중인 작업
 
-### 없음 (모든 작업 완료)
+없음 (모든 주요 작업 완료)
 
 ---
 
@@ -196,33 +225,47 @@
 
 ### P0 (즉시 처리 필요)
 
-#### 1. 개발 소식 자동 수집 스케줄링
-**상태**: 대기  
-**예상 시간**: 1-2시간  
+#### 1. 이미지 수집 문제 해결
+**상태**: 확인 필요  
+**예상 시간**: 2-3시간  
 **우선순위**: 높음
 
-**작업 내용**:
-- [ ] Vercel Cron Job 설정 또는 Supabase Edge Function 스케줄러 설정
-- [ ] 매일 자동으로 개발 소식 수집 (예: 오전 9시)
-- [ ] 수집 실패 시 재시도 로직 추가
+**문제**:
+- Reddit API에서 이미지 URL 추출 로직은 구현되어 있음 (`extractImageUrl` 함수)
+- 실제로 이미지가 있는 게시글에서 이미지가 표시되지 않음
+- 원인: 이미지 URL 추출이 제대로 작동하지 않거나, 데이터베이스에 저장되지 않음
 
-**참고**:
-- API 엔드포인트: `api/collect-dev-news.ts` (이미 구현됨)
-- 수집 함수: `collectDevNews()` in `devNewsCollector.ts`
+**작업 내용**:
+- [ ] Reddit API 응답에서 이미지 URL 추출 로직 디버깅
+- [ ] 실제 수집된 데이터에서 `image_url` 필드 확인
+- [ ] 이미지 URL이 제대로 저장되는지 확인
+- [ ] 수집 로직 수정 (필요 시)
 
 #### 2. 배포 후 기능 테스트
-**상태**: 대기  
+**상태**: 체크리스트 작성 완료, 테스트 대기  
 **예상 시간**: 1-2시간  
 **우선순위**: 높음
 
 **작업 내용**:
+- [x] 테스트 체크리스트 문서 작성 (`docs/development/DEPLOYMENT_TEST_CHECKLIST.md`)
+- [ ] ⚠️ SQL 마이그레이션 실행 (Supabase Dashboard에서 수동 실행 필요)
+  - 파일: `supabase/migrations/20251206_add_num_comments_to_dev_news.sql`
+  - 파일: `supabase/migrations/20251206_add_image_url_to_dev_news.sql`
+  - 파일: `supabase/migrations/20251206_add_image_url_to_ideas.sql`
 - [ ] Vercel 배포 상태 확인
-- [ ] 개발 소식 페이지 테스트 (헤더 고정, 스와이프 네비게이션)
-- [ ] 모바일 필터 드롭다운 테스트 (추천 버튼 포함)
+- [ ] 개발 소식 페이지 테스트
+- [ ] 필터링 개선 확인
+- [ ] 주간 소식 내용 표시 확인
+- [ ] 모바일 반응형 테스트
 - [ ] 개발 소식 수집 기능 테스트 (관리자)
+- [ ] 자동 한국어 번역 확인
 - [ ] 커뮤니티 버튼 스타일 확인
+- [ ] 프리미엄 페이지 테스트
+- [ ] 번역 안내 메시지 확인
 
-### P1 (단기 - 1-2주 내)
+**참고 문서**: `docs/development/DEPLOYMENT_TEST_CHECKLIST.md`
+
+### P1 (단기 - 1주 내)
 
 #### 3. 소셜 로그인 완료
 **상태**: 코드 완료, Supabase 설정 필요  
@@ -246,16 +289,24 @@
 - [ ] 진행률 자동 계산 및 표시
 - [ ] 완료된 Task와 남은 Task 구분 표시
 
-### P2 (중기 - 3-4주 내)
+### P2 (중기 - 2주 내)
 
-#### 5. Edge Function 구현 (선택사항)
+#### 5. 댓글 애니메이션
+**예상 시간**: 4-5시간
+
+**작업 내용**:
+- [ ] Reddit API로 댓글 가져오기
+- [ ] 상위 3-5개 댓글 선택
+- [ ] CSS 애니메이션 구현 (페이드 인/아웃)
+
+#### 6. Edge Function 구현 (선택사항)
 **예상 시간**: 2일
 
 **작업 내용**:
 - [ ] 매일 자동으로 최고 점수 아이디어 선정
 - [ ] 프리미엄 사용자에게 자동 알림 전송
 
-#### 6. 구독 모델 구현
+#### 7. 구독 모델 구현
 **예상 시간**: 10일
 
 **작업 내용**:
@@ -271,18 +322,21 @@
 ```
 IdeaSpark/
 ├── src/
-│   ├── App.tsx                    # 메인 앱, 라우팅, 헤더, 홈페이지
+│   ├── App.tsx                    # 메인 앱, 라우팅 (136줄)
 │   ├── pages/
+│   │   ├── HomePage.tsx           # 홈 페이지 (851줄)
 │   │   ├── IdeaDetailPage.tsx     # 아이디어 상세, PRD/제안서 생성, AI 평가
 │   │   ├── CommunityPage.tsx      # 커뮤니티 피드
-│   │   ├── DevNewsFeedPage.tsx    # 개발 소식 피드 (릴스 스타일)
+│   │   ├── DevNewsFeedPage.tsx    # 개발 소식 피드 (통합 피드)
 │   │   ├── PostDetailPage.tsx     # 게시글 상세
-│   │   ├── ProfilePage.tsx        # 프로필 페이지, 프리미엄 상태
+│   │   ├── ProfilePage.tsx        # 프로필 페이지
+│   │   ├── PremiumPage.tsx        # 프리미엄 기능 페이지 (새로 생성)
 │   │   ├── ImplementationGallery.tsx # 구현 현황 갤러리
 │   │   ├── ContactPage.tsx        # 문의/피드백
 │   │   ├── AuthPage.tsx           # 로그인/회원가입
 │   │   └── AdminDashboard.tsx     # 관리자 대시보드
 │   ├── components/
+│   │   ├── ScrollToTop.tsx        # 페이지 전환 시 스크롤 최상단 이동 (새로 생성)
 │   │   ├── IdeaCard.tsx           # 아이디어 카드
 │   │   ├── RecommendedIdeas.tsx   # 추천 아이디어
 │   │   ├── PremiumRecommendedIdeas.tsx # 프리미엄 추천 아이디어
@@ -311,17 +365,24 @@ IdeaSpark/
 │   └── hooks/
 │       ├── useAuth.ts            # 인증 Hook
 │       ├── useAdmin.ts          # 관리자 Hook
-│       └── usePremium.ts        # 프리미엄 사용자 Hook
+│       └── usePremium.ts        # 프리미엄 사용자 Hook (관리자 권한 추가)
 ├── supabase/
 │   ├── migrations/               # 데이터베이스 마이그레이션
 │   │   ├── 20251204_create_idea_scores_table.sql
 │   │   ├── 20251204_create_premium_users_table.sql
 │   │   ├── 20251205_create_dev_news_table.sql
+│   │   ├── 20251205_fix_dev_news_rls.sql
+│   │   ├── 20251206_fix_dev_news_unique_constraint.sql
+│   │   ├── 20251206_add_num_comments_to_dev_news.sql
+│   │   ├── 20251206_add_image_url_to_dev_news.sql
+│   │   ├── 20251206_add_image_url_to_ideas.sql
 │   │   └── ...                    # 기타 마이그레이션
 │   └── functions/                # Supabase Edge Functions
 ├── api/                          # Vercel Serverless Functions
 │   ├── collect-ideas.ts          # 아이디어 수집
-│   ├── collect-dev-news.ts      # 개발 소식 수집
+│   ├── collect-dev-news.ts      # 개발 소식 수집 (수동)
+│   ├── cron/
+│   │   └── collect-dev-news.ts   # 개발 소식 자동 수집 (Cron Job)
 │   └── ...                        # 기타 API
 ├── docs/
 │   ├── development/              # 개발 문서
@@ -330,7 +391,7 @@ IdeaSpark/
 │   │   ├── AI_IDEA_SCORING_IMPLEMENTATION.md
 │   │   ├── CATEGORY_BASED_RECOMMENDATION_AND_DEV_NEWS.md
 │   │   ├── PROPOSAL_IMPROVEMENTS.md
-│   │   ├── CURRENT_STATUS.md
+│   │   ├── DEPLOYMENT_TEST_CHECKLIST.md
 │   │   └── ...                    # 기타 문서
 │   ├── archive/                  # 아카이브 문서
 │   └── setup/                    # 설정 가이드
@@ -356,7 +417,7 @@ IdeaSpark/
 - **평가 기준**: 비타민 점수, 경쟁율 점수, 섹시함 점수 (각 0-10점)
 - **업무 난이도**: 하/중/상 분류
 - **AI 분석**: 각 점수별 상세 분석 제공
-- **프리미엄 전용**: 프리미엄 사용자만 평가 가능
+- **프리미엄 전용**: 프리미엄 사용자만 평가 가능 (관리자는 자동으로 사용 가능)
 
 ### 4. 추천 시스템
 - **기본 추천**: 사용자 행동 기반 추천 (좋아요, 북마크, PRD 생성)
@@ -365,11 +426,13 @@ IdeaSpark/
 - **구현 사례 기반**: 유사 구현 사례가 있는 아이디어 추천
 
 ### 5. 개발 소식 피드
-- **수집**: Reddit 개발 관련 서브레딧에서 수집
-- **분류**: Daily/Weekly/Monthly 기간별 분류
+- **수집**: Reddit 개발 관련 서브레딧에서 수집 (Vercel Cron Job, 매일 오전 9시)
+- **분류**: Daily/Weekly/Monthly 기간별 분류 (통합 피드로 표시)
 - **카테고리**: AI, tutorial, tip, news, discussion, resource
 - **태그**: 기술 스택 키워드 자동 추출
-- **UI**: 릴스/인스타그램 스타일 스와이프 네비게이션
+- **UI**: 통합 피드 (Daily/Weekly/Monthly 모두 표시)
+- **데이터베이스**: `dev_news` 테이블, `(reddit_id, period_type)` 복합 unique 제약조건
+- **이미지**: 이미지 URL 추출 및 표시 (수집 문제 확인 필요)
 
 ### 6. 커뮤니티 기능
 - **SNS 스타일 피드**: 무한 스크롤, 좋아요, 북마크
@@ -384,6 +447,7 @@ IdeaSpark/
 - **쪽지 시스템**: 1:1 대화, 읽음 처리
 - **차단 기능**: 사용자 차단
 - **프리미엄 사용자**: 후원 기반 프리미엄 기능 제공
+- **프리미엄 페이지**: `/premium` 라우트로 별도 페이지 제공
 
 ### 8. 아이디어 실행 현황 추적
 - **구현 등록**: 스크린샷, URL, 설명, 상태 관리
@@ -405,37 +469,71 @@ IdeaSpark/
 - 배포: Vercel (https://ideaspark-pi.vercel.app)
 - GitHub: rmswo87/ideaspark
 
-최근 완료된 작업 (2025-12-05):
-1. 개발 소식 시스템 완성
-   - Reddit API를 통한 개발 소식 수집 (AI 관련 서브레딧 우선)
-   - 개발 소식 피드 페이지 (릴스/인스타그램 스타일)
-   - 모든 페이지 헤더 통일 (고정 헤더)
-   - 커뮤니티 버튼 스타일 통일
-2. 모바일 최적화 개선
-   - 모바일 필터 드롭다운에 추천 버튼 추가
-   - 카테고리/검색 구간 컴팩트화
-3. 사용자 관심 카테고리 기반 AI 점수 추천 시스템
-4. AI 기반 아이디어 평가 시스템 (UI 포함)
-5. 아이디어 실행 현황 추적 시스템
+최근 완료된 작업 (2025-12-06):
+1. ✅ App.tsx 리팩토링
+   - 988줄에서 136줄로 축소
+   - HomePage와 ScrollToTop 컴포넌트 분리
+   - lazy loading 타입 에러 수정 (fallback 추가)
+2. ✅ 프리미엄 기능 별도 페이지 생성
+   - src/pages/PremiumPage.tsx 생성
+   - 프로필 페이지에서 프리미엄 관련 내용 분리
+   - /premium 라우트 추가
+3. ✅ 관리자 권한으로 프리미엄 기능 테스트 가능
+   - usePremium 훅 수정: 관리자는 자동으로 프리미엄 기능 사용 가능
+4. ✅ 번역 안내 메시지 레이아웃 개선
+   - 검색창 우측에 번역 안내 메시지 표시 (데스크톱에서만)
+   - 배경색 및 테두리 추가로 가시성 향상
 
 현재 상태:
 - MVP: 98% 완료
 - 모바일 최적화: 100% 완료
 - UI 개선: 95% 완료
-- 개발 소식 시스템: 100% 완료
+- 개발 소식 시스템: 90% 완료
 - 전체: 95% 완료
 
+🚨 현재 문제 (2025-12-06):
+1. **번역 안내 메시지 표시 문제**
+   - 검색창 우측에 번역 안내 메시지가 표시되지 않음
+   - 레이아웃 문제로 추정 (수정 완료: `hidden md:flex`로 변경, 배경색 추가)
+   - 상태: 수정 완료, 배포 후 확인 필요
+
+2. **이미지 데이터 수집 문제**
+   - Reddit API에서 이미지 URL 추출 로직은 구현되어 있음 (`extractImageUrl` 함수)
+   - 실제로 이미지가 있는 게시글에서 이미지가 표시되지 않음
+   - 원인: 이미지 URL 추출이 제대로 작동하지 않거나, 데이터베이스에 저장되지 않음
+   - 확인 필요: 실제 수집된 데이터에서 `image_url` 필드 확인
+   - 해결 방법: 수집 로직 디버깅, 실제 Reddit API 응답 확인
+
 다음 우선 작업:
-1. 개발 소식 자동 수집 스케줄링 (Vercel Cron Job 설정)
-2. 배포 후 기능 테스트
-3. 소셜 로그인 완료 (코드 완료, Supabase 설정 필요)
+1. 이미지 수집 문제 해결 (P0)
+   - Reddit API 응답에서 이미지 URL 추출 로직 디버깅
+   - 실제 수집된 데이터 확인
+   - 이미지 URL이 제대로 저장되는지 확인
+2. 배포 후 기능 테스트 (P0)
+   - SQL 마이그레이션 실행 확인 (Supabase Dashboard)
+   - 개발 소식 페이지 테스트
+   - 이미지 표시 확인
+   - 번역 안내 메시지 확인
+   - 프리미엄 페이지 테스트
+3. 소셜 로그인 완료 (P1 - 코드 완료, Supabase 설정 필요)
+4. 댓글 애니메이션 (P2)
+
+⚠️ 중요: SQL 마이그레이션 실행 필요
+다음 파일들을 Supabase Dashboard → SQL Editor에서 수동 실행:
+1. supabase/migrations/20251206_add_num_comments_to_dev_news.sql
+2. supabase/migrations/20251206_add_image_url_to_dev_news.sql
+3. supabase/migrations/20251206_add_image_url_to_ideas.sql
+
+프로젝트 구조:
+- src/App.tsx: 라우팅 및 기본 구조만 (136줄)
+- src/pages/HomePage.tsx: 홈 페이지 (851줄)
+- src/pages/PremiumPage.tsx: 프리미엄 기능 페이지 (새로 생성)
+- src/components/ScrollToTop.tsx: 페이지 전환 시 스크롤 최상단 이동
 
 참고 문서:
 - docs/development/SESSION_CONTINUITY.md - 전체 프로젝트 상황 (이 문서)
+- docs/development/DEPLOYMENT_TEST_CHECKLIST.md - 배포 후 테스트 체크리스트
 - docs/development/DATABASE_MIGRATIONS_SUMMARY.md - 실행된 SQL 요약
-- docs/development/AI_IDEA_SCORING_IMPLEMENTATION.md - AI 아이디어 평가 시스템
-- docs/development/CATEGORY_BASED_RECOMMENDATION_AND_DEV_NEWS.md - 최근 완료 작업
-- docs/development/CURRENT_STATUS.md - 현재 상태 상세
 
 다음 작업을 진행하겠습니다: [작업 내용]
 ```
@@ -447,7 +545,6 @@ IdeaSpark/
 ### 핵심 문서
 - `docs/development/SESSION_CONTINUITY.md` - 이 문서 (전체 프로젝트 상황)
 - `docs/development/DATABASE_MIGRATIONS_SUMMARY.md` - 실행된 SQL 마이그레이션 요약
-- `docs/development/CURRENT_STATUS.md` - 현재 상태 상세
 - `docs/development/AI_IDEA_SCORING_IMPLEMENTATION.md` - AI 아이디어 평가 시스템
 - `docs/development/CATEGORY_BASED_RECOMMENDATION_AND_DEV_NEWS.md` - 최근 완료 작업
 
@@ -485,6 +582,11 @@ IdeaSpark/
 - 각 단계마다 빌드/테스트
 - 명확한 커밋 메시지
 
+### 6. Git 작업 규칙 (필수)
+- 모든 파일 수정 후 반드시 Git MCP를 사용하여 GitHub에 푸시
+- `mcp_github_create_or_update_file` 또는 `mcp_github_push_files` 사용
+- 로컬 git 명령어는 Git MCP로 푸시한 후에만 사용
+
 ---
 
 ## 🚨 주의사항
@@ -510,30 +612,99 @@ IdeaSpark/
 - Vercel 자동 배포 활성화 (GitHub push 시)
 - 배포 후 기능 테스트 필수
 
+### 4. Vercel Cron Job
+- `vercel.json`에 cron 스케줄 설정됨
+- `/api/cron/collect-ideas`: 매일 자정 (0 0 * * *)
+- `/api/cron/collect-dev-news`: 매일 오전 9시 (0 9 * * *)
+
 ---
 
-## 📝 최근 변경사항 (2025-12-05)
+## 📝 최근 변경사항 (2025-12-06)
 
 ### 완료된 작업
-1. ✅ 개발 소식 페이지 헤더 통일 (App.tsx와 동일한 구조)
-2. ✅ 커뮤니티 버튼 스타일 통일 (disabled 제거)
-3. ✅ 개발 소식 수집 기능 추가 (관리자용 버튼)
-4. ✅ 모바일 필터 드롭다운에 추천 버튼 추가
-5. ✅ 개발 소식 수집 로직 개선 (AI 관련 서브레딧 우선)
+1. ✅ 개발 소식 피드 개선 작업 (P0)
+   - 필터링 개선: 개발 키워드 점수 기반 필터링 구현
+   - 주간 소식 내용 표시: Reddit API에서 `selftext`/`selftext_html` 정확히 가져오기
+   - 탭 제거 및 통합 피드: Daily/Weekly/Monthly 탭 제거, 통합 피드로 변경
+2. ✅ 댓글 수 표시 기능 (P1)
+   - DB 마이그레이션 파일 생성 (`20251206_add_num_comments_to_dev_news.sql`)
+   - 수집 로직 수정: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`
+   - UI 표시: `DevNewsFeedPage.tsx`에 댓글 수 표시 추가
+3. ✅ 자동 한국어 번역 설정 (P1)
+   - `index.html`에 Google Translate 자동 실행 설정
+   - `lang="ko"` 속성 추가
+4. ✅ 배포 후 테스트 체크리스트 작성
+   - `docs/development/DEPLOYMENT_TEST_CHECKLIST.md` 생성
+5. ✅ 이미지 표시 기능 추가
+   - 개발 소식 피드에 이미지 표시 (텍스트 없는 게시글 포함)
+   - 아이디어 대시보드에 이미지 표시
+   - Reddit API에서 이미지 URL 추출 로직 구현
+   - DB 마이그레이션 파일 생성 (dev_news, ideas 테이블)
+6. ✅ 번역 안내 UI 개선
+   - "Chrome 자동 번역 사용하기" 박스 제거 (IdeaCard, IdeaDetailPage)
+   - 검색창 placeholder에 번역 안내 문구 추가
+   - `App.tsx` 검색 입력창 placeholder 수정
+7. ✅ 개발 소식 자동 수집 기능
+   - 관리자 권한 시 소식이 없으면 자동으로 수집 시작
+   - `DevNewsFeedPage.tsx`에 자동 수집 로직 추가
+8. ✅ App.tsx 리팩토링 (2025-12-06)
+   - `App.tsx`를 988줄에서 136줄로 축소
+   - `HomePage` 컴포넌트를 `src/pages/HomePage.tsx`로 분리
+   - `ScrollToTop` 컴포넌트를 `src/components/ScrollToTop.tsx`로 분리
+   - lazy loading 타입 에러 수정 (`ComponentType` 사용, fallback 추가)
+9. ✅ 프리미엄 기능 별도 페이지 생성 (2025-12-06)
+   - `src/pages/PremiumPage.tsx` 생성
+   - 프로필 페이지에서 프리미엄 관련 내용 분리
+   - 프리미엄 기능 상세 설명 추가
+10. ✅ 관리자 권한으로 프리미엄 기능 테스트 가능 (2025-12-06)
+    - `usePremium` 훅 수정: 관리자는 자동으로 프리미엄 기능 사용 가능
+    - `PremiumPage`에서 관리자 권한 표시
 
-### 수정된 파일
-- `src/pages/DevNewsFeedPage.tsx` - 헤더 구조 변경, 수집 버튼 추가
-- `src/pages/CommunityPage.tsx` - 커뮤니티 버튼 disabled 제거
-- `src/App.tsx` - 모바일 필터 드롭다운에 추천 버튼 추가
-- `api/collect-dev-news.ts` - AI 관련 서브레딧 우선 수집, 키워드 개선
+### 🚨 현재 문제 (2025-12-06)
+1. **번역 안내 메시지 표시 문제**
+   - 검색창 우측에 번역 안내 메시지가 표시되지 않음
+   - 레이아웃 문제로 추정 (수정 완료: `hidden md:flex`로 변경, 배경색 추가)
+   - 상태: 수정 완료, 배포 후 확인 필요
 
-### 커밋 내역
-- `fix: 개발 소식 페이지 헤더 통일, 커뮤니티 버튼 스타일 수정, 개발 소식 수집 기능 추가`
-- `fix: 모바일 추천 버튼 복원, 모든 페이지에 개발 소식 버튼 추가, 개발 소식 수집 로직 개선`
-- `fix: JSX 태그 닫기 및 사용하지 않는 import 제거`
+2. **이미지 데이터 수집 문제**
+   - Reddit API에서 이미지 URL 추출 로직은 구현되어 있음
+   - 실제로 이미지가 있는 게시글에서 이미지가 표시되지 않음
+   - 원인: 이미지 URL 추출이 제대로 작동하지 않거나, 데이터베이스에 저장되지 않음
+   - 확인 필요: 실제 수집된 데이터에서 `image_url` 필드 확인
+
+### 수정된 파일 (2025-12-06)
+- `api/collect-dev-news.ts`: 필터링 개선, 내용 추출 개선, `num_comments` 수집 추가, 이미지 URL 추출 추가
+- `api/cron/collect-dev-news.ts`: 필터링 개선, 내용 추출 개선, `num_comments` 수집 추가, 이미지 URL 추출 추가
+- `api/collect-ideas.ts`: 이미지 URL 추출 함수 추가, 수집 로직 수정
+- `src/services/devNewsService.ts`: `DevNews` 인터페이스에 `num_comments`, `image_url` 추가, `getAllDevNews` 함수 추가
+- `src/services/ideaService.ts`: `Idea` 인터페이스에 `image_url` 추가, 수집 로직 수정
+- `src/services/devNewsCollector.ts`: `num_comments`, `image_url` 저장 로직 추가
+- `src/pages/DevNewsFeedPage.tsx`: 무한 스크롤 제거, 통합 피드로 변경, 댓글 수 표시 추가, 이미지 표시 UI 추가, 자동 수집 로직 추가, Card 클릭 이벤트 추가
+- `src/components/IdeaCard.tsx`: 이미지 표시 UI 추가, 번역 안내 박스 제거
+- `src/pages/IdeaDetailPage.tsx`: 번역 안내 박스 제거, 이미지 표시 추가
+- `src/App.tsx`: lazy loading 타입 에러 수정 (fallback 추가), 검색창 placeholder 수정, `HomePage`와 `ScrollToTop` 분리, `PremiumPage` 라우트 추가
+- `src/pages/HomePage.tsx`: 새로 생성 (App.tsx에서 분리), 번역 안내 메시지 추가
+- `src/components/ScrollToTop.tsx`: 새로 생성 (App.tsx에서 분리)
+- `src/pages/PremiumPage.tsx`: 새로 생성 (프리미엄 기능 별도 페이지)
+- `src/hooks/usePremium.ts`: 관리자 권한으로 프리미엄 기능 테스트 가능하도록 수정
+- `index.html`: Google Translate 자동 실행 설정, `lang="ko"` 추가
+- `supabase/migrations/20251206_add_num_comments_to_dev_news.sql`: 새 마이그레이션 파일 생성
+- `supabase/migrations/20251206_add_image_url_to_dev_news.sql`: 개발 소식 이미지 URL 컬럼 추가
+- `supabase/migrations/20251206_add_image_url_to_ideas.sql`: 아이디어 이미지 URL 컬럼 추가
+- `docs/development/DEPLOYMENT_TEST_CHECKLIST.md`: 배포 후 테스트 체크리스트 작성
+
+### ⚠️ 중요: SQL 마이그레이션 실행 필요
+**파일들**:
+1. `supabase/migrations/20251206_add_num_comments_to_dev_news.sql` (댓글 수 컬럼)
+2. `supabase/migrations/20251206_add_image_url_to_dev_news.sql` (개발 소식 이미지 URL)
+3. `supabase/migrations/20251206_add_image_url_to_ideas.sql` (아이디어 이미지 URL)
+
+**실행 방법**: Supabase Dashboard → SQL Editor에서 수동 실행 필요
 
 ---
 
 **작성자**: AI Assistant  
-**최종 업데이트**: 2025년 12월 5일  
-**다음 작업**: 개발 소식 자동 수집 스케줄링, 배포 후 테스트
+**최종 업데이트**: 2025년 12월 6일  
+**다음 작업**: 
+1. 이미지 수집 문제 해결 (Reddit API 응답 확인 및 디버깅)
+2. 배포 후 기능 테스트 (프리미엄 페이지, 번역 안내 메시지, 이미지 표시)
