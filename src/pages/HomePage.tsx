@@ -803,12 +803,8 @@ export function HomePage() {
         </div>
 
         {/* 프리미엄 추천 아이디어 섹션 (프리미엄 사용자에게만 표시) */}
-        {/* 로딩이 완료되고 프리미엄 사용자인 경우에만 렌더링하여 깜빡임 방지 */}
-        {!authLoading && !premiumLoading && user && isPremium && (
-          <div id="premium-recommended-ideas-section" className="mb-4 sm:mb-6 md:mb-8 w-full max-w-full overflow-x-hidden">
-            <PremiumRecommendedIdeas />
-          </div>
-        )}
+        {/* PremiumRecommendedIdeas 컴포넌트 내부에서 조건 체크하므로 여기서는 div 없이 직접 렌더링 */}
+        <PremiumRecommendedIdeas />
 
         {/* 추천 아이디어 섹션 (토글 가능, 로그인한 사용자에게만 표시) */}
         {user && showRecommended && (

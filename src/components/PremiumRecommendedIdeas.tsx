@@ -61,7 +61,7 @@ export function PremiumRecommendedIdeas() {
     fetchTopScoredIdeas();
   }, [shouldRender, user?.id]);
 
-  // HomePage에서 이미 로딩 상태를 확인하지만, 안전을 위해 여기서도 체크
+  // 로딩 중이거나 조건을 만족하지 않으면 아무것도 렌더링하지 않음
   if (!shouldRender) {
     return null;
   }
@@ -90,7 +90,8 @@ export function PremiumRecommendedIdeas() {
   }
 
   return (
-    <Card className="w-full max-w-full overflow-hidden border-primary/20 bg-primary/5 backdrop-blur-sm">
+    <div id="premium-recommended-ideas-section" className="mb-4 sm:mb-6 md:mb-8 w-full max-w-full overflow-x-hidden">
+      <Card className="w-full max-w-full overflow-hidden border-primary/20 bg-primary/5 backdrop-blur-sm">
       <CardHeader className="px-3 sm:px-6 pb-3 sm:pb-4">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0">
           <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
@@ -131,6 +132,7 @@ export function PremiumRecommendedIdeas() {
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }
 

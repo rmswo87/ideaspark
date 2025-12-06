@@ -459,18 +459,21 @@ function extractImageUrl(post: any): string | null {
     // 1. url이 preview.redd.it 또는 i.redd.it인 경우 (최우선 처리)
     if (post.url) {
       const url = post.url.toLowerCase();
+      // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지로 간주
+      // query string이 있어도 이미지로 처리 (예: ?width=640&crop=smart&auto=webp&s=...)
       if (url.includes('preview.redd.it') || url.includes('i.redd.it')) {
-        // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지로 간주
         console.log('Found Reddit image URL:', post.url);
         return post.url;
       }
     }
 
-    // 2. url이 이미지 확장자로 끝나는 경우
+    // 2. url이 이미지 확장자로 끝나거나 포함하는 경우 (query string 고려)
     if (post.url) {
       const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
       const lowerUrl = post.url.toLowerCase();
-      if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
+      // query string을 제거한 URL로 확장자 확인
+      const urlWithoutQuery = lowerUrl.split('?')[0];
+      if (imageExtensions.some(ext => urlWithoutQuery.endsWith(ext))) {
         console.log('Found image URL by extension:', post.url);
         return post.url;
       }
