@@ -256,10 +256,6 @@ export async function getRecommendedIdeaOfTheDay(): Promise<(IdeaScore & { idea:
     return null;
   }
 
-  if (!data) {
-    return null;
-  }
-
   return {
     ...data,
     idea: data.ideas as Idea,
