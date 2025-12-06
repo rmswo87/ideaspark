@@ -1,8 +1,7 @@
-// 개발 소식 피드 페이지 (일반 스크롤 피드)
+// 개발 소식 피드 페이지 (통합 피드)
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -14,9 +13,10 @@ import {
   Newspaper,
   User as UserIcon,
   LogOut,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
-import { getDailyDevNews, getWeeklyDevNews, getMonthlyDevNews, type DevNews } from '@/services/devNewsService';
+import { getAllDevNews, type DevNews } from '@/services/devNewsService';
 import { collectDevNews } from '@/services/devNewsCollector';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -32,30 +32,28 @@ export function DevNewsFeedPage() {
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [news, setNews] = useState<DevNews[]>([]);
   const [loading, setLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
+  const [autoCollected, setAutoCollected] = useState(false);
 
   useEffect(() => {
     fetchNews();
-  }, [activeTab]);
+  }, []);
+
+  // 관리자인 경우 소식이 없으면 자동으로 수집 (한 번만)
+  useEffect(() => {
+    if (isAdmin && !loading && news.length === 0 && !autoCollected && !collecting) {
+      setAutoCollected(true);
+      handleCollectNews();
+    }
+  }, [isAdmin, loading, news.length, autoCollected, collecting]);
 
   const fetchNews = async () => {
     setLoading(true);
     try {
-      let data: DevNews[] = [];
-      switch (activeTab) {
-        case 'daily':
-          data = await getDailyDevNews();
-          break;
-        case 'weekly':
-          data = await getWeeklyDevNews();
-          break;
-        case 'monthly':
-          data = await getMonthlyDevNews();
-          break;
-      }
+      // 모든 기간의 소식을 통합하여 최신순으로 가져오기 (최대 50개)
+      const data = await getAllDevNews(50, 0);
       setNews(data);
     } catch (error) {
       console.error('Error fetching dev news:', error);
@@ -248,30 +246,25 @@ export function DevNewsFeedPage() {
             </div>
           </div>
         </div>
-        {/* 필터 드롭다운 및 번역 위젯 - 우측 상단 */}
-        <div className="border-t border-border/50 px-4 py-2 flex justify-end items-center gap-2">
-          {/* Google Translate Widget */}
-          <div id="google_translate_element" className="translate-widget"></div>
-          <Select value={activeTab} onValueChange={(v) => setActiveTab(v as 'daily' | 'weekly' | 'monthly')}>
-            <SelectTrigger size="sm" className="w-auto h-7 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
       </header>
+      {/* 번역 위젯 - 우측 상단 (헤더 외부) */}
+      <div className="border-b border-border/50 px-4 py-2 flex justify-end items-center gap-2 bg-background/95 backdrop-blur-md">
+        <span className="text-xs text-muted-foreground mr-2">번역:</span>
+        <div id="google_translate_element" className="translate-widget"></div>
+      </div>
 
-      {/* 피드 컨테이너 - 일반 스크롤 피드 */}
+      {/* 피드 컨테이너 - 통합 피드 */}
       <div className="container mx-auto px-4 py-6 max-w-2xl">
-        {news.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">개발 소식을 불러오는 중...</p>
+          </div>
+        ) : news.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-4">
-              {activeTab === 'daily' ? '오늘의' : activeTab === 'weekly' ? '이번 주의' : '이번 달의'} 개발 소식이 없습니다.
+              개발 소식이 없습니다.
             </p>
             {isAdmin && (
               <Button
@@ -289,7 +282,11 @@ export function DevNewsFeedPage() {
         ) : (
           <div className="space-y-4">
             {news.map((item) => (
-              <Card key={item.id} className="transition-all duration-300 hover:shadow-md">
+              <Card 
+                key={item.id} 
+                className="transition-all duration-300 hover:shadow-md cursor-pointer"
+                onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -304,14 +301,37 @@ export function DevNewsFeedPage() {
                         <span>{formatDate(item.collected_at)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-sm font-semibold text-primary">
-                      <TrendingUp className="h-4 w-4" />
-                      {item.upvotes}
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="flex items-center gap-1 font-semibold text-primary">
+                        <TrendingUp className="h-4 w-4" />
+                        {item.upvotes}
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <MessageSquare className="h-4 w-4" />
+                        {item.num_comments || 0}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col">
-                  {item.content && (
+                  {/* 이미지 표시 */}
+                  {item.image_url && (
+                    <div className="mb-4 rounded-lg overflow-hidden">
+                      <img 
+                        src={item.image_url} 
+                        alt={item.title}
+                        className="w-full h-auto max-h-96 object-contain bg-muted"
+                        loading="lazy"
+                        onError={(e) => {
+                          // 이미지 로드 실패 시 숨김
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* 내용 표시 - 이미지가 있으면 내용이 없어도 표시하지 않음 */}
+                  {(!item.image_url && item.content) && (
                     <div className="flex-1 mb-4">
                       <p className="text-sm text-foreground/90 whitespace-pre-wrap line-clamp-6">
                         {item.content}
@@ -346,7 +366,10 @@ export function DevNewsFeedPage() {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(item.url, '_blank', 'noopener,noreferrer');
+                      }}
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Reddit에서 보기
