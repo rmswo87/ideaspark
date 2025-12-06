@@ -71,14 +71,14 @@ export async function getDevNews(filters: DevNewsFilters = {}): Promise<DevNews[
       query = query.eq('category', filters.category);
     }
 
-    // 인기 소식만 필터링 (upvotes 기준)
-    // 데일리는 100 이상, 위클리는 200 이상, 먼슬리는 500 이상
+    // 인기 소식만 필터링 (upvotes 기준) - 기준을 낮춰서 더 많은 소식 표시
+    // 데일리는 50 이상, 위클리는 100 이상, 먼슬리는 200 이상
     if (filters.periodType === 'daily') {
-      query = query.gte('upvotes', 100);
+      query = query.gte('upvotes', 50);
     } else if (filters.periodType === 'weekly') {
-      query = query.gte('upvotes', 200);
+      query = query.gte('upvotes', 100);
     } else if (filters.periodType === 'monthly') {
-      query = query.gte('upvotes', 500);
+      query = query.gte('upvotes', 200);
     }
 
     if (filters.limit) {

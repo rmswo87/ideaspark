@@ -199,12 +199,12 @@ export default async function handler(
       }
     }
 
-    // 인기 소식만 필터링 (upvotes 기준)
-    // 데일리: 100 이상, 위클리: 200 이상, 먼슬리: 500 이상
+    // 인기 소식만 필터링 (upvotes 기준) - 기준을 낮춰서 더 많은 소식 저장
+    // 데일리: 50 이상, 위클리: 100 이상, 먼슬리: 200 이상
     const filteredPosts = allPosts.filter(post => {
       const upvotes = post.upvotes || 0;
-      // 데일리는 100 이상만
-      return upvotes >= 100;
+      // 데일리는 50 이상만 (더 많은 소식 수집)
+      return upvotes >= 50;
     });
 
     // 수집한 게시물을 데이터베이스에 저장

@@ -17,20 +17,25 @@ import {
   Shield
 } from 'lucide-react';
 import { getDailyDevNews, getWeeklyDevNews, getMonthlyDevNews, type DevNews } from '@/services/devNewsService';
+import { collectDevNews } from '@/services/devNewsCollector';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { supabase } from '@/lib/supabase';
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge';
 import { MobileMenu } from '@/components/MobileMenu';
+import { useToast } from '@/components/ui/toast';
+import { RefreshCw } from 'lucide-react';
 
 export function DevNewsFeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [news, setNews] = useState<DevNews[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collecting, setCollecting] = useState(false);
 
   useEffect(() => {
     fetchNews();
@@ -56,6 +61,46 @@ export function DevNewsFeedPage() {
       console.error('Error fetching dev news:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCollectNews = async () => {
+    if (!isAdmin) {
+      addToast({
+        title: '권한 없음',
+        description: '개발 소식 수집은 관리자만 가능합니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCollecting(true);
+    try {
+      const result = await collectDevNews();
+      if (result.success) {
+        addToast({
+          title: '수집 완료',
+          description: `${result.count}개의 개발 소식을 수집했습니다.`,
+          variant: 'success',
+        });
+        // 수집 후 새로고침
+        await fetchNews();
+      } else {
+        addToast({
+          title: '수집 실패',
+          description: result.error || '개발 소식 수집에 실패했습니다.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error collecting dev news:', error);
+      addToast({
+        title: '수집 실패',
+        description: error instanceof Error ? error.message : '개발 소식 수집에 실패했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCollecting(false);
     }
   };
 
@@ -223,6 +268,18 @@ export function DevNewsFeedPage() {
             <p className="text-muted-foreground mb-4">
               {activeTab === 'daily' ? '오늘의' : activeTab === 'weekly' ? '이번 주의' : '이번 달의'} 개발 소식이 없습니다.
             </p>
+            {isAdmin && (
+              <Button
+                onClick={handleCollectNews}
+                disabled={collecting}
+                variant="outline"
+                size="sm"
+                className="mt-4"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${collecting ? 'animate-spin' : ''}`} />
+                {collecting ? '수집 중...' : '개발 소식 수집하기'}
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
