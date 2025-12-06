@@ -58,11 +58,14 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
             />
           </div>
         )}
-        <div className="mb-2 sm:mb-3 h-[60px] sm:h-[70px] min-w-0 overflow-hidden">
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-5 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
-            {idea.content || '내용 없음'}
-          </p>
-        </div>
+        {/* 내용 표시 - 이미지가 있으면 내용이 없어도 표시하지 않음 */}
+        {(!idea.image_url && idea.content) && (
+          <div className="mb-2 sm:mb-3 h-[60px] sm:h-[70px] min-w-0 overflow-hidden">
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-5 leading-relaxed break-words group-hover:text-foreground/90 transition-colors duration-300 min-w-0 overflow-hidden">
+              {idea.content}
+            </p>
+          </div>
+        )}
         
         <div className="flex items-center justify-between mb-2 sm:mb-3 flex-wrap gap-1.5 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground flex-wrap min-w-0 overflow-hidden">
@@ -110,4 +113,3 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
     </Card>
   );
 }
-
