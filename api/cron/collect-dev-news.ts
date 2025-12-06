@@ -118,12 +118,12 @@ export default async function handler(
 
     const allPosts: any[] = [];
 
-    // 각 서브레딧에서 게시물 수집 (AI 관련 우선, 최대 15개 서브레딧, 각 10개 게시물)
-    const subredditsToCollect = DEV_SUBREDDITS.slice(0, 15);
+    // 각 서브레딧에서 게시물 수집 (AI 관련 우선, 최대 10개 서브레딧, 각 20개 게시물로 늘려서 인기 소식 확보)
+    const subredditsToCollect = DEV_SUBREDDITS.slice(0, 10);
     
     for (const subreddit of subredditsToCollect) {
       try {
-        const url = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=10`;
+        const url = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=20`;
         
         const response = await fetch(url, {
           headers: {
@@ -135,7 +135,7 @@ export default async function handler(
         if (!response.ok) {
           // 403 에러인 경우 공개 접근 시도
           if (response.status === 403) {
-            const publicUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=10`;
+            const publicUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=20`;
             const publicResponse = await fetch(publicUrl, {
               headers: {
                 'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
@@ -199,9 +199,17 @@ export default async function handler(
       }
     }
 
+    // 인기 소식만 필터링 (upvotes 기준)
+    // 데일리: 100 이상, 위클리: 200 이상, 먼슬리: 500 이상
+    const filteredPosts = allPosts.filter(post => {
+      const upvotes = post.upvotes || 0;
+      // 데일리는 100 이상만
+      return upvotes >= 100;
+    });
+
     // 수집한 게시물을 데이터베이스에 저장
-    if (allPosts.length > 0) {
-      const newsToInsert = allPosts.map(post => ({
+    if (filteredPosts.length > 0) {
+      const newsToInsert = filteredPosts.map(post => ({
         reddit_id: post.reddit_id,
         title: post.title,
         content: post.content || null,
@@ -227,15 +235,30 @@ export default async function handler(
         return res.status(500).json({
           success: false,
           error: `Failed to save dev news: ${insertError.message}`,
-          count: allPosts.length,
+          count: filteredPosts.length,
         });
       }
     }
 
+    // 오래된 데이터 자동 삭제
+    // 위클리: 8일째 지나간 데이터 삭제
+    // 먼슬리: 31일째 지나간 데이터 삭제
+    const deleteDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 8);
+    const { error: deleteError } = await supabase
+      .from('dev_news')
+      .delete()
+      .lt('period_date', deleteDate.toISOString().split('T')[0]);
+
+    if (deleteError) {
+      console.error('Error deleting old dev news:', deleteError);
+    }
+
     return res.status(200).json({
       success: true,
-      count: allPosts.length,
-      message: `Successfully collected ${allPosts.length} dev news items`,
+      count: filteredPosts.length,
+      totalCollected: allPosts.length,
+      filteredCount: filteredPosts.length,
+      message: `Successfully collected ${filteredPosts.length} popular dev news items (filtered from ${allPosts.length} total)`,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

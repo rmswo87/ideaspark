@@ -43,18 +43,24 @@ export async function getDevNews(filters: DevNewsFilters = {}): Promise<DevNews[
       // 기간별 날짜 필터링
       const now = new Date();
       let periodStart: Date;
+      let periodEnd: Date;
       
       if (filters.periodType === 'daily') {
+        // 데일리: 오늘 날짜만
         periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       } else if (filters.periodType === 'weekly') {
-        const dayOfWeek = now.getDay();
-        const diff = now.getDate() - dayOfWeek; // 일요일로 맞춤
-        periodStart = new Date(now.getFullYear(), now.getMonth(), diff);
+        // 위클리: 오늘 기준 7일까지 (8일째 지나간 데이터는 제외)
+        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       } else { // monthly
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        // 먼슬리: 오늘 기준 30일까지
+        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       }
       
       query = query.gte('period_date', periodStart.toISOString().split('T')[0]);
+      query = query.lt('period_date', periodEnd.toISOString().split('T')[0]);
     }
 
     if (filters.subreddit) {
@@ -65,11 +71,20 @@ export async function getDevNews(filters: DevNewsFilters = {}): Promise<DevNews[
       query = query.eq('category', filters.category);
     }
 
+    // 인기 소식만 필터링 (upvotes 기준)
+    // 데일리는 100 이상, 위클리는 200 이상, 먼슬리는 500 이상
+    if (filters.periodType === 'daily') {
+      query = query.gte('upvotes', 100);
+    } else if (filters.periodType === 'weekly') {
+      query = query.gte('upvotes', 200);
+    } else if (filters.periodType === 'monthly') {
+      query = query.gte('upvotes', 500);
+    }
+
     if (filters.limit) {
       query = query.limit(filters.limit);
-    } else {
-      query = query.limit(50); // 기본값
     }
+    // limit이 없으면 모든 인기 소식 반환 (갯수 제한 없음)
 
     const { data, error } = await query;
 
@@ -82,24 +97,24 @@ export async function getDevNews(filters: DevNewsFilters = {}): Promise<DevNews[
 }
 
 /**
- * 오늘의 개발 소식 조회
+ * 오늘의 개발 소식 조회 (오늘 날짜 기준)
  */
-export async function getDailyDevNews(limit: number = 10): Promise<DevNews[]> {
-  return getDevNews({ periodType: 'daily', limit });
+export async function getDailyDevNews(): Promise<DevNews[]> {
+  return getDevNews({ periodType: 'daily' });
 }
 
 /**
- * 주간 개발 소식 조회
+ * 주간 개발 소식 조회 (오늘 기준 7일까지)
  */
-export async function getWeeklyDevNews(limit: number = 20): Promise<DevNews[]> {
-  return getDevNews({ periodType: 'weekly', limit });
+export async function getWeeklyDevNews(): Promise<DevNews[]> {
+  return getDevNews({ periodType: 'weekly' });
 }
 
 /**
- * 월간 개발 소식 조회
+ * 월간 개발 소식 조회 (오늘 기준 30일까지, 가장 인기있는 소식만)
  */
-export async function getMonthlyDevNews(limit: number = 30): Promise<DevNews[]> {
-  return getDevNews({ periodType: 'monthly', limit });
+export async function getMonthlyDevNews(): Promise<DevNews[]> {
+  return getDevNews({ periodType: 'monthly' });
 }
 
 /**

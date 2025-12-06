@@ -1,17 +1,15 @@
-// 개발 소식 피드 페이지 (릴스/인스타그램 스타일)
-import { useState, useEffect, useRef } from 'react';
+// 개발 소식 피드 페이지 (일반 스크롤 피드)
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   ExternalLink, 
   Calendar, 
   TrendingUp, 
-  Tag, 
-  ChevronUp, 
-  ChevronDown,
+  Tag,
   Loader2,
   Newspaper,
   User as UserIcon,
@@ -19,29 +17,20 @@ import {
   Shield
 } from 'lucide-react';
 import { getDailyDevNews, getWeeklyDevNews, getMonthlyDevNews, type DevNews } from '@/services/devNewsService';
-import { collectDevNews } from '@/services/devNewsCollector';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { supabase } from '@/lib/supabase';
 import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge';
 import { MobileMenu } from '@/components/MobileMenu';
-import { useToast } from '@/components/ui/toast';
-import { RefreshCw } from 'lucide-react';
 
 export function DevNewsFeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
-  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [news, setNews] = useState<DevNews[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collecting, setCollecting] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartY = useRef<number>(0);
-  const touchEndY = useRef<number>(0);
 
   useEffect(() => {
     fetchNews();
@@ -53,111 +42,22 @@ export function DevNewsFeedPage() {
       let data: DevNews[] = [];
       switch (activeTab) {
         case 'daily':
-          data = await getDailyDevNews(50);
+          data = await getDailyDevNews();
           break;
         case 'weekly':
-          data = await getWeeklyDevNews(50);
+          data = await getWeeklyDevNews();
           break;
         case 'monthly':
-          data = await getMonthlyDevNews(50);
+          data = await getMonthlyDevNews();
           break;
       }
       setNews(data);
-      setCurrentIndex(0);
     } catch (error) {
       console.error('Error fetching dev news:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const handleCollectNews = async () => {
-    if (!isAdmin) {
-      addToast({
-        title: '권한 없음',
-        description: '개발 소식 수집은 관리자만 가능합니다.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setCollecting(true);
-    try {
-      const result = await collectDevNews();
-      if (result.success) {
-        addToast({
-          title: '수집 완료',
-          description: `${result.count}개의 개발 소식을 수집했습니다.`,
-          variant: 'success',
-        });
-        // 수집 후 새로고침
-        await fetchNews();
-      } else {
-        addToast({
-          title: '수집 실패',
-          description: result.error || '개발 소식 수집에 실패했습니다.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Error collecting dev news:', error);
-      addToast({
-        title: '수집 실패',
-        description: error instanceof Error ? error.message : '개발 소식 수집에 실패했습니다.',
-        variant: 'destructive',
-      });
-    } finally {
-      setCollecting(false);
-    }
-  };
-
-  // 터치 스와이프 처리
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = () => {
-    const diff = touchStartY.current - touchEndY.current;
-    const threshold = 50; // 스와이프 최소 거리
-
-    if (Math.abs(diff) > threshold) {
-      if (diff > 0 && currentIndex < news.length - 1) {
-        // 위로 스와이프 (다음 항목)
-        setCurrentIndex(prev => prev + 1);
-      } else if (diff < 0 && currentIndex > 0) {
-        // 아래로 스와이프 (이전 항목)
-        setCurrentIndex(prev => prev - 1);
-      }
-    }
-  };
-
-  // 키보드 네비게이션
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown' && currentIndex < news.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-      } else if (e.key === 'ArrowUp' && currentIndex > 0) {
-        setCurrentIndex(prev => prev - 1);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, news.length]);
-
-  // 현재 항목으로 스크롤
-  useEffect(() => {
-    if (containerRef.current && news.length > 0) {
-      const currentElement = containerRef.current.children[currentIndex] as HTMLElement;
-      if (currentElement) {
-        currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [currentIndex, news.length]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -315,49 +215,19 @@ export function DevNewsFeedPage() {
         </div>
       </header>
 
-      {/* 피드 컨테이너 */}
-      <div
-        ref={containerRef}
-        className="container mx-auto px-4 py-6 max-w-2xl"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      {/* 피드 컨테이너 - 일반 스크롤 피드 */}
+      <div className="container mx-auto px-4 py-6 max-w-2xl">
         {news.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-4">
               {activeTab === 'daily' ? '오늘의' : activeTab === 'weekly' ? '이번 주의' : '이번 달의'} 개발 소식이 없습니다.
             </p>
-            {isAdmin && (
-              <Button
-                onClick={handleCollectNews}
-                disabled={collecting}
-                variant="outline"
-                size="sm"
-                className="mt-4"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${collecting ? 'animate-spin' : ''}`} />
-                {collecting ? '수집 중...' : '개발 소식 수집하기'}
-              </Button>
-            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {news.map((item, index) => (
-              <Card
-                key={item.id}
-                className={`transition-all duration-300 ${
-                  index === currentIndex 
-                    ? 'ring-2 ring-primary shadow-lg scale-[1.02]' 
-                    : 'opacity-70 scale-100'
-                }`}
-                style={{
-                  minHeight: 'calc(100vh - 200px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
+            {news.map((item) => (
+              <Card key={item.id} className="transition-all duration-300 hover:shadow-md">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -425,37 +295,7 @@ export function DevNewsFeedPage() {
             ))}
           </div>
         )}
-
-        {/* 네비게이션 힌트 */}
-        {news.length > 0 && (
-          <div className="fixed bottom-20 right-4 flex flex-col gap-2 z-40">
-            {currentIndex > 0 && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 rounded-full shadow-lg"
-                onClick={() => setCurrentIndex(prev => prev - 1)}
-              >
-                <ChevronUp className="h-5 w-5" />
-              </Button>
-            )}
-            {currentIndex < news.length - 1 && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 rounded-full shadow-lg"
-                onClick={() => setCurrentIndex(prev => prev + 1)}
-              >
-                <ChevronDown className="h-5 w-5" />
-              </Button>
-            )}
-            <div className="text-center text-xs text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
-              {currentIndex + 1} / {news.length}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 }
-
