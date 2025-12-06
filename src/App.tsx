@@ -31,13 +31,13 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage') as Promise<{ default: React.ComponentType<any> }>)
-const ProfilePage = lazy(() => import('@/pages/ProfilePage') as Promise<{ default: React.ComponentType<any> }>)
-const CommunityPage = lazy(() => import('@/pages/CommunityPage') as Promise<{ default: React.ComponentType<any> }>)
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage') as Promise<{ default: React.ComponentType<any> }>)
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard') as Promise<{ default: React.ComponentType<any> }>)
-const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(m => ({ default: m.ImplementationGallery })))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage') as Promise<{ default: React.ComponentType<any> }>)
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(module => ({ default: module.default })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(module => ({ default: module.default })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(module => ({ default: module.default })))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(module => ({ default: module.default })))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(module => ({ default: module.default })))
+const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(module => ({ default: module.ImplementationGallery })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(module => ({ default: module.default })))
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
@@ -358,7 +358,7 @@ function HomePage() {
               <div className="relative flex-1">
                 <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
                 <Input
-                  placeholder="💡 우측 상단 번역 아이콘 클릭 또는 우클릭 → '한국어로 번역'"
+                  placeholder="아이디어 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8 sm:pl-10 h-9 sm:min-h-[40px] text-xs sm:text-sm border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm"
@@ -871,6 +871,17 @@ function HomePage() {
   )
 }
 
+// 페이지 전환 시 스크롤 최상단으로 이동하는 컴포넌트
+function ScrollToTop() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+  
+  return null;
+}
+
 function App() {
   // Vercel과 GitHub Pages 배포 환경 구분
   // Vercel: 루트 경로 (/) - 프로덕션 환경
@@ -916,6 +927,7 @@ function App() {
     <ErrorBoundary>
       <ToastProvider>
         <BrowserRouter basename={basename}>
+          <ScrollToTop />
           <Suspense fallback={<PageLoadingFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
