@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ToastProvider } from '@/components/ui/toast'
@@ -31,13 +31,13 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage'))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage'))
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'))
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(m => ({ default: m.default as React.ComponentType<any> })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.default as React.ComponentType<any> })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(m => ({ default: m.default as React.ComponentType<any> })))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(m => ({ default: m.default as React.ComponentType<any> })))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(m => ({ default: m.default as React.ComponentType<any> })))
 const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(m => ({ default: m.ImplementationGallery })))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.default as React.ComponentType<any> })))
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
