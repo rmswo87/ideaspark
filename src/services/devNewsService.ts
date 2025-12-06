@@ -9,6 +9,8 @@ export interface DevNews {
   subreddit: string;
   author: string | null;
   upvotes: number;
+  num_comments: number;
+  image_url: string | null;
   url: string;
   category: string | null;
   tags: string[] | null;
@@ -115,6 +117,26 @@ export async function getMonthlyDevNews(): Promise<DevNews[]> {
 }
 
 /**
+ * 통합 개발 소식 조회 (모든 기간 통합, 최신순 정렬, 페이지네이션)
+ */
+export async function getAllDevNews(limit: number = 10, offset: number = 0): Promise<DevNews[]> {
+  try {
+    const { data, error } = await supabase
+      .from('dev_news')
+      .select('*')
+      .order('collected_at', { ascending: false })
+      .order('upvotes', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching all dev news:', error);
+    return [];
+  }
+}
+
+/**
  * 핫한 키워드 추출 (태그 기반)
  */
 export async function getHotKeywords(limit: number = 10): Promise<Array<{ tag: string; count: number }>> {
@@ -154,4 +176,3 @@ export async function getHotKeywords(limit: number = 10): Promise<Array<{ tag: s
 export async function getPopularBySubreddit(subreddit: string, limit: number = 5): Promise<DevNews[]> {
   return getDevNews({ subreddit, limit });
 }
-
