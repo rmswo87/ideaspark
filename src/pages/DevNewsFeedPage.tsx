@@ -256,7 +256,7 @@ export function DevNewsFeedPage() {
         </div>
       </header>
       {/* 번역 위젯 및 기간 선택 - 우측 상단 (헤더 외부) */}
-      <div className="border-b border-border/50 px-4 py-2 flex justify-between items-center gap-2 bg-background/95 backdrop-blur-md sticky top-0 z-40">
+      <div className="border-b border-border/50 px-4 py-2 flex justify-between items-center gap-2 bg-background/95 backdrop-blur-md sticky top-[40px] sm:top-[56px] z-40">
         {/* 기간 선택 */}
         <Select value={periodType} onValueChange={(value: 'all' | 'daily' | 'weekly' | 'monthly') => setPeriodType(value)}>
           <SelectTrigger className="w-[140px] h-8 text-xs">
@@ -273,7 +273,7 @@ export function DevNewsFeedPage() {
       </div>
 
       {/* 피드 컨테이너 - 통합 피드 */}
-      <div className="container mx-auto px-4 py-6 max-w-2xl">
+      <div className="container mx-auto px-4 py-6 max-w-4xl">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -349,11 +349,20 @@ export function DevNewsFeedPage() {
                     </div>
                   )}
                   
-                  {/* 내용 표시 - 이미지가 있으면 내용이 없어도 표시하지 않음 */}
-                  {(!item.image_url && item.content) && (
+                  {/* 내용 표시 - 이미지가 있으면 내용도 함께 표시 가능 */}
+                  {item.content && item.content.trim() && (
                     <div className="flex-1 mb-4">
                       <p className="text-sm text-foreground/90 whitespace-pre-wrap line-clamp-6">
                         {item.content}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* 이미지도 없고 내용도 없는 경우 */}
+                  {!item.image_url && (!item.content || !item.content.trim()) && (
+                    <div className="flex-1 mb-4 text-center py-8">
+                      <p className="text-sm text-muted-foreground">
+                        내용이 없습니다. Reddit에서 원문을 확인해주세요.
                       </p>
                     </div>
                   )}
