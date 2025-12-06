@@ -93,6 +93,11 @@ export default async function handler(
     // Reddit API에서 이미지 URL 추출
     function extractImageUrl(post: any): string | null {
       try {
+        // 0. url이 직접 preview.redd.it 또는 i.redd.it인 경우 (최우선)
+        if (post.url && (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it'))) {
+          return post.url;
+        }
+
         // 1. preview.images에서 고해상도 이미지 추출 (가장 우선순위)
         if (post.preview?.images?.[0]?.source?.url) {
           // Reddit은 이미지 URL에 &amp;를 사용하므로 디코딩 필요
