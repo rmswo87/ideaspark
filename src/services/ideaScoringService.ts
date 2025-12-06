@@ -256,9 +256,20 @@ export async function getRecommendedIdeaOfTheDay(): Promise<(IdeaScore & { idea:
     return null;
   }
 
+  if (!data) {
+    return null;
+  }
+
+  // ideas가 배열인 경우 첫 번째 요소를 사용
+  const ideaData = Array.isArray(data.ideas) ? data.ideas[0] : data.ideas;
+  
+  if (!ideaData) {
+    return null;
+  }
+
   return {
     ...data,
-    idea: data.ideas as Idea,
+    idea: ideaData as Idea,
   } as IdeaScore & { idea: Idea };
 }
 
