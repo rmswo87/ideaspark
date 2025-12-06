@@ -31,13 +31,13 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(m => ({ default: m.default as React.ComponentType<any> })))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.default as React.ComponentType<any> })))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(m => ({ default: m.default as React.ComponentType<any> })))
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(m => ({ default: m.default as React.ComponentType<any> })))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(m => ({ default: m.default as React.ComponentType<any> })))
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage') as Promise<{ default: React.ComponentType<any> }>)
+const ProfilePage = lazy(() => import('@/pages/ProfilePage') as Promise<{ default: React.ComponentType<any> }>)
+const CommunityPage = lazy(() => import('@/pages/CommunityPage') as Promise<{ default: React.ComponentType<any> }>)
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage') as Promise<{ default: React.ComponentType<any> }>)
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard') as Promise<{ default: React.ComponentType<any> }>)
 const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(m => ({ default: m.ImplementationGallery })))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.default as React.ComponentType<any> })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage') as Promise<{ default: React.ComponentType<any> }>)
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
