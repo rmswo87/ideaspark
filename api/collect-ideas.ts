@@ -90,6 +90,96 @@ export default async function handler(
         .trim();
     }
 
+    // Reddit API에서 이미지 URL 추출
+    function extractImageUrl(post: any): string | null {
+      try {
+        // 1. preview.images에서 고해상도 이미지 추출 (가장 우선순위)
+        if (post.preview?.images?.[0]?.source?.url) {
+          // Reddit은 이미지 URL에 &amp;를 사용하므로 디코딩 필요
+          let imageUrl = post.preview.images[0].source.url
+            .replace(/&amp;/g, '&')
+            .replace(/&amp;/g, '&'); // 이중 인코딩 방지
+          // Reddit 미디어 도메인인 경우 i.redd.it 또는 preview.redd.it 사용
+          if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
+            return imageUrl;
+          }
+          // 외부 이미지 URL도 허용 (imgur, etc.)
+          if (imageUrl && imageUrl.startsWith('http')) {
+            return imageUrl;
+          }
+        }
+
+        // 2. preview.images의 resolutions에서 가장 큰 이미지
+        if (post.preview?.images?.[0]?.resolutions?.length > 0) {
+          const resolutions = post.preview.images[0].resolutions;
+          const largestImage = resolutions[resolutions.length - 1];
+          if (largestImage?.url) {
+            let imageUrl = largestImage.url.replace(/&amp;/g, '&');
+            if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
+              return imageUrl;
+            }
+            // 외부 이미지 URL도 허용
+            if (imageUrl && imageUrl.startsWith('http')) {
+              return imageUrl;
+            }
+          }
+        }
+
+        // 3. post_hint가 'image'인 경우 url이 이미지
+        if (post.post_hint === 'image' && post.url) {
+          // Reddit 미디어 도메인인 경우 처리
+          if (post.is_reddit_media_domain && post.url) {
+            return post.url;
+          }
+          // 외부 이미지 URL인 경우
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+          const lowerUrl = post.url.toLowerCase();
+          if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
+            return post.url;
+          }
+          // i.redd.it 또는 preview.redd.it 도메인인 경우
+          if (post.url.includes('i.redd.it') || post.url.includes('preview.redd.it')) {
+            return post.url;
+          }
+          // imgur, gfycat 등 외부 이미지 호스팅 서비스
+          if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+            return post.url;
+          }
+        }
+
+        // 4. url이 이미지 확장자로 끝나는 경우
+        if (post.url) {
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+          const lowerUrl = post.url.toLowerCase();
+          if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
+            return post.url;
+          }
+          // i.redd.it 또는 preview.redd.it 도메인인 경우
+          if (post.url.includes('i.redd.it') || post.url.includes('preview.redd.it')) {
+            return post.url;
+          }
+          // imgur, gfycat 등 외부 이미지 호스팅 서비스
+          if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+            return post.url;
+          }
+        }
+
+        // 5. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
+        if (post.thumbnail && 
+            post.thumbnail !== 'default' && 
+            post.thumbnail !== 'self' && 
+            post.thumbnail !== 'nsfw' &&
+            post.thumbnail.startsWith('http')) {
+          return post.thumbnail;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('Error extracting image URL:', error);
+        return null;
+      }
+    }
+
     // 게시물 내용 추출 함수 (selftext, selftext_html 모두 확인)
     function extractPostContent(postData: any): string {
       // 1. selftext가 있고 유효한 경우 (비어있지 않고 [removed], [deleted]가 아닌 경우)
@@ -168,6 +258,7 @@ export default async function handler(
                 author: child.data.author,
                 upvotes: child.data.ups || 0,
                 numComments: child.data.num_comments || 0,
+                imageUrl: extractImageUrl(child.data),
                 url: `https://www.reddit.com${child.data.permalink}`,
                 createdAt: new Date(child.data.created_utc * 1000).toISOString(),
               };
