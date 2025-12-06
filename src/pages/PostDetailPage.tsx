@@ -57,8 +57,12 @@ function PostDetailPage() {
     const rest = src.substring(idx + marker.length);
     const [bucket, ...pathParts] = rest.split('/');
     const path = pathParts.join('/');
+    // bucket과 path가 문자열인지 확인하고 변환
+    const bucketStr = String(bucket || '');
+    const pathStr = String(path || '');
+    if (!bucketStr || !pathStr) return src;
     const base = getImageProxyBase();
-    return `${base}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
+    return `${base}?bucket=${encodeURIComponent(bucketStr)}&path=${encodeURIComponent(pathStr)}`;
   }
 
   useEffect(() => {

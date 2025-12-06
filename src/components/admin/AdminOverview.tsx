@@ -212,7 +212,7 @@ export function AdminOverview({ onTabChange }: AdminOverviewProps) {
                   <div
                     key={post.id}
                     className="p-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/community/${post.id}`)}
+                    onClick={() => navigate(`/community/${String(post.id)}`)}
                   >
                     <p className="text-sm font-medium line-clamp-1">{post.title}</p>
                     <p className="text-xs text-muted-foreground mt-1">

@@ -11,6 +11,7 @@ export interface Idea {
   author: string
   upvotes: number
   num_comments?: number
+  image_url?: string | null
   url: string
   category: string
 
@@ -35,6 +36,7 @@ export async function saveIdeas(ideas: RedditPost[]): Promise<Idea[]> {
     author: idea.author,
     upvotes: idea.upvotes,
     // num_comments 컬럼은 ideas 테이블에 없으므로 제거
+    image_url: idea.imageUrl || null,
     url: idea.url,
     category: categorizeIdea(idea),
   }));
@@ -94,6 +96,7 @@ interface RedditPost {
   author: string
   upvotes: number
   numComments?: number
+  imageUrl?: string | null
   url: string
 }
 

@@ -16,7 +16,7 @@ import {
   Shield,
   MessageSquare
 } from 'lucide-react';
-import { getAllDevNews, type DevNews } from '@/services/devNewsService';
+import { getDevNews, getAllDevNews, type DevNews } from '@/services/devNewsService';
 import { collectDevNews } from '@/services/devNewsCollector';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -25,6 +25,7 @@ import { ProfileNotificationBadge } from '@/components/ProfileNotificationBadge'
 import { MobileMenu } from '@/components/MobileMenu';
 import { useToast } from '@/components/ui/toast';
 import { RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function DevNewsFeedPage() {
   const navigate = useNavigate();
@@ -36,10 +37,11 @@ export function DevNewsFeedPage() {
   const [loading, setLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
   const [autoCollected, setAutoCollected] = useState(false);
+  const [periodType, setPeriodType] = useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
 
   useEffect(() => {
     fetchNews();
-  }, []);
+  }, [periodType]);
 
   // 관리자인 경우 소식이 없으면 자동으로 수집 (한 번만)
   useEffect(() => {
@@ -52,9 +54,15 @@ export function DevNewsFeedPage() {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      // 모든 기간의 소식을 통합하여 최신순으로 가져오기 (최대 50개)
-      const data = await getAllDevNews(50, 0);
-      setNews(data);
+      if (periodType === 'all') {
+        // 모든 기간의 소식을 통합하여 최신순으로 가져오기 (최대 50개)
+        const data = await getAllDevNews(50, 0);
+        setNews(data);
+      } else {
+        // 기간별 소식 가져오기
+        const data = await getDevNews({ periodType, limit: 50 });
+        setNews(data);
+      }
     } catch (error) {
       console.error('Error fetching dev news:', error);
     } finally {
@@ -247,10 +255,21 @@ export function DevNewsFeedPage() {
           </div>
         </div>
       </header>
-      {/* 번역 위젯 - 우측 상단 (헤더 외부) */}
-      <div className="border-b border-border/50 px-4 py-2 flex justify-end items-center gap-2 bg-background/95 backdrop-blur-md">
-        <span className="text-xs text-muted-foreground mr-2">번역:</span>
-        <div id="google_translate_element" className="translate-widget"></div>
+      {/* 번역 위젯 및 기간 선택 - 우측 상단 (헤더 외부) */}
+      <div className="border-b border-border/50 px-4 py-2 flex justify-between items-center gap-2 bg-background/95 backdrop-blur-md sticky top-0 z-40">
+        {/* 기간 선택 */}
+        <Select value={periodType} onValueChange={(value: 'all' | 'daily' | 'weekly' | 'monthly') => setPeriodType(value)}>
+          <SelectTrigger className="w-[140px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체</SelectItem>
+            <SelectItem value="daily">데일리</SelectItem>
+            <SelectItem value="weekly">위클리</SelectItem>
+            <SelectItem value="monthly">먼슬리</SelectItem>
+          </SelectContent>
+        </Select>
+        
       </div>
 
       {/* 피드 컨테이너 - 통합 피드 */}
@@ -282,7 +301,11 @@ export function DevNewsFeedPage() {
         ) : (
           <div className="space-y-4">
             {news.map((item) => (
-              <Card key={item.id} className="transition-all duration-300 hover:shadow-md">
+              <Card 
+                key={item.id} 
+                className="transition-all duration-300 hover:shadow-md cursor-pointer"
+                onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">

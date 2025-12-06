@@ -102,6 +102,8 @@ async function saveDevNews(posts: any[]): Promise<void> {
       subreddit: post.subreddit,
       author: post.author || null,
       upvotes: post.upvotes || 0,
+      num_comments: post.num_comments || 0,
+      image_url: post.image_url || null,
       url: post.url,
       category: post.category || null,
       tags: post.tags || null,

@@ -139,8 +139,17 @@ export default async function handler(
       }
     }
 
+    // 개발 관련성 점수 계산 및 필터링
+    const postsWithScore = allPosts.map(post => ({
+      ...post,
+      devRelevanceScore: calculateDevRelevanceScore(post),
+    }));
+
+    // 개발 관련성 점수 3점 이상만 필터링 (개발과 무관한 콘텐츠 제거)
+    const devRelevantPosts = postsWithScore.filter(post => post.devRelevanceScore >= 3);
+
     // 인기 소식만 필터링 (upvotes 기준) - 기간별로 다른 기준 적용
-    const filteredPosts = allPosts.filter(post => {
+    const filteredPosts = devRelevantPosts.filter(post => {
       const upvotes = post.upvotes || 0;
       if (post.period_type === 'daily') {
         return upvotes >= 50;
@@ -223,6 +232,91 @@ export default async function handler(
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
+}
+
+// 개발 관련성 점수 계산 (키워드 기반)
+function calculateDevRelevanceScore(post: any): number {
+  const title = (post.title || '').toLowerCase();
+  const content = (post.selftext || '').toLowerCase();
+  const text = `${title} ${content}`;
+  
+  let score = 0;
+
+  // 기술 스택 키워드 (각 1점)
+  const techStackKeywords = [
+    'react', 'vue', 'angular', 'svelte', 'nextjs', 'nuxt',
+    'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c++',
+    'node', 'express', 'fastapi', 'django', 'flask', 'spring',
+    'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform',
+    'database', 'sql', 'mongodb', 'postgresql', 'redis', 'mysql',
+    'html', 'css', 'scss', 'sass', 'tailwind', 'bootstrap',
+    'git', 'github', 'gitlab', 'ci/cd', 'jenkins',
+  ];
+  
+  // 개발 개념 키워드 (각 1점)
+  const devConceptKeywords = [
+    'api', 'rest', 'graphql', 'microservice', 'monolith',
+    'framework', 'library', 'package', 'npm', 'yarn', 'pip',
+    'algorithm', 'data structure', 'design pattern', 'architecture',
+    'testing', 'unit test', 'integration test', 'e2e',
+    'deployment', 'production', 'staging', 'devops',
+    'performance', 'optimization', 'scalability', 'security',
+    'code', 'programming', 'development', 'software', 'application',
+  ];
+  
+  // 개발 활동 키워드 (각 1점)
+  const devActivityKeywords = [
+    'coding', 'programming', 'developing', 'building',
+    'tutorial', 'guide', 'how to', 'learn', 'getting started',
+    'tip', 'trick', 'hack', 'best practice', 'pattern',
+    'debug', 'fix', 'bug', 'error', 'issue',
+  ];
+  
+  // AI/ML 키워드 (각 2점 - 높은 가중치)
+  const aiKeywords = [
+    'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
+    'openai', 'chatgpt', 'gpt', 'claude', 'gemini', 'llm',
+    'neural network', 'transformer', 'nlp', 'computer vision',
+    'prompt engineering', 'fine-tuning', 'rag', 'copilot',
+  ];
+  
+  // 개발과 무관한 키워드 (점수 감점)
+  const nonDevKeywords = [
+    'girlfriend', 'boyfriend', 'dating', 'relationship', '여자친구', '남자친구',
+    'nano banana', '나노 바나나', 'drawing', 'art', '그리기',
+    'food', 'recipe', 'cooking', '음식', '요리',
+    'game', 'gaming', 'play', '게임',
+    'movie', 'film', '영화',
+    'music', 'song', '음악',
+  ];
+  
+  // 점수 계산
+  techStackKeywords.forEach(keyword => {
+    if (text.includes(keyword)) score += 1;
+  });
+  
+  devConceptKeywords.forEach(keyword => {
+    if (text.includes(keyword)) score += 1;
+  });
+  
+  devActivityKeywords.forEach(keyword => {
+    if (text.includes(keyword)) score += 1;
+  });
+  
+  aiKeywords.forEach(keyword => {
+    if (text.includes(keyword)) score += 2;
+  });
+  
+  // 개발과 무관한 키워드가 많으면 감점
+  let nonDevCount = 0;
+  nonDevKeywords.forEach(keyword => {
+    if (text.includes(keyword)) nonDevCount += 1;
+  });
+  if (nonDevCount >= 2) {
+    score = Math.max(0, score - 3); // 최소 0점
+  }
+  
+  return score;
 }
 
 // 게시글 카테고리 분류 (AI, 개발 팁 중심)
@@ -331,6 +425,124 @@ function extractTags(post: any): string[] {
   return tags.slice(0, 5); // 최대 5개 태그
 }
 
+// Reddit API에서 콘텐츠 추출 (selftext 또는 selftext_html)
+function extractContent(post: any): string {
+  // selftext가 있으면 사용
+  if (post.selftext && post.selftext.trim().length > 0) {
+    return post.selftext.trim();
+  }
+  
+  // selftext_html이 있으면 HTML 태그 제거 후 사용
+  if (post.selftext_html && post.selftext_html.trim().length > 0) {
+    // HTML 태그 제거 (간단한 정규식)
+    const text = post.selftext_html
+      .replace(/<[^>]*>/g, '') // HTML 태그 제거
+      .replace(/&nbsp;/g, ' ') // &nbsp;를 공백으로
+      .replace(/&amp;/g, '&') // &amp;를 &로
+      .replace(/&lt;/g, '<') // &lt;를 <로
+      .replace(/&gt;/g, '>') // &gt;를 >로
+      .replace(/&quot;/g, '"') // &quot;를 "로
+      .replace(/&#39;/g, "'") // &#39;를 '로
+      .trim();
+    
+    if (text.length > 0) {
+      return text;
+    }
+  }
+  
+  return '';
+}
+
+// Reddit API에서 이미지 URL 추출
+function extractImageUrl(post: any): string | null {
+  try {
+    // 1. preview.images에서 고해상도 이미지 추출 (가장 우선순위)
+    if (post.preview?.images?.[0]?.source?.url) {
+      // Reddit은 이미지 URL에 &amp;를 사용하므로 디코딩 필요
+      let imageUrl = post.preview.images[0].source.url
+        .replace(/&amp;/g, '&')
+        .replace(/&amp;/g, '&'); // 이중 인코딩 방지
+      // Reddit 미디어 도메인인 경우 i.redd.it 또는 preview.redd.it 사용
+      if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
+        return imageUrl;
+      }
+      // 외부 이미지 URL도 허용 (imgur, etc.)
+      if (imageUrl && imageUrl.startsWith('http')) {
+        return imageUrl;
+      }
+    }
+
+    // 2. preview.images의 resolutions에서 가장 큰 이미지
+    if (post.preview?.images?.[0]?.resolutions?.length > 0) {
+      const resolutions = post.preview.images[0].resolutions;
+      const largestImage = resolutions[resolutions.length - 1];
+      if (largestImage?.url) {
+        let imageUrl = largestImage.url.replace(/&amp;/g, '&');
+        if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
+          return imageUrl;
+        }
+        // 외부 이미지 URL도 허용
+        if (imageUrl && imageUrl.startsWith('http')) {
+          return imageUrl;
+        }
+      }
+    }
+
+    // 3. post_hint가 'image'인 경우 url이 이미지
+    if (post.post_hint === 'image' && post.url) {
+      // Reddit 미디어 도메인인 경우 처리
+      if (post.is_reddit_media_domain && post.url) {
+        return post.url;
+      }
+      // 외부 이미지 URL인 경우
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+      const lowerUrl = post.url.toLowerCase();
+      if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
+        return post.url;
+      }
+      // i.redd.it 또는 preview.redd.it 도메인인 경우
+      if (post.url.includes('i.redd.it') || post.url.includes('preview.redd.it')) {
+        return post.url;
+      }
+      // imgur, gfycat 등 외부 이미지 호스팅 서비스
+      if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+        return post.url;
+      }
+    }
+
+    // 4. url이 이미지 확장자로 끝나는 경우
+    if (post.url) {
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+      const lowerUrl = post.url.toLowerCase();
+      if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
+        return post.url;
+      }
+      // i.redd.it 또는 preview.redd.it 도메인인 경우
+      if (post.url.includes('i.redd.it') || post.url.includes('preview.redd.it')) {
+        return post.url;
+      }
+      // imgur, gfycat 등 외부 이미지 호스팅 서비스
+      if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+        return post.url;
+      }
+    }
+
+    // 5. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
+    if (post.thumbnail && 
+        post.thumbnail !== 'default' && 
+        post.thumbnail !== 'self' && 
+        post.thumbnail !== 'nsfw' &&
+        post.thumbnail.startsWith('http')) {
+      return post.thumbnail;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error extracting image URL:', error);
+    return null;
+  }
+}
+
 // URL에서 게시물 수집 헬퍼 함수
 async function collectFromUrl(
   url: string,
@@ -368,10 +580,12 @@ async function collectFromUrl(
                 return {
                   reddit_id: post.name || post.id,
                   title: post.title,
-                  content: post.selftext || '',
+                  content: extractContent(post),
                   subreddit: post.subreddit,
                   author: post.author,
                   upvotes: post.ups || 0,
+                  num_comments: post.num_comments || 0,
+                  image_url: extractImageUrl(post),
                   url: `https://www.reddit.com${post.permalink}`,
                   category: categorizePost(post),
                   tags: extractTags(post),
@@ -397,10 +611,12 @@ async function collectFromUrl(
           return {
             reddit_id: post.name || post.id,
             title: post.title,
-            content: post.selftext || '',
+            content: extractContent(post),
             subreddit: post.subreddit,
             author: post.author,
             upvotes: post.ups || 0,
+            num_comments: post.num_comments || 0,
+            image_url: extractImageUrl(post),
             url: `https://www.reddit.com${post.permalink}`,
             category: categorizePost(post),
             tags: extractTags(post),

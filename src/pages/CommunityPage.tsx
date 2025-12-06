@@ -76,8 +76,12 @@ function CommunityPage() {
     const rest = src.substring(idx + marker.length); // e.g. post-images/...
     const [bucket, ...pathParts] = rest.split('/');
     const path = pathParts.join('/');
+    // bucket과 path가 문자열인지 확인하고 변환
+    const bucketStr = String(bucket || '');
+    const pathStr = String(path || '');
+    if (!bucketStr || !pathStr) return src;
     const base = getImageProxyBase();
-    return `${base}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
+    return `${base}?bucket=${encodeURIComponent(bucketStr)}&path=${encodeURIComponent(pathStr)}`;
   }
 
   // 검색어 디바운싱 (500ms)
@@ -988,7 +992,7 @@ function CommunityPage() {
                     {/* 제목 및 내용 */}
                     <div 
                       className="cursor-pointer mb-3"
-                      onClick={() => navigate(`/community/${post.id}`)}
+                      onClick={() => navigate(`/community/${String(post.id)}`)}
                     >
                       <h3 className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors duration-300">
                         {post.title}
@@ -1044,21 +1048,21 @@ function CommunityPage() {
                     {/* 액션 버튼 */}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border/50">
                       <button
-                        onClick={() => navigate(`/community/${post.id}`)}
+                        onClick={() => navigate(`/community/${String(post.id)}`)}
                         className="flex items-center gap-1.5 hover:text-primary transition-colors duration-300 px-2 py-1 rounded-md hover:bg-primary/5"
                       >
                         <MessageSquare className="h-4 w-4" />
                         <span className="font-medium">{post.comment_count}</span>
                       </button>
                       <button
-                        onClick={() => navigate(`/community/${post.id}`)}
+                        onClick={() => navigate(`/community/${String(post.id)}`)}
                         className="flex items-center gap-1.5 hover:text-primary transition-colors duration-300 px-2 py-1 rounded-md hover:bg-primary/5"
                       >
                         <Heart className="h-4 w-4" />
                         <span className="font-medium">{post.like_count}</span>
                       </button>
                       <button
-                        onClick={() => navigate(`/community/${post.id}`)}
+                        onClick={() => navigate(`/community/${String(post.id)}`)}
                         className="flex items-center gap-1.5 hover:text-primary transition-colors duration-300 px-2 py-1 rounded-md hover:bg-primary/5"
                       >
                         <Bookmark className="h-4 w-4" />

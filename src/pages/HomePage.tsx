@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Search, RefreshCw, Sparkles, Loader2, ChevronDown, ChevronUp, Filter, Newspaper } from "lucide-react"
+import { Search, RefreshCw, Sparkles, ChevronDown, ChevronUp, Filter, Newspaper } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
@@ -332,7 +332,7 @@ export function HomePage() {
           {/* Search and Filter - 모바일 최적화 컴팩트 디자인 */}
           <div className="space-y-1.5 sm:space-y-2.5">
             {/* 검색 및 수집 버튼 - 모바일에서 더 컴팩트 */}
-            <div className="flex gap-1.5 sm:gap-2.5">
+            <div className="flex gap-1.5 sm:gap-2.5 items-center">
               <div className="relative flex-1">
                 <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
                 <Input

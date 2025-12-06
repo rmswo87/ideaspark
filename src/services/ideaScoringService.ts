@@ -105,9 +105,9 @@ export async function scoreIdeas(ideaIds: string[]): Promise<IdeaScore[]> {
 export async function getIdeaScore(ideaId: string): Promise<IdeaScore | null> {
   const { data, error } = await supabase
     .from('idea_scores')
-    .select('*')
+    .select('id, idea_id, vitamin_score, competition_score, sexiness_score, total_score, difficulty_level, ai_analysis, is_recommended, recommended_at, analyzed_at, created_at, updated_at')
     .eq('idea_id', ideaId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -127,7 +127,7 @@ export async function getIdeaScore(ideaId: string): Promise<IdeaScore | null> {
 export async function getTopScoredIdeas(limit: number = 10): Promise<Array<IdeaScore & { idea: Idea }>> {
   const { data: scores, error: scoresError } = await supabase
     .from('idea_scores')
-    .select('*')
+    .select('id, idea_id, vitamin_score, competition_score, sexiness_score, total_score, difficulty_level, ai_analysis, is_recommended, recommended_at, analyzed_at, created_at, updated_at')
     .order('total_score', { ascending: false })
     .limit(limit);
 
@@ -195,7 +195,7 @@ export async function getTopScoredRecentIdeas(limit: number = 3): Promise<Array<
   // 해당 아이디어들의 점수 조회
   const { data: scores, error: scoresError } = await supabase
     .from('idea_scores')
-    .select('*')
+    .select('id, idea_id, vitamin_score, competition_score, sexiness_score, total_score, difficulty_level, ai_analysis, is_recommended, recommended_at, analyzed_at, created_at, updated_at')
     .in('idea_id', uniqueIdeaIds)
     .order('total_score', { ascending: false })
     .limit(limit);
@@ -240,12 +240,12 @@ export async function getRecommendedIdeaOfTheDay(): Promise<(IdeaScore & { idea:
 
   const { data, error } = await supabase
     .from('idea_scores')
-    .select('*, ideas(*)')
+    .select('id, idea_id, vitamin_score, competition_score, sexiness_score, total_score, difficulty_level, ai_analysis, is_recommended, recommended_at, analyzed_at, created_at, updated_at, ideas(*)')
     .eq('is_recommended', true)
     .gte('recommended_at', today.toISOString())
     .order('recommended_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) {
     if (error.code === 'PGRST116') {

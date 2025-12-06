@@ -10,18 +10,19 @@ import TermsPage from '@/pages/TermsPage'
 import PrivacyPage from '@/pages/PrivacyPage'
 import { DevNewsFeedPage } from '@/pages/DevNewsFeedPage'
 import { HomePage } from '@/pages/HomePage'
+import { PremiumPage } from '@/pages/PremiumPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { BottomNavigation } from '@/components/BottomNavigation'
 import { ScrollToTop } from '@/components/ScrollToTop'
 
 // 코드 스플리팅: 큰 페이지들을 lazy loading
-const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then(module => ({ default: module.default as ComponentType<any> })))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(module => ({ default: module.default as ComponentType<any> })))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(module => ({ default: module.default as ComponentType<any> })))
-const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then(module => ({ default: module.default as ComponentType<any> })))
-const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then(module => ({ default: module.default as ComponentType<any> })))
-const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then(module => ({ default: module.ImplementationGallery as ComponentType<any> })))
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(module => ({ default: module.default as ComponentType<any> })))
+const IdeaDetailPage = lazy(() => import('@/pages/IdeaDetailPage').then((module: any) => ({ default: (module.default || module) as ComponentType<any> })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((module: any) => ({ default: (module.default || module) as ComponentType<any> })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then((module: any) => ({ default: (module.default || module) as ComponentType<any> })))
+const PostDetailPage = lazy(() => import('@/pages/PostDetailPage').then((module: any) => ({ default: (module.default || module) as ComponentType<any> })))
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard').then((module: any) => ({ default: (module.default || module) as ComponentType<any> })))
+const ImplementationGallery = lazy(() => import('@/pages/ImplementationGallery').then((module: any) => ({ default: (module.ImplementationGallery || module.default || module) as ComponentType<any> })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((module: any) => ({ default: (module.default || module) as ComponentType<any> })))
 
 // 로딩 컴포넌트
 const PageLoadingFallback = () => (
@@ -88,6 +89,7 @@ function App() {
             <Route path="/community/:id" element={<PostDetailPage />} />
             <Route path="/implementations" element={<ImplementationGallery />} />
             <Route path="/news" element={<DevNewsFeedPage />} />
+            <Route path="/premium" element={<PremiumPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
