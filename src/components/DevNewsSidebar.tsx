@@ -22,10 +22,11 @@ export function DevNewsSidebar({ className = '' }: DevNewsSidebarProps) {
       setLoading(true);
       try {
         const [news, keywords] = await Promise.all([
-          getDailyDevNews(10),
+          getDailyDevNews(),
           getHotKeywords(10),
         ]);
-        setDailyNews(news);
+        // 사이드바에서는 최대 10개만 표시
+        setDailyNews(news.slice(0, 10));
         setHotKeywords(keywords);
       } catch (error) {
         console.error('Error fetching dev news:', error);
