@@ -93,7 +93,44 @@ export default async function handler(
     // Reddit API에서 이미지 URL 추출
     function extractImageUrl(post: any): string | null {
       try {
-        // 1. preview.images에서 고해상도 이미지 추출 (가장 우선순위)
+        // 1. url이 preview.redd.it 또는 i.redd.it인 경우 (최우선 처리)
+        if (post.url) {
+          const url = post.url.toLowerCase();
+          if (url.includes('preview.redd.it') || url.includes('i.redd.it')) {
+            // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지로 간주
+            console.log('Found Reddit image URL:', post.url);
+            return post.url;
+          }
+        }
+
+        // 2. url이 이미지 확장자로 끝나는 경우
+        if (post.url) {
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+          const lowerUrl = post.url.toLowerCase();
+          if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
+            console.log('Found image URL by extension:', post.url);
+            return post.url;
+          }
+          // imgur, gfycat 등 외부 이미지 호스팅 서비스
+          if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+            console.log('Found external image URL:', post.url);
+            return post.url;
+          }
+        }
+
+        // 3. is_reddit_media_domain이 true인 경우 url이 이미지
+        if (post.is_reddit_media_domain && post.url) {
+          console.log('Found Reddit media domain image:', post.url);
+          return post.url;
+        }
+
+        // 4. post_hint가 'image'인 경우 url이 이미지
+        if (post.post_hint === 'image' && post.url) {
+          console.log('Found image by post_hint:', post.url);
+          return post.url;
+        }
+
+        // 5. preview.images에서 고해상도 이미지 추출
         if (post.preview?.images?.[0]?.source?.url) {
           // Reddit은 이미지 URL에 &amp;를 사용하므로 디코딩 필요
           let imageUrl = post.preview.images[0].source.url
@@ -101,11 +138,12 @@ export default async function handler(
             .replace(/&amp;/g, '&'); // 이중 인코딩 방지
           // 모든 유효한 이미지 URL 반환
           if (imageUrl && imageUrl.startsWith('http')) {
+            console.log('Found preview source image:', imageUrl);
             return imageUrl;
           }
         }
 
-        // 2. preview.images의 resolutions에서 가장 큰 이미지
+        // 6. preview.images의 resolutions에서 가장 큰 이미지
         if (post.preview?.images?.[0]?.resolutions?.length > 0) {
           const resolutions = post.preview.images[0].resolutions;
           const largestImage = resolutions[resolutions.length - 1];
@@ -113,39 +151,9 @@ export default async function handler(
             let imageUrl = largestImage.url.replace(/&amp;/g, '&');
             // 모든 유효한 이미지 URL 반환
             if (imageUrl && imageUrl.startsWith('http')) {
+              console.log('Found preview resolution image:', imageUrl);
               return imageUrl;
             }
-          }
-        }
-
-        // 3. is_reddit_media_domain이 true인 경우 url이 이미지
-        if (post.is_reddit_media_domain && post.url) {
-          return post.url;
-        }
-
-        // 4. post_hint가 'image'인 경우 url이 이미지
-        if (post.post_hint === 'image' && post.url) {
-          return post.url;
-        }
-
-        // 5. url이 preview.redd.it 또는 i.redd.it인 경우 (query string 포함, 최우선 처리)
-        if (post.url) {
-          if (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it')) {
-            // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지로 간주
-            return post.url;
-          }
-        }
-
-        // 6. url이 이미지 확장자로 끝나는 경우
-        if (post.url) {
-          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-          const lowerUrl = post.url.toLowerCase();
-          if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
-            return post.url;
-          }
-          // imgur, gfycat 등 외부 이미지 호스팅 서비스
-          if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
-            return post.url;
           }
         }
 
@@ -155,7 +163,19 @@ export default async function handler(
             post.thumbnail !== 'self' && 
             post.thumbnail !== 'nsfw' &&
             post.thumbnail.startsWith('http')) {
+          console.log('Found thumbnail image:', post.thumbnail);
           return post.thumbnail;
+        }
+
+        // 디버깅: 이미지를 찾지 못한 경우 로그 출력
+        if (process.env.NODE_ENV === 'development') {
+          console.log('No image found for post:', {
+            url: post.url,
+            post_hint: post.post_hint,
+            is_reddit_media_domain: post.is_reddit_media_domain,
+            has_preview: !!post.preview,
+            thumbnail: post.thumbnail,
+          });
         }
 
         return null;

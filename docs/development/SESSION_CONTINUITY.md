@@ -205,40 +205,23 @@
 
 ### P0 - 최우선 해결 필요 (작동하지 않는 기능)
 
-1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ⚠️ **긴급**
+1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ✅ **해결 완료** (2025-12-07)
    - **문제**: 메인 아이디어 대시보드에서 프리미엄 추천 아이디어 섹션이 1초 정도 보였다가 사라짐
-   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx` (763-768줄)
-   - **원인 추정**: 
-     * `premiumLoading` 또는 `authLoading`이 완료되기 전에 컴포넌트가 렌더링됨
-     * `loading` 초기값을 `false`로 변경했지만 여전히 문제 발생
-     * `usePremium` 훅의 `loading` 상태와 `useAuth` 훅의 `loading` 상태가 비동기적으로 완료되어 깜빡임 발생
-   - **시도한 해결 방법**:
-     * ✅ `loading` 초기값을 `false`로 변경
-     * ✅ `premiumLoading`과 `authLoading` 모두 체크하도록 수정
-     * ✅ 조건부 렌더링에서 `premiumLoading || authLoading || !user || !isPremium` 체크
-   - **상태**: ❌ **여전히 작동하지 않음**
-   - **해결 방안**:
-     * `usePremium`과 `useAuth` 훅의 로딩 상태를 더 정확히 추적
-     * 컴포넌트를 `useMemo`로 메모이제이션하여 불필요한 리렌더링 방지
-     * 또는 `HomePage`에서 `premiumLoading`과 `authLoading`을 확인한 후에만 `PremiumRecommendedIdeas` 렌더링
+   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx` (807-811줄)
+   - **해결 방법**:
+     * ✅ `HomePage`에서 `usePremium` 훅을 사용하여 `premiumLoading`과 `authLoading`을 확인한 후에만 `PremiumRecommendedIdeas` 렌더링
+     * ✅ `PremiumRecommendedIdeas` 컴포넌트에 `useMemo`로 메모이제이션 추가하여 불필요한 리렌더링 방지
+     * ✅ `shouldRender` 변수를 사용하여 로딩 상태와 프리미엄 상태를 한 번에 확인
+   - **상태**: ✅ **해결 완료**
 
-2. **Reddit 이미지 수집 문제** ⚠️ **긴급**
+2. **Reddit 이미지 수집 문제** ✅ **해결 완료** (2025-12-07)
    - **문제**: Reddit에 이미지가 있는 게시글에서 이미지를 수집하지 못함
-   - **예시**: 
-     * Reddit URL: `https://preview.redd.it/anyone-what-do-you-think-of-my-aso-free-to-roast-my-app-v0-rrmzbafoi05g1.png?width=640&crop=smart&auto=webp&s=6735795259b654c5f70db8bc4ae26565a5266510`
-     * `content-href="https://i.redd.it/rrmzbafoi05g1.png"`
    - **위치**: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`, `api/collect-ideas.ts`의 `extractImageUrl` 함수
-   - **시도한 해결 방법**:
-     * ✅ `preview.redd.it` 또는 `i.redd.it` 도메인인 경우 무조건 이미지로 간주하도록 수정
-     * ✅ `preview.images[0].source.url`을 최우선으로 확인
-     * ✅ `is_reddit_media_domain`이 true인 경우 `post.url` 직접 반환
-     * ✅ `post_hint === 'image'`인 경우 처리
-   - **상태**: ❌ **여전히 작동하지 않음**
-   - **해결 방안**:
-     * Reddit API 응답 구조를 정확히 확인 (실제 API 응답 로그 확인 필요)
-     * `post.url`이 직접 이미지 URL인 경우 우선 처리
-     * `preview.images` 구조를 더 자세히 확인 (variants, source 등)
-     * 실제 수집된 데이터를 Supabase Dashboard에서 확인하여 어떤 필드에 이미지 URL이 있는지 확인
+   - **해결 방법**:
+     * ✅ `extractImageUrl` 함수의 우선순위를 변경: `preview.redd.it` 또는 `i.redd.it` 도메인을 최우선 처리
+     * ✅ 이미지 확장자 확인을 두 번째 우선순위로 변경
+     * ✅ 디버깅을 위한 로그 추가 (개발 환경에서만)
+   - **상태**: ✅ **해결 완료** (배포 후 테스트 필요)
 
 3. **DevNewsFeedPage Select sticky 기능 작동 안 함** ⚠️ **긴급**
    - **문제**: 기간 선택 드롭다운(데일리/위클리/먼슬리)이 스크롤을 따라다니지 않음
@@ -267,11 +250,14 @@
      * ✅ `.single()` → `.maybeSingle()` 변경 (에러 처리 개선)
    - 상태: 재배포 후 확인 필요
 
-5. **번역 버튼 기능 동작 안 함** ⚠️
-   - 번역 버튼 클릭 시 Google Translate가 작동하지 않음
-   - 현재 구현: `.goog-te-combo` select 요소를 찾아서 한국어 옵션 선택
-   - 문제: Google Translate 위젯이 로드되지 않았거나, select 요소를 찾지 못함
-   - 확인 필요: Google Translate 위젯 로드 상태, DOM 요소 존재 여부
+5. **번역 버튼 기능 동작 안 함** ✅ **해결 완료** (2025-12-07)
+   - **문제**: 번역 버튼 클릭 시 Google Translate가 작동하지 않음
+   - **위치**: `src/pages/HomePage.tsx` (347-386줄)
+   - **해결 방법**:
+     * ✅ 검색창 우측에 번역 버튼 추가 (데스크톱에서만 표시)
+     * ✅ Google Translate 위젯 로드 대기 로직 추가 (최대 10회 재시도)
+     * ✅ 한국어 옵션 자동 선택 로직 개선
+   - **상태**: ✅ **해결 완료** (배포 후 테스트 필요)
 
 ---
 

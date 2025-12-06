@@ -5,12 +5,18 @@ import { useAuth } from './useAuth';
 import { useAdmin } from './useAdmin';
 
 export function usePremium() {
-  const { user } = useAuth();
-  const { isAdmin } = useAdmin();
+  const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // authLoading이나 adminLoading이 true이면 아직 로딩 중
+    if (authLoading || adminLoading) {
+      setLoading(true);
+      return;
+    }
+
     async function checkPremium() {
       if (!user) {
         setIsPremium(false);
@@ -37,7 +43,7 @@ export function usePremium() {
     }
 
     checkPremium();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, authLoading, adminLoading]);
 
   return { isPremium, loading };
 }

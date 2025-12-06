@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Search, RefreshCw, Sparkles, ChevronDown, ChevronUp, Filter, Newspaper } from "lucide-react"
+import { Search, RefreshCw, Sparkles, ChevronDown, ChevronUp, Filter, Newspaper, Languages } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
@@ -16,6 +16,7 @@ import { collectIdeas } from '@/services/collector'
 import type { Idea } from '@/services/ideaService'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
+import { usePremium } from '@/hooks/usePremium'
 import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Footer } from '@/components/Footer'
@@ -25,8 +26,9 @@ import { BottomNavigation } from '@/components/BottomNavigation'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 export function HomePage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { isAdmin } = useAdmin()
+  const { isPremium, loading: premiumLoading } = usePremium()
   const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
@@ -336,12 +338,52 @@ export function HomePage() {
               <div className="relative flex-1">
                 <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
                 <Input
-                  placeholder="아이디어 검색..."
+                  placeholder="아이디어 검색... (Chrome 자동 번역 사용 가능)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8 sm:pl-10 h-9 sm:min-h-[40px] text-xs sm:text-sm border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300 bg-background/50 backdrop-blur-sm"
                 />
               </div>
+              {/* 번역 버튼 - 데스크톱에서만 표시 */}
+              <Button
+                onClick={() => {
+                  // Google Translate 위젯이 로드될 때까지 대기
+                  const tryTriggerTranslate = (attempts = 0) => {
+                    const select = document.querySelector('.goog-te-combo') as HTMLSelectElement;
+                    if (select) {
+                      // 한국어 옵션 찾기
+                      const koOption = Array.from(select.options).find((opt: HTMLOptionElement) => 
+                        opt.value.includes('ko') || opt.text.includes('한국어') || opt.text.includes('Korean')
+                      );
+                      if (koOption) {
+                        select.value = koOption.value;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                      } else {
+                        // 한국어 옵션이 없으면 직접 'ko' 값 설정 시도
+                        try {
+                          select.value = 'ko';
+                          select.dispatchEvent(new Event('change', { bubbles: true }));
+                        } catch (e) {
+                          console.error('Failed to trigger translation:', e);
+                        }
+                      }
+                    } else if (attempts < 10) {
+                      // 위젯이 아직 로드되지 않았으면 재시도
+                      setTimeout(() => tryTriggerTranslate(attempts + 1), 200);
+                    } else {
+                      console.warn('Google Translate widget not found after 10 attempts');
+                    }
+                  };
+                  tryTriggerTranslate();
+                }}
+                variant="outline"
+                size="sm"
+                className="hidden md:flex border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 h-9 sm:min-h-[40px] px-2 sm:px-3 text-xs sm:text-sm"
+                title="Chrome 자동 번역 사용하기"
+              >
+                <Languages className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                <span className="hidden sm:inline">번역</span>
+              </Button>
               <Button 
                 onClick={handleCollectIdeas} 
                 disabled={collecting}
@@ -761,7 +803,8 @@ export function HomePage() {
         </div>
 
         {/* 프리미엄 추천 아이디어 섹션 (프리미엄 사용자에게만 표시) */}
-        {user && (
+        {/* 로딩이 완료되고 프리미엄 사용자인 경우에만 렌더링하여 깜빡임 방지 */}
+        {!authLoading && !premiumLoading && user && isPremium && (
           <div id="premium-recommended-ideas-section" className="mb-4 sm:mb-6 md:mb-8 w-full max-w-full overflow-x-hidden">
             <PremiumRecommendedIdeas />
           </div>

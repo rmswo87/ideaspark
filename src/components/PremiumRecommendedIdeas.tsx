@@ -1,5 +1,5 @@
 // 프리미엄 사용자용 최근 검색 아이디어 상위 3개 알림 컴포넌트
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { IdeaCard } from './IdeaCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Crown } from 'lucide-react';
@@ -14,30 +14,23 @@ export function PremiumRecommendedIdeas() {
   const { isPremium, loading: premiumLoading } = usePremium();
   const { user, loading: authLoading } = useAuth();
   const [topScoredIdeas, setTopScoredIdeas] = useState<Array<{ idea: any; total_score: number }>>([]);
-  const [loading, setLoading] = useState(false); // 초기값을 false로 설정
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // 로딩 상태와 프리미엄 상태를 메모이제이션하여 불필요한 리렌더링 방지
+  const shouldRender = useMemo(() => {
+    return !premiumLoading && !authLoading && user && isPremium;
+  }, [premiumLoading, authLoading, user, isPremium]);
+
   useEffect(() => {
-    // premiumLoading이나 authLoading이 true이거나 user가 없으면 아무것도 하지 않음
-    if (premiumLoading || authLoading || !user) {
-      setLoading(false);
-      setTopScoredIdeas([]);
-      return;
-    }
-    
-    if (!isPremium) {
+    // 로딩 중이거나 조건을 만족하지 않으면 아무것도 하지 않음
+    if (!shouldRender || !user?.id) {
       setLoading(false);
       setTopScoredIdeas([]);
       return;
     }
 
     async function fetchTopScoredIdeas() {
-      if (!user?.id) {
-        setLoading(false);
-        setTopScoredIdeas([]);
-        return;
-      }
-      
       setLoading(true);
       try {
         // 사용자 관심 카테고리 기반 AI 점수 추천 사용
@@ -66,10 +59,10 @@ export function PremiumRecommendedIdeas() {
     }
 
     fetchTopScoredIdeas();
-  }, [isPremium, premiumLoading, user, authLoading]);
+  }, [shouldRender, user?.id]);
 
-  // premiumLoading이나 authLoading이 true이거나 user가 없거나 프리미엄 사용자가 아니면 표시하지 않음
-  if (premiumLoading || authLoading || !user || !isPremium) {
+  // HomePage에서 이미 로딩 상태를 확인하지만, 안전을 위해 여기서도 체크
+  if (!shouldRender) {
     return null;
   }
 

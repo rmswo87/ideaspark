@@ -203,7 +203,21 @@ export function DevNewsFeedPage() {
                 </Button>
               </nav>
             </div>
-            <div className="flex items-center gap-0.5 sm:gap-2 w-auto sm:w-auto justify-end">
+            <div className="flex items-center gap-1 sm:gap-2 w-auto sm:w-auto justify-end">
+              {/* 기간 선택 Select - 헤더 안에 배치하여 sticky 효과 */}
+              <div className="hidden sm:block">
+                <Select value={periodType} onValueChange={(value: 'all' | 'daily' | 'weekly' | 'monthly') => setPeriodType(value)}>
+                  <SelectTrigger className="w-[120px] h-7 sm:h-8 text-xs border-border/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="daily">데일리</SelectItem>
+                    <SelectItem value="weekly">위클리</SelectItem>
+                    <SelectItem value="monthly">먼슬리</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {user ? (
                 <>
                   {isAdmin && (
@@ -257,21 +271,19 @@ export function DevNewsFeedPage() {
       </header>
       {/* 피드 컨테이너 - 통합 피드 */}
       <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* 기간 선택 - Select만 sticky로 스크롤 따라다니게 */}
-        <div className="mb-4 flex justify-end sticky top-20 z-40 self-start">
-          <div className="bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm border border-border/50">
-            <Select value={periodType} onValueChange={(value: 'all' | 'daily' | 'weekly' | 'monthly') => setPeriodType(value)}>
-              <SelectTrigger className="w-[140px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="daily">데일리</SelectItem>
-                <SelectItem value="weekly">위클리</SelectItem>
-                <SelectItem value="monthly">먼슬리</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* 모바일용 기간 선택 - 데스크톱에서는 헤더에 있음 */}
+        <div className="mb-4 sm:hidden flex justify-end">
+          <Select value={periodType} onValueChange={(value: 'all' | 'daily' | 'weekly' | 'monthly') => setPeriodType(value)}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체</SelectItem>
+              <SelectItem value="daily">데일리</SelectItem>
+              <SelectItem value="weekly">위클리</SelectItem>
+              <SelectItem value="monthly">먼슬리</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
