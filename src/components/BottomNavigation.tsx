@@ -1,12 +1,14 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Home, Users, User, Newspaper } from 'lucide-react'
+import { Home, Users, User, Newspaper, Crown } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { usePremium } from '@/hooks/usePremium'
 import { cn } from '@/lib/utils'
 
 export function BottomNavigation() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
+  const { isPremium } = usePremium()
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -32,6 +34,12 @@ export function BottomNavigation() {
       label: '커뮤니티',
     },
     {
+      path: '/premium',
+      icon: Crown,
+      label: '프리미엄',
+      isPremium: true,
+    },
+    {
       path: user ? '/profile' : '/auth',
       icon: User,
       label: user ? '프로필' : '로그인',
@@ -44,6 +52,8 @@ export function BottomNavigation() {
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.path)
+          const isPremiumItem = item.isPremium === true
+          const showPremiumStyle = isPremiumItem && isPremium
           return (
             <button
               key={item.path}
@@ -52,11 +62,16 @@ export function BottomNavigation() {
                 'flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[44px] transition-colors',
                 active
                   ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+                showPremiumStyle && 'text-yellow-600 dark:text-yellow-400'
               )}
               aria-label={item.label}
             >
-              <Icon className={cn('h-5 w-5', active && 'scale-110')} />
+              <Icon className={cn(
+                'h-5 w-5',
+                active && 'scale-110',
+                showPremiumStyle && 'text-yellow-600 dark:text-yellow-400'
+              )} />
               <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           )

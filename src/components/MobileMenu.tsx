@@ -6,9 +6,10 @@ import {
   DialogContent,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Menu, X, Home, Users, MessageSquare, Shield, User, LogOut } from 'lucide-react'
+import { Menu, X, Home, Users, MessageSquare, Shield, User, LogOut, Crown } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdmin } from '@/hooks/useAdmin'
+import { usePremium } from '@/hooks/usePremium'
 import { supabase } from '@/lib/supabase'
 import { ProfileNotificationBadge } from './ProfileNotificationBadge'
 
@@ -18,6 +19,7 @@ export function MobileMenu() {
   const location = useLocation()
   const { user } = useAuth()
   const { isAdmin } = useAdmin()
+  const { isPremium } = usePremium()
 
   const handleNavigate = (path: string) => {
     navigate(path)
@@ -106,6 +108,19 @@ export function MobileMenu() {
             >
               <MessageSquare className="mr-2 h-4 w-4" />
               문의 / 피드백
+            </Button>
+
+            <Button
+              variant={isActive('/premium') ? 'secondary' : 'ghost'}
+              className={`w-full justify-start transition-all duration-300 ${
+                isActive('/premium') 
+                  ? 'bg-primary/10 text-primary border border-primary/20 font-semibold' 
+                  : 'hover:bg-primary/5 hover:text-primary'
+              } ${isPremium ? 'text-yellow-600 dark:text-yellow-400' : ''}`}
+              onClick={() => handleNavigate('/premium')}
+            >
+              <Crown className={`mr-2 h-4 w-4 ${isPremium ? 'text-yellow-600 dark:text-yellow-400' : ''}`} />
+              프리미엄
             </Button>
 
             {user && (
