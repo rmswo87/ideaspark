@@ -5,8 +5,8 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/collect-dev-news",
-      "schedule": "0 0 * * *"
+      "path": "/api/cron/collect-dev-news",
+      "schedule": "0 9 * * *"
     }
   ],
   "rewrites": [
