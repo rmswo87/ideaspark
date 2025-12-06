@@ -388,29 +388,13 @@ function extractContent(post: any): string {
 // Reddit API에서 이미지 URL 추출
 function extractImageUrl(post: any): string | null {
   try {
-    // 0. url이 직접 preview.redd.it 또는 i.redd.it인 경우 (최우선)
-    // query string이 있어도 포함하여 반환
-    if (post.url && (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it'))) {
-      // 이미지 확장자 확인 (.jpeg, .jpg, .png, .gif, .webp 등)
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-      const lowerUrl = post.url.toLowerCase();
-      // 확장자가 있거나 query string이 있는 경우 이미지로 간주
-      if (imageExtensions.some(ext => lowerUrl.includes(ext)) || post.url.includes('?')) {
-        return post.url;
-      }
-    }
-
     // 1. preview.images에서 고해상도 이미지 추출 (가장 우선순위)
     if (post.preview?.images?.[0]?.source?.url) {
       // Reddit은 이미지 URL에 &amp;를 사용하므로 디코딩 필요
       let imageUrl = post.preview.images[0].source.url
         .replace(/&amp;/g, '&')
         .replace(/&amp;/g, '&'); // 이중 인코딩 방지
-      // Reddit 미디어 도메인인 경우 i.redd.it 또는 preview.redd.it 사용
-      if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
-        return imageUrl;
-      }
-      // 외부 이미지 URL도 허용 (imgur, etc.)
+      // 모든 유효한 이미지 URL 반환
       if (imageUrl && imageUrl.startsWith('http')) {
         return imageUrl;
       }
@@ -432,46 +416,41 @@ function extractImageUrl(post: any): string | null {
       }
     }
 
-    // 3. post_hint가 'image'인 경우 url이 이미지
+    // 3. is_reddit_media_domain이 true인 경우 url이 이미지
+    if (post.is_reddit_media_domain && post.url) {
+      return post.url;
+    }
+
+    // 4. post_hint가 'image'인 경우 url이 이미지
     if (post.post_hint === 'image' && post.url) {
-      // Reddit 미디어 도메인인 경우 처리
-      if (post.is_reddit_media_domain && post.url) {
-        return post.url;
-      }
-      // 외부 이미지 URL인 경우
+      return post.url;
+    }
+
+    // 5. url이 preview.redd.it 또는 i.redd.it인 경우 (query string 포함)
+    if (post.url && (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it'))) {
+      // 이미지 확장자 확인 (.jpeg, .jpg, .png, .gif, .webp 등)
       const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
       const lowerUrl = post.url.toLowerCase();
-      if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
-        return post.url;
-      }
-      // i.redd.it 또는 preview.redd.it 도메인인 경우
-      if (post.url.includes('i.redd.it') || post.url.includes('preview.redd.it')) {
-        return post.url;
-      }
-      // imgur, gfycat 등 외부 이미지 호스팅 서비스
-      if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+      // 확장자가 있거나 query string이 있는 경우 이미지로 간주
+      if (imageExtensions.some(ext => lowerUrl.includes(ext)) || post.url.includes('?')) {
         return post.url;
       }
     }
 
-    // 4. url이 이미지 확장자로 끝나는 경우
+    // 6. url이 이미지 확장자로 끝나는 경우
     if (post.url) {
       const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
       const lowerUrl = post.url.toLowerCase();
       if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
         return post.url;
       }
-      // i.redd.it 또는 preview.redd.it 도메인인 경우
-      if (post.url.includes('i.redd.it') || post.url.includes('preview.redd.it')) {
-        return post.url;
-      }
       // imgur, gfycat 등 외부 이미지 호스팅 서비스
       if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
         return post.url;
       }
     }
 
-    // 5. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
+    // 7. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
     if (post.thumbnail && 
         post.thumbnail !== 'default' && 
         post.thumbnail !== 'self' && 

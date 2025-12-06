@@ -12,14 +12,14 @@ import { useAuth } from '@/hooks/useAuth';
 
 export function PremiumRecommendedIdeas() {
   const { isPremium, loading: premiumLoading } = usePremium();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [topScoredIdeas, setTopScoredIdeas] = useState<Array<{ idea: any; total_score: number }>>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // premiumLoading이 true이거나 user가 없으면 아무것도 하지 않음
-    if (premiumLoading || !user) {
+    // premiumLoading이나 authLoading이 true이거나 user가 없으면 아무것도 하지 않음
+    if (premiumLoading || authLoading || !user) {
       setLoading(false);
       setTopScoredIdeas([]);
       return;
@@ -66,10 +66,10 @@ export function PremiumRecommendedIdeas() {
     }
 
     fetchTopScoredIdeas();
-  }, [isPremium, premiumLoading, user]);
+  }, [isPremium, premiumLoading, user, authLoading]);
 
-  // premiumLoading이 true이거나 user가 없거나 프리미엄 사용자가 아니면 표시하지 않음
-  if (premiumLoading || !user || !isPremium) {
+  // premiumLoading이나 authLoading이 true이거나 user가 없거나 프리미엄 사용자가 아니면 표시하지 않음
+  if (premiumLoading || authLoading || !user || !isPremium) {
     return null;
   }
 
