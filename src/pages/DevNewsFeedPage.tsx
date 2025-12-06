@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -248,15 +248,18 @@ export function DevNewsFeedPage() {
             </div>
           </div>
         </div>
-        {/* 탭 네비게이션 - 작게 */}
-        <div className="border-t border-border/50 px-4">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'daily' | 'weekly' | 'monthly')} className="w-full">
-            <TabsList className="w-auto rounded-md border-b-0 h-8 bg-transparent gap-1">
-              <TabsTrigger value="daily" className="text-xs px-3 py-1 h-7">Daily</TabsTrigger>
-              <TabsTrigger value="weekly" className="text-xs px-3 py-1 h-7">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly" className="text-xs px-3 py-1 h-7">Monthly</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        {/* 필터 드롭다운 - 우측 상단 */}
+        <div className="border-t border-border/50 px-4 py-2 flex justify-end">
+          <Select value={activeTab} onValueChange={(v) => setActiveTab(v as 'daily' | 'weekly' | 'monthly')}>
+            <SelectTrigger size="sm" className="w-auto h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </header>
 
