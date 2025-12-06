@@ -40,30 +40,24 @@ export async function getDevNews(filters: DevNewsFilters = {}): Promise<DevNews[
     if (filters.periodType) {
       query = query.eq('period_type', filters.periodType);
       
-      // 기간별 날짜 필터링 (collected_at 기준으로 필터링)
+      // 기간별 날짜 필터링 - collected_at 기준으로 필터링 (수집 시간 기준)
       const now = new Date();
       let periodStart: Date;
-      let periodEnd: Date;
       
       if (filters.periodType === 'daily') {
-        // 데일리: 오늘 수집한 데이터 (collected_at 기준)
+        // 데일리: 오늘 수집한 데이터
         periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       } else if (filters.periodType === 'weekly') {
-        // 위클리: 오늘 기준 7일까지
+        // 위클리: 최근 7일 내에 수집된 데이터
         periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       } else { // monthly
-        // 먼슬리: 오늘 기준 30일까지
+        // 먼슬리: 최근 30일 내에 수집된 데이터
         periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-        periodEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       }
       
-      // collected_at 기준으로 필터링 (더 정확함)
+      // collected_at 기준으로 필터링 (수집 시간 기준이 더 정확함)
       const startDateStr = periodStart.toISOString();
-      const endDateStr = periodEnd.toISOString();
       query = query.gte('collected_at', startDateStr);
-      query = query.lt('collected_at', endDateStr);
     }
 
     if (filters.subreddit) {

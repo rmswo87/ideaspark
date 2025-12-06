@@ -248,8 +248,10 @@ export function DevNewsFeedPage() {
             </div>
           </div>
         </div>
-        {/* 필터 드롭다운 - 우측 상단 */}
-        <div className="border-t border-border/50 px-4 py-2 flex justify-end">
+        {/* 필터 드롭다운 및 번역 위젯 - 우측 상단 */}
+        <div className="border-t border-border/50 px-4 py-2 flex justify-end items-center gap-2">
+          {/* Google Translate Widget */}
+          <div id="google_translate_element" className="translate-widget"></div>
           <Select value={activeTab} onValueChange={(v) => setActiveTab(v as 'daily' | 'weekly' | 'monthly')}>
             <SelectTrigger size="sm" className="w-auto h-7 text-xs">
               <SelectValue />
