@@ -456,93 +456,123 @@ function extractContent(post: any): string {
 // Reddit API에서 이미지 URL 추출
 function extractImageUrl(post: any): string | null {
   try {
-    // 1. url이 preview.redd.it 또는 i.redd.it인 경우 (최우선 처리)
+    // 0. post.url이 직접 이미지 URL인 경우 (최우선 - 가장 확실한 방법)
     if (post.url) {
       const url = post.url.toLowerCase();
-      // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지로 간주
-      // query string이 있어도 이미지로 처리 (예: ?width=640&crop=smart&auto=webp&s=...)
+      const urlWithoutQuery = url.split('?')[0];
+      
+      // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지
       if (url.includes('preview.redd.it') || url.includes('i.redd.it')) {
-        console.log('Found Reddit image URL:', post.url);
+        console.log('Found Reddit image URL (preview/i.redd.it):', post.url);
         return post.url;
       }
-    }
-
-    // 2. url이 이미지 확장자로 끝나거나 포함하는 경우 (query string 고려)
-    if (post.url) {
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-      const lowerUrl = post.url.toLowerCase();
-      // query string을 제거한 URL로 확장자 확인
-      const urlWithoutQuery = lowerUrl.split('?')[0];
+      
+      // 이미지 확장자로 끝나는 경우
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
       if (imageExtensions.some(ext => urlWithoutQuery.endsWith(ext))) {
         console.log('Found image URL by extension:', post.url);
         return post.url;
       }
-      // imgur, gfycat 등 외부 이미지 호스팅 서비스
-      if (post.url.includes('imgur.com') || post.url.includes('gfycat.com') || post.url.includes('redgifs.com')) {
+      
+      // 외부 이미지 호스팅 서비스
+      if (url.includes('imgur.com') || url.includes('gfycat.com') || url.includes('redgifs.com') || 
+          url.includes('i.imgur.com') || url.includes('media.giphy.com')) {
         console.log('Found external image URL:', post.url);
         return post.url;
       }
     }
 
-    // 3. is_reddit_media_domain이 true인 경우 url이 이미지
+    // 1. is_reddit_media_domain이 true인 경우 url이 이미지
     if (post.is_reddit_media_domain && post.url) {
       console.log('Found Reddit media domain image:', post.url);
       return post.url;
     }
 
-    // 4. post_hint가 'image'인 경우 url이 이미지
+    // 2. post_hint가 'image'인 경우 url이 이미지
     if (post.post_hint === 'image' && post.url) {
       console.log('Found image by post_hint:', post.url);
       return post.url;
     }
-
-    // 5. preview.images에서 고해상도 이미지 추출
-    if (post.preview?.images?.[0]?.source?.url) {
-      // Reddit은 이미지 URL에 &amp;를 사용하므로 디코딩 필요
-      let imageUrl = post.preview.images[0].source.url
-        .replace(/&amp;/g, '&')
-        .replace(/&amp;/g, '&'); // 이중 인코딩 방지
-      // 모든 유효한 이미지 URL 반환
-      if (imageUrl && imageUrl.startsWith('http')) {
-        console.log('Found preview source image:', imageUrl);
-        return imageUrl;
-      }
+    
+    // 3. domain이 redd.it이고 url이 있는 경우 (Reddit 이미지 호스팅)
+    if (post.url && post.url.includes('redd.it')) {
+      console.log('Found redd.it image URL:', post.url);
+      return post.url;
     }
 
-    // 6. preview.images의 resolutions에서 가장 큰 이미지
-    if (post.preview?.images?.[0]?.resolutions?.length > 0) {
-      const resolutions = post.preview.images[0].resolutions;
-      const largestImage = resolutions[resolutions.length - 1];
-      if (largestImage?.url) {
-        let imageUrl = largestImage.url.replace(/&amp;/g, '&');
-        // 모든 유효한 이미지 URL 반환
+    // 4. preview.images에서 고해상도 이미지 추출 (모든 가능한 필드 확인)
+    if (post.preview?.images?.[0]) {
+      const previewImage = post.preview.images[0];
+      
+      // source.url (가장 고해상도)
+      if (previewImage.source?.url) {
+        let imageUrl = previewImage.source.url
+          .replace(/&amp;/g, '&')
+          .replace(/&amp;/g, '&'); // 이중 인코딩 방지
         if (imageUrl && imageUrl.startsWith('http')) {
-          console.log('Found preview resolution image:', imageUrl);
+          console.log('Found preview source image:', imageUrl);
           return imageUrl;
+        }
+      }
+      
+      // variants (다양한 해상도)
+      if (previewImage.variants?.gif?.source?.url) {
+        let imageUrl = previewImage.variants.gif.source.url.replace(/&amp;/g, '&');
+        if (imageUrl && imageUrl.startsWith('http')) {
+          console.log('Found preview gif variant:', imageUrl);
+          return imageUrl;
+        }
+      }
+      
+      // resolutions에서 가장 큰 이미지
+      if (previewImage.resolutions?.length > 0) {
+        const largestImage = previewImage.resolutions[previewImage.resolutions.length - 1];
+        if (largestImage?.url) {
+          let imageUrl = largestImage.url.replace(/&amp;/g, '&');
+          if (imageUrl && imageUrl.startsWith('http')) {
+            console.log('Found preview resolution image:', imageUrl);
+            return imageUrl;
+          }
         }
       }
     }
 
-    // 7. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
+    // 5. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
     if (post.thumbnail && 
         post.thumbnail !== 'default' && 
         post.thumbnail !== 'self' && 
         post.thumbnail !== 'nsfw' &&
+        post.thumbnail !== 'spoiler' &&
         post.thumbnail.startsWith('http')) {
       console.log('Found thumbnail image:', post.thumbnail);
       return post.thumbnail;
     }
-
-    // 디버깅: 이미지를 찾지 못한 경우 로그 출력
-    if (process.env.NODE_ENV === 'development') {
-      console.log('No image found for post:', {
-        url: post.url,
-        post_hint: post.post_hint,
-        is_reddit_media_domain: post.is_reddit_media_domain,
-        has_preview: !!post.preview,
-        thumbnail: post.thumbnail,
-      });
+    
+    // 6. media 필드 확인 (Reddit API의 media 객체)
+    if (post.media?.oembed?.thumbnail_url) {
+      console.log('Found media oembed thumbnail:', post.media.oembed.thumbnail_url);
+      return post.media.oembed.thumbnail_url;
     }
+    
+    if (post.media?.reddit_video?.fallback_url) {
+      // 비디오인 경우 썸네일 찾기
+      const thumbnailUrl = post.media.reddit_video.fallback_url.replace(/\.mp4$/, '.jpg');
+      if (thumbnailUrl !== post.media.reddit_video.fallback_url) {
+        console.log('Found video thumbnail:', thumbnailUrl);
+        return thumbnailUrl;
+      }
+    }
+
+    // 디버깅: 이미지를 찾지 못한 경우 상세 로그 출력
+    console.log('No image found for post:', {
+      url: post.url,
+      post_hint: post.post_hint,
+      is_reddit_media_domain: post.is_reddit_media_domain,
+      has_preview: !!post.preview,
+      preview_keys: post.preview ? Object.keys(post.preview) : [],
+      thumbnail: post.thumbnail,
+      has_media: !!post.media,
+    });
 
     return null;
   } catch (error) {
