@@ -259,7 +259,7 @@ export function DevNewsFeedPage() {
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         {/* 기간 선택 - Select만 sticky로 스크롤 따라다니게 */}
         <div className="mb-4 flex justify-end">
-          <div className="sticky top-2 z-40 bg-background/95 backdrop-blur-sm rounded-md p-1">
+          <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm border border-border/50">
             <Select value={periodType} onValueChange={(value: 'all' | 'daily' | 'weekly' | 'monthly') => setPeriodType(value)}>
               <SelectTrigger className="w-[140px] h-8 text-xs">
                 <SelectValue />
