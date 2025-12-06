@@ -18,7 +18,9 @@ import { getBookmarkedPosts, getLikedPosts, getMyPosts } from '@/services/postSe
 import { getMyComments } from '@/services/commentService';
 import { getImplementationStats, getImplementationsByUser } from '@/services/implementationService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';import { Textarea } from '@/components/ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
+import { Copy, Check, QrCode } from 'lucide-react';
 import { uploadAvatar } from '@/services/imageService';
 import type { FriendRequest, Friend } from '@/services/friendService';
 import type { Conversation, Message } from '@/services/messageService';
@@ -78,7 +80,16 @@ function ProfilePage() {
   const [messageDialogUserId, setMessageDialogUserId] = useState<string | null>(null);
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const [donationCopied, setDonationCopied] = useState(false);
+  const [donationShowQR, setDonationShowQR] = useState(false);
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+  
+  const donationBankName = '카카오뱅크';
+  const donationAccountNumber = '3333258583773';
+  const donationAccountHolder = '자취만렙';
+  const qrCodeUrl = typeof window !== 'undefined' 
+    ? new URL('/QR.png', window.location.origin).href 
+    : '/QR.png';
 
   function getImageProxyBase() {
     return (
@@ -943,6 +954,89 @@ function ProfilePage() {
               )}
             </CardContent>
           </Card>
+
+          {/* 오른쪽: 후원 박스 */}
+          {isOwnProfile && (
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-xl mb-2">개발자를 위한 커피 한 잔 ☕</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  IdeaSpark가 도움이 되셨다면, 작은 후원으로 개발을 응원해 주세요.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-sm font-medium">은행 및 계좌번호</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-base flex-1">
+                        {donationBankName} {donationAccountNumber}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(donationAccountNumber)
+                            .then(() => {
+                              setDonationCopied(true);
+                              setTimeout(() => setDonationCopied(false), 2000);
+                            })
+                            .catch(() => {
+                              addToast({
+                                title: '복사 실패',
+                                description: '계좌번호 복사에 실패했습니다. 수동으로 복사해주세요.',
+                                variant: 'destructive',
+                              });
+                            });
+                        }}
+                      >
+                        {donationCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            복사됨
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-2" />
+                            복사
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">예금주</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{donationAccountHolder}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">카카오페이 QR</Label>
+                    <a
+                      href="https://qr.kakaopay.com/Ej7sjRH31"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      https://qr.kakaopay.com/Ej7sjRH31
+                    </a>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setDonationShowQR(true)}
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    QR 코드 보기
+                  </Button>
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    피드백과 문의도 언제나 환영입니다.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         </div>
       </div>
@@ -2002,6 +2096,35 @@ function ProfilePage() {
         </DialogContent>
       </Dialog>
 
+      {/* 후원 QR 코드 다이얼로그 */}
+      <Dialog open={donationShowQR} onOpenChange={setDonationShowQR}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>QR 코드로 송금</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="w-64 h-64 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
+              <img
+                src={qrCodeUrl}
+                alt="도네이션 QR 코드"
+                className="w-full h-full object-contain rounded-lg"
+                onError={() => {
+                  addToast({
+                    title: 'QR 코드 로드 실패',
+                    description: 'QR 코드 이미지를 불러올 수 없습니다.',
+                    variant: 'destructive',
+                  });
+                }}
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold mb-1">{donationBankName}</p>
+              <p className="text-xs text-muted-foreground font-mono">{donationAccountNumber}</p>
+              <p className="text-xs text-muted-foreground mt-1">예금주: {donationAccountHolder}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -18,12 +18,14 @@ export function PremiumRecommendedIdeas() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // premiumLoading이 true이면 아무것도 하지 않음
-    if (premiumLoading) {
+    // premiumLoading이 true이거나 user가 없으면 아무것도 하지 않음
+    if (premiumLoading || !user) {
+      setLoading(false);
+      setTopScoredIdeas([]);
       return;
     }
     
-    if (!isPremium || !user) {
+    if (!isPremium) {
       setLoading(false);
       setTopScoredIdeas([]);
       return;
@@ -66,8 +68,8 @@ export function PremiumRecommendedIdeas() {
     fetchTopScoredIdeas();
   }, [isPremium, premiumLoading, user]);
 
-  // premiumLoading이 true이거나 프리미엄 사용자가 아니면 표시하지 않음
-  if (premiumLoading || !isPremium) {
+  // premiumLoading이 true이거나 user가 없거나 프리미엄 사용자가 아니면 표시하지 않음
+  if (premiumLoading || !user || !isPremium) {
     return null;
   }
 

@@ -389,8 +389,15 @@ function extractContent(post: any): string {
 function extractImageUrl(post: any): string | null {
   try {
     // 0. url이 직접 preview.redd.it 또는 i.redd.it인 경우 (최우선)
+    // query string이 있어도 포함하여 반환
     if (post.url && (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it'))) {
-      return post.url;
+      // 이미지 확장자 확인 (.jpeg, .jpg, .png, .gif, .webp 등)
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+      const lowerUrl = post.url.toLowerCase();
+      // 확장자가 있거나 query string이 있는 경우 이미지로 간주
+      if (imageExtensions.some(ext => lowerUrl.includes(ext)) || post.url.includes('?')) {
+        return post.url;
+      }
     }
 
     // 1. preview.images에서 고해상도 이미지 추출 (가장 우선순위)
