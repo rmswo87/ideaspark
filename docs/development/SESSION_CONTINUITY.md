@@ -1,9 +1,11 @@
 # IdeaSpark 프로젝트 세션 연속성 문서
 
 **작성일**: 2025년 12월 5일  
-**최종 업데이트**: 2025년 12월 7일 (프리미엄 기능 접근성 개선, DevNewsFeedPage UI 개선, TypeScript 빌드 에러 수정, 이미지 수집 로직 개선)  
+**최종 업데이트**: 2025년 12월 7일 (긴급 수정 필요 문제 정리)  
 **목적**: 새 채팅 세션에서 프로젝트 맥락을 빠르게 파악하고 작업을 이어갈 수 있도록 전체 상황 정리  
 **대상**: AI Assistant 및 개발자
+
+**⚠️ 중요**: 현재 여러 기능이 작동하지 않고 있습니다. 아래 "현재 문제" 섹션을 반드시 확인하세요.
 
 ---
 
@@ -199,9 +201,61 @@
 
 ---
 
-## 🚨 현재 문제 (2025-12-07)
+## 🚨 현재 문제 (2025-12-07) - ⚠️ 긴급 수정 필요
 
-1. **Supabase 406 에러 (Not Acceptable)** ⚠️ **긴급 - 재배포 후 확인 필요**
+### P0 - 최우선 해결 필요 (작동하지 않는 기능)
+
+1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ⚠️ **긴급**
+   - **문제**: 메인 아이디어 대시보드에서 프리미엄 추천 아이디어 섹션이 1초 정도 보였다가 사라짐
+   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx` (763-768줄)
+   - **원인 추정**: 
+     * `premiumLoading` 또는 `authLoading`이 완료되기 전에 컴포넌트가 렌더링됨
+     * `loading` 초기값을 `false`로 변경했지만 여전히 문제 발생
+     * `usePremium` 훅의 `loading` 상태와 `useAuth` 훅의 `loading` 상태가 비동기적으로 완료되어 깜빡임 발생
+   - **시도한 해결 방법**:
+     * ✅ `loading` 초기값을 `false`로 변경
+     * ✅ `premiumLoading`과 `authLoading` 모두 체크하도록 수정
+     * ✅ 조건부 렌더링에서 `premiumLoading || authLoading || !user || !isPremium` 체크
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **해결 방안**:
+     * `usePremium`과 `useAuth` 훅의 로딩 상태를 더 정확히 추적
+     * 컴포넌트를 `useMemo`로 메모이제이션하여 불필요한 리렌더링 방지
+     * 또는 `HomePage`에서 `premiumLoading`과 `authLoading`을 확인한 후에만 `PremiumRecommendedIdeas` 렌더링
+
+2. **Reddit 이미지 수집 문제** ⚠️ **긴급**
+   - **문제**: Reddit에 이미지가 있는 게시글에서 이미지를 수집하지 못함
+   - **예시**: 
+     * Reddit URL: `https://preview.redd.it/anyone-what-do-you-think-of-my-aso-free-to-roast-my-app-v0-rrmzbafoi05g1.png?width=640&crop=smart&auto=webp&s=6735795259b654c5f70db8bc4ae26565a5266510`
+     * `content-href="https://i.redd.it/rrmzbafoi05g1.png"`
+   - **위치**: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`, `api/collect-ideas.ts`의 `extractImageUrl` 함수
+   - **시도한 해결 방법**:
+     * ✅ `preview.redd.it` 또는 `i.redd.it` 도메인인 경우 무조건 이미지로 간주하도록 수정
+     * ✅ `preview.images[0].source.url`을 최우선으로 확인
+     * ✅ `is_reddit_media_domain`이 true인 경우 `post.url` 직접 반환
+     * ✅ `post_hint === 'image'`인 경우 처리
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **해결 방안**:
+     * Reddit API 응답 구조를 정확히 확인 (실제 API 응답 로그 확인 필요)
+     * `post.url`이 직접 이미지 URL인 경우 우선 처리
+     * `preview.images` 구조를 더 자세히 확인 (variants, source 등)
+     * 실제 수집된 데이터를 Supabase Dashboard에서 확인하여 어떤 필드에 이미지 URL이 있는지 확인
+
+3. **DevNewsFeedPage Select sticky 기능 작동 안 함** ⚠️ **긴급**
+   - **문제**: 기간 선택 드롭다운(데일리/위클리/먼슬리)이 스크롤을 따라다니지 않음
+   - **위치**: `src/pages/DevNewsFeedPage.tsx` (260-275줄)
+   - **시도한 해결 방법**:
+     * ✅ `sticky top-16` → `top-20`으로 변경
+     * ✅ sticky를 부모 div에 직접 적용하고 `self-start` 추가
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **추가 문제**:
+     * Select 버튼을 감싸는 박스(`bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm border border-border/50`)가 불필요함
+     * 전체 게시글 박스와 드롭다운이 겹쳐서 보기 불편함
+   - **해결 방안**:
+     * 부모 요소의 `overflow` 속성 확인 (sticky가 작동하려면 부모에 `overflow: hidden` 등이 없어야 함)
+     * Select를 헤더 안으로 이동 (스크롤 시 헤더와 함께 고정)
+     * 또는 Select를 별도의 고정 영역으로 분리
+
+4. **Supabase 406 에러 (Not Acceptable)** ⚠️ **재배포 후 확인 필요**
    - `premium_users` 및 `idea_scores` 테이블 조회 시 406 에러 발생
    - 에러 메시지: `GET .../premium_users?... 406 (Not Acceptable)`
    - 에러 메시지: `GET .../idea_scores?... 406 (Not Acceptable)`
@@ -212,30 +266,12 @@
      * ✅ 쿼리 최적화 (`select('*')` → 명시적 컬럼 지정)
      * ✅ `.single()` → `.maybeSingle()` 변경 (에러 처리 개선)
    - 상태: 재배포 후 확인 필요
-   - 다음 단계:
-     * 재배포 후 브라우저 캐시 클리어 (Ctrl+Shift+R)
-     * Supabase Dashboard에서 RLS 정책 확인
-     * 여전히 문제가 있으면 Supabase 로그 확인
 
-2. **프리미엄 기능 접근 방법** ✅ **완료**
-   - 프리미엄 기능은 존재함 (`/premium` 라우트, `PremiumPage.tsx`)
-   - MobileMenu와 BottomNavigation에 프리미엄 링크 추가 완료
-   - 접근 방법: MobileMenu, BottomNavigation, 직접 URL 입력 (`/premium`), ProfilePage에서 접근 가능
-
-3. **이미지 데이터 수집 문제** ⚠️
-   - Reddit API에서 이미지 URL 추출 로직은 구현되어 있음 (`extractImageUrl` 함수)
-   - 실제로 이미지가 있는 게시글에서 이미지가 표시되지 않음
-   - 확인 필요: 실제 수집된 데이터에서 `image_url` 필드 확인 (Supabase Dashboard)
-
-4. **번역 버튼 기능 동작 안 함** ⚠️
+5. **번역 버튼 기능 동작 안 함** ⚠️
    - 번역 버튼 클릭 시 Google Translate가 작동하지 않음
    - 현재 구현: `.goog-te-combo` select 요소를 찾아서 한국어 옵션 선택
    - 문제: Google Translate 위젯이 로드되지 않았거나, select 요소를 찾지 못함
    - 확인 필요: Google Translate 위젯 로드 상태, DOM 요소 존재 여부
-
-5. **스크롤 기능 개선 필요** (P1)
-   - 스크롤 내릴 시 자동으로 스크롤 따라 움직이기 기능 필요
-   - 예: 헤더 고정, 스크롤 위치에 따른 UI 변화 등
 
 ---
 
@@ -251,6 +287,8 @@
 - 기술 스택: React 19.2.1 ✅ (보안 패치 완료), TypeScript, Vite, Supabase, OpenRouter API, Reddit API
 - 배포: Vercel (https://ideaspark-pi.vercel.app)
 - GitHub: rmswo87/ideaspark
+
+⚠️ 중요: 현재 여러 기능이 작동하지 않고 있습니다. 아래 문제들을 우선적으로 해결해야 합니다.
 
 최근 완료된 작업 (2025-12-06 ~ 2025-12-07):
 1. ✅ React 보안 패치 (CVE-2025-55182) (2025-12-06)
@@ -298,13 +336,23 @@
    - 프리미엄 사용자에게는 노란색 스타일 적용
    - usePremium 훅을 사용하여 프리미엄 상태 확인
 
-10. ✅ 이미지 수집 로직 개선 (2025-12-07)
-    - Reddit API에서 preview.redd.it, i.redd.it 직접 URL 우선 처리
-    - extractImageUrl 함수 개선 (api/collect-dev-news.ts, api/cron/collect-dev-news.ts, api/collect-ideas.ts)
+10. ✅ 이미지 수집 로직 개선 시도 (2025-12-07) ⚠️ **여전히 작동하지 않음**
+    - Reddit API에서 preview.redd.it, i.redd.it 직접 URL 우선 처리 시도
+    - extractImageUrl 함수 개선 시도 (api/collect-dev-news.ts, api/cron/collect-dev-news.ts, api/collect-ideas.ts)
+    - **상태**: 여전히 이미지를 수집하지 못함
 
 11. ✅ 프로필 페이지 정리 (2025-12-07)
     - 프로필 페이지에서 프리미엄 관련 UI 제거 (PremiumPage로 이동 완료)
-    - 도네이션 관련 UI 제거
+    - 도네이션 관련 UI는 유지 (사용자 요청에 따라 복원)
+
+12. ✅ DevNewsFeedPage sticky Select 시도 (2025-12-07) ⚠️ **여전히 작동하지 않음**
+    - sticky top-16 → top-20으로 변경 시도
+    - **상태**: 여전히 스크롤을 따라다니지 않음
+
+13. ✅ PremiumRecommendedIdeas 깜빡임 수정 시도 (2025-12-07) ⚠️ **여전히 작동하지 않음**
+    - loading 초기값을 false로 변경
+    - premiumLoading과 authLoading 체크 추가
+    - **상태**: 여전히 1초 정도 보였다가 사라짐
 
 현재 상태:
 - MVP: 98% 완료
@@ -313,31 +361,70 @@
 - 개발 소식 시스템: 90% 완료
 - 전체: 95% 완료
 
-🚨 현재 문제:
-1. **Supabase 406 에러** ⚠️ **재배포 후 확인 필요**
+🚨 긴급 수정 필요 (P0):
+
+1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ⚠️ **작동하지 않음**
+   - **증상**: 메인 아이디어 대시보드에서 프리미엄 추천 아이디어 섹션이 1초 정도 보였다가 사라짐
+   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx` (763-768줄)
+   - **원인 추정**: 
+     * `premiumLoading` 또는 `authLoading`이 완료되기 전에 컴포넌트가 렌더링됨
+     * `usePremium` 훅의 `loading` 상태와 `useAuth` 훅의 `loading` 상태가 비동기적으로 완료되어 깜빡임 발생
+   - **시도한 해결 방법**:
+     * ✅ `loading` 초기값을 `false`로 변경
+     * ✅ `premiumLoading`과 `authLoading` 모두 체크하도록 수정
+     * ✅ 조건부 렌더링에서 `premiumLoading || authLoading || !user || !isPremium` 체크
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **해결 방안**:
+     * `usePremium`과 `useAuth` 훅의 로딩 상태를 더 정확히 추적
+     * 컴포넌트를 `useMemo`로 메모이제이션하여 불필요한 리렌더링 방지
+     * 또는 `HomePage`에서 `premiumLoading`과 `authLoading`을 확인한 후에만 `PremiumRecommendedIdeas` 렌더링
+
+2. **Reddit 이미지 수집 문제** ⚠️ **작동하지 않음**
+   - **증상**: Reddit에 이미지가 있는 게시글에서 이미지를 수집하지 못함
+   - **예시**: 
+     * Reddit URL: `https://preview.redd.it/anyone-what-do-you-think-of-my-aso-free-to-roast-my-app-v0-rrmzbafoi05g1.png?width=640&crop=smart&auto=webp&s=6735795259b654c5f70db8bc4ae26565a5266510`
+     * `content-href="https://i.redd.it/rrmzbafoi05g1.png"`
+   - **위치**: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`, `api/collect-ideas.ts`의 `extractImageUrl` 함수
+   - **시도한 해결 방법**:
+     * ✅ `preview.redd.it` 또는 `i.redd.it` 도메인인 경우 무조건 이미지로 간주하도록 수정
+     * ✅ `preview.images[0].source.url`을 최우선으로 확인
+     * ✅ `is_reddit_media_domain`이 true인 경우 `post.url` 직접 반환
+     * ✅ `post_hint === 'image'`인 경우 처리
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **해결 방안**:
+     * Reddit API 응답 구조를 정확히 확인 (실제 API 응답 로그 확인 필요)
+     * `post.url`이 직접 이미지 URL인 경우 우선 처리
+     * `preview.images` 구조를 더 자세히 확인 (variants, source 등)
+     * 실제 수집된 데이터를 Supabase Dashboard에서 확인하여 어떤 필드에 이미지 URL이 있는지 확인
+
+3. **DevNewsFeedPage Select sticky 기능 작동 안 함** ⚠️ **작동하지 않음**
+   - **증상**: 기간 선택 드롭다운(데일리/위클리/먼슬리)이 스크롤을 따라다니지 않음
+   - **위치**: `src/pages/DevNewsFeedPage.tsx` (260-275줄)
+   - **시도한 해결 방법**:
+     * ✅ `sticky top-16` → `top-20`으로 변경
+     * ✅ sticky를 부모 div에 직접 적용하고 `self-start` 추가
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **추가 문제**:
+     * Select 버튼을 감싸는 박스(`bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm border border-border/50`)가 불필요함
+     * 전체 게시글 박스와 드롭다운이 겹쳐서 보기 불편함
+   - **해결 방안**:
+     * 부모 요소의 `overflow` 속성 확인 (sticky가 작동하려면 부모에 `overflow: hidden` 등이 없어야 함)
+     * Select를 헤더 안으로 이동 (스크롤 시 헤더와 함께 고정)
+     * 또는 Select를 별도의 고정 영역으로 분리
+     * Select를 옆으로 이동하여 게시글과 겹치지 않도록 함
+
+4. **Supabase 406 에러** ⚠️ **재배포 후 확인 필요**
    - `premium_users` 및 `idea_scores` 테이블 조회 시 406 에러 발생
    - 재배포 후 브라우저 캐시 클리어 (Ctrl+Shift+R 또는 Cmd+Shift+R)
    - Supabase Dashboard에서 RLS 정책 확인
 
-2. **프리미엄 기능 접근 방법** ✅ **완료**
-   - MobileMenu와 BottomNavigation에 프리미엄 링크 추가 완료
-   - 접근 방법: MobileMenu, BottomNavigation, 직접 URL 입력 (`/premium`), ProfilePage에서 접근 가능
-
-3. **이미지 데이터 수집 문제** ⚠️ **개선 중**
-   - Reddit API에서 이미지 URL 추출 로직 개선 완료
-   - preview.redd.it, i.redd.it 직접 URL 우선 처리 추가
-   - 실제 수집된 데이터에서 `image_url` 필드 확인 필요 (Supabase Dashboard)
-
-4. **번역 버튼 기능 동작 안 함** ⚠️
+5. **번역 버튼 기능 동작 안 함** ⚠️
    - 번역 버튼 클릭 시 Google Translate가 작동하지 않음
    - 현재 구현: `.goog-te-combo` select 요소를 찾아서 한국어 옵션 선택
    - 문제: Google Translate 위젯이 로드되지 않았거나, select 요소를 찾지 못함
    - 확인 필요: Google Translate 위젯 로드 상태, DOM 요소 존재 여부
 
-5. **스크롤 기능 개선 필요** (P1)
-   - DevNewsFeedPage의 기간 선택 Select가 스크롤을 따라다니지 않음
-   - sticky 클래스가 적용되어 있지만 동작하지 않음
-   - 확인 필요: CSS 스타일, 부모 요소의 overflow 설정
+⚠️ 주의: 위의 P0 문제들을 우선적으로 해결해야 합니다. 특히 프리미엄 섹션 깜빡임, 이미지 수집, sticky 기능은 사용자 경험에 직접적인 영향을 미칩니다.
 
 자세한 내용은 docs/development/SESSION_CONTINUITY.md 참조하세요.
 ```
