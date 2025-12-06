@@ -113,4 +113,3 @@ export function IdeaCard({ idea, onCardClick, formatDate, recommendationReason }
     </Card>
   );
 }
-

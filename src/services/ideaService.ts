@@ -308,3 +308,4 @@ export async function updateIdeaContent(ideaId: string, content: string): Promis
 
   return data;
 }
+
