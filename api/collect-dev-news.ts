@@ -97,97 +97,52 @@ export default async function handler(
     // 기간 계산
     const now = new Date();
     const dailyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dayOfWeek = now.getDay();
-    const weeklyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-    const monthlyDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weeklyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6); // 최근 7일
+    const monthlyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29); // 최근 30일
 
     const allPosts: any[] = [];
 
-    // 각 서브레딧에서 게시물 수집 (AI 관련 우선, 최대 15개 서브레딧, 각 10개 게시물)
-    const subredditsToCollect = DEV_SUBREDDITS.slice(0, 15);
+    // 각 서브레딧에서 게시물 수집 (daily, weekly, monthly 모두)
+    const subredditsToCollect = DEV_SUBREDDITS.slice(0, 10);
     
     for (const subreddit of subredditsToCollect) {
       try {
-        const url = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=10`;
+        // Daily: hot (오늘 인기)
+        const dailyUrl = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=20`;
+        await collectFromUrl(dailyUrl, accessToken, subreddit, 'daily', dailyDate, allPosts);
         
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
-          },
-        });
-
-        if (!response.ok) {
-          // 403 에러인 경우 공개 접근 시도
-          if (response.status === 403) {
-            const publicUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=10`;
-            const publicResponse = await fetch(publicUrl, {
-              headers: {
-                'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
-              },
-            });
-            
-            if (publicResponse.ok) {
-              const publicData = await publicResponse.json() as { data?: { children?: Array<{ data?: any }> } };
-              if (publicData?.data?.children) {
-                const posts = publicData.data.children
-                  .filter((child: { data?: any }) => child.data)
-                  .map((child: { data: any }) => {
-                    const post = child.data;
-                    return {
-                      reddit_id: post.name || post.id,
-                      title: post.title,
-                      content: post.selftext || '',
-                      subreddit: post.subreddit,
-                      author: post.author,
-                      upvotes: post.ups || 0,
-                      url: `https://www.reddit.com${post.permalink}`,
-                      category: categorizePost(post),
-                      tags: extractTags(post),
-                      period_type: 'daily',
-                      period_date: dailyDate.toISOString().split('T')[0],
-                    };
-                  });
-                allPosts.push(...posts);
-              }
-            }
-          }
-          continue;
-        }
-
-        const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
+        // Weekly: top/week (주간 인기)
+        const weeklyUrl = `https://oauth.reddit.com/r/${subreddit}/top.json?t=week&limit=20`;
+        await collectFromUrl(weeklyUrl, accessToken, subreddit, 'weekly', weeklyDate, allPosts);
         
-        if (data?.data?.children) {
-          const posts = data.data.children
-            .filter((child: { data?: any }) => child.data)
-            .map((child: { data: any }) => {
-              const post = child.data;
-              return {
-                reddit_id: post.name || post.id,
-                title: post.title,
-                content: post.selftext || '',
-                subreddit: post.subreddit,
-                author: post.author,
-                upvotes: post.ups || 0,
-                url: `https://www.reddit.com${post.permalink}`,
-                category: categorizePost(post),
-                tags: extractTags(post),
-                period_type: 'daily',
-                period_date: dailyDate.toISOString().split('T')[0],
-              };
-            });
-          allPosts.push(...posts);
-        }
+        // Monthly: top/month (월간 인기)
+        const monthlyUrl = `https://oauth.reddit.com/r/${subreddit}/top.json?t=month&limit=20`;
+        await collectFromUrl(monthlyUrl, accessToken, subreddit, 'monthly', monthlyDate, allPosts);
       } catch (error) {
         console.error(`Error fetching ${subreddit}:`, error);
         continue;
       }
     }
 
+    // 인기 소식만 필터링 (upvotes 기준) - 기간별로 다른 기준 적용
+    const filteredPosts = allPosts.filter(post => {
+      const upvotes = post.upvotes || 0;
+      if (post.period_type === 'daily') {
+        return upvotes >= 50;
+      } else if (post.period_type === 'weekly') {
+        return upvotes >= 100;
+      } else if (post.period_type === 'monthly') {
+        return upvotes >= 200;
+      }
+      return upvotes >= 50;
+    });
+
     return res.status(200).json({
       success: true,
-      count: allPosts.length,
-      posts: allPosts,
+      count: filteredPosts.length,
+      totalCollected: allPosts.length,
+      filteredCount: filteredPosts.length,
+      posts: filteredPosts,
     });
   } catch (error) {
     console.error('Error collecting dev news:', error);
@@ -304,3 +259,86 @@ function extractTags(post: any): string[] {
   return tags.slice(0, 5); // 최대 5개 태그
 }
 
+// URL에서 게시물 수집 헬퍼 함수
+async function collectFromUrl(
+  url: string,
+  accessToken: string,
+  subreddit: string,
+  periodType: 'daily' | 'weekly' | 'monthly',
+  periodDate: Date,
+  allPosts: any[]
+): Promise<void> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
+      },
+    });
+
+    if (!response.ok) {
+      // 403 에러인 경우 공개 접근 시도
+      if (response.status === 403) {
+        const publicUrl = url.replace('https://oauth.reddit.com', 'https://www.reddit.com');
+        const publicResponse = await fetch(publicUrl, {
+          headers: {
+            'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
+          },
+        });
+        
+        if (publicResponse.ok) {
+          const publicData = await publicResponse.json() as { data?: { children?: Array<{ data?: any }> } };
+          if (publicData?.data?.children) {
+            const posts = publicData.data.children
+              .filter((child: { data?: any }) => child.data)
+              .map((child: { data: any }) => {
+                const post = child.data;
+                return {
+                  reddit_id: post.name || post.id,
+                  title: post.title,
+                  content: post.selftext || '',
+                  subreddit: post.subreddit,
+                  author: post.author,
+                  upvotes: post.ups || 0,
+                  url: `https://www.reddit.com${post.permalink}`,
+                  category: categorizePost(post),
+                  tags: extractTags(post),
+                  period_type: periodType,
+                  period_date: periodDate.toISOString().split('T')[0],
+                };
+              });
+            allPosts.push(...posts);
+          }
+        }
+        return;
+      }
+      return;
+    }
+
+    const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
+    
+    if (data?.data?.children) {
+      const posts = data.data.children
+        .filter((child: { data?: any }) => child.data)
+        .map((child: { data: any }) => {
+          const post = child.data;
+          return {
+            reddit_id: post.name || post.id,
+            title: post.title,
+            content: post.selftext || '',
+            subreddit: post.subreddit,
+            author: post.author,
+            upvotes: post.ups || 0,
+            url: `https://www.reddit.com${post.permalink}`,
+            category: categorizePost(post),
+            tags: extractTags(post),
+            period_type: periodType,
+            period_date: periodDate.toISOString().split('T')[0],
+          };
+        });
+      allPosts.push(...posts);
+    }
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+  }
+}
