@@ -14,7 +14,7 @@ export function PremiumRecommendedIdeas() {
   const { isPremium, loading: premiumLoading } = usePremium();
   const { user, loading: authLoading } = useAuth();
   const [topScoredIdeas, setTopScoredIdeas] = useState<Array<{ idea: any; total_score: number }>>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // 초기값을 false로 설정
   const navigate = useNavigate();
 
   useEffect(() => {

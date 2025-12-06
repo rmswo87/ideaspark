@@ -406,10 +406,7 @@ function extractImageUrl(post: any): string | null {
       const largestImage = resolutions[resolutions.length - 1];
       if (largestImage?.url) {
         let imageUrl = largestImage.url.replace(/&amp;/g, '&');
-        if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
-          return imageUrl;
-        }
-        // 외부 이미지 URL도 허용
+        // 모든 유효한 이미지 URL 반환
         if (imageUrl && imageUrl.startsWith('http')) {
           return imageUrl;
         }
@@ -426,13 +423,10 @@ function extractImageUrl(post: any): string | null {
       return post.url;
     }
 
-    // 5. url이 preview.redd.it 또는 i.redd.it인 경우 (query string 포함)
-    if (post.url && (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it'))) {
-      // 이미지 확장자 확인 (.jpeg, .jpg, .png, .gif, .webp 등)
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-      const lowerUrl = post.url.toLowerCase();
-      // 확장자가 있거나 query string이 있는 경우 이미지로 간주
-      if (imageExtensions.some(ext => lowerUrl.includes(ext)) || post.url.includes('?')) {
+    // 5. url이 preview.redd.it 또는 i.redd.it인 경우 (query string 포함, 최우선 처리)
+    if (post.url) {
+      if (post.url.includes('preview.redd.it') || post.url.includes('i.redd.it')) {
+        // preview.redd.it 또는 i.redd.it 도메인인 경우 무조건 이미지로 간주
         return post.url;
       }
     }
