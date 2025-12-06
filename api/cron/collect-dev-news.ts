@@ -170,6 +170,8 @@ export default async function handler(
         subreddit: post.subreddit,
         author: post.author || null,
         upvotes: post.upvotes || 0,
+        num_comments: post.num_comments || 0,
+        image_url: post.image_url || null,
         url: post.url,
         category: post.category || null,
         tags: post.tags || null,
@@ -463,7 +465,7 @@ function extractImageUrl(post: any): string | null {
         .replace(/&amp;/g, '&')
         .replace(/&amp;/g, '&'); // 이중 인코딩 방지
       // Reddit 미디어 도메인인 경우 i.redd.it 또는 preview.redd.it 사용
-      if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
+      if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it')) {
         return imageUrl;
       }
       // 외부 이미지 URL도 허용 (imgur, etc.)
@@ -478,7 +480,7 @@ function extractImageUrl(post: any): string | null {
       const largestImage = resolutions[resolutions.length - 1];
       if (largestImage?.url) {
         let imageUrl = largestImage.url.replace(/&amp;/g, '&');
-        if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it'))) {
+        if (imageUrl && (imageUrl.includes('i.redd.it') || imageUrl.includes('preview.redd.it')) {
           return imageUrl;
         }
         // 외부 이미지 URL도 허용
