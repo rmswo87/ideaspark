@@ -248,13 +248,13 @@ export function DevNewsFeedPage() {
             </div>
           </div>
         </div>
-        {/* 탭 네비게이션 */}
-        <div className="border-t border-border/50">
+        {/* 탭 네비게이션 - 작게 */}
+        <div className="border-t border-border/50 px-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'daily' | 'weekly' | 'monthly')} className="w-full">
-            <TabsList className="w-full rounded-none border-b-0 h-12 bg-transparent">
-              <TabsTrigger value="daily" className="flex-1 text-sm">Daily</TabsTrigger>
-              <TabsTrigger value="weekly" className="flex-1 text-sm">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly" className="flex-1 text-sm">Monthly</TabsTrigger>
+            <TabsList className="w-auto rounded-md border-b-0 h-8 bg-transparent gap-1">
+              <TabsTrigger value="daily" className="text-xs px-3 py-1 h-7">Daily</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs px-3 py-1 h-7">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs px-3 py-1 h-7">Monthly</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
