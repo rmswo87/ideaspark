@@ -1,11 +1,11 @@
 # IdeaSpark 프로젝트 세션 연속성 문서
 
 **작성일**: 2025년 12월 5일  
-**최종 업데이트**: 2025년 12월 7일 (긴급 수정 필요 문제 정리)  
+**최종 업데이트**: 2025년 12월 7일 (이미지 수집 및 UI 문제 지속)  
 **목적**: 새 채팅 세션에서 프로젝트 맥락을 빠르게 파악하고 작업을 이어갈 수 있도록 전체 상황 정리  
 **대상**: AI Assistant 및 개발자
 
-**⚠️ 중요**: 현재 여러 기능이 작동하지 않고 있습니다. 아래 "현재 문제" 섹션을 반드시 확인하세요.
+**⚠️ 중요**: 현재 여러 기능이 작동하지 않고 있습니다. 아래 "현재 문제" 섹션을 반드시 확인하세요. **최근 수정 시도들이 적용되지 않았습니다.**
 
 ---
 
@@ -205,38 +205,57 @@
 
 ### P0 - 최우선 해결 필요 (작동하지 않는 기능)
 
-1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ✅ **해결 완료** (2025-12-07)
+1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ⚠️ **긴급 - 여전히 작동하지 않음**
    - **문제**: 메인 아이디어 대시보드에서 프리미엄 추천 아이디어 섹션이 1초 정도 보였다가 사라짐
-   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx` (807-811줄)
-   - **해결 방법**:
-     * ✅ `HomePage`에서 `usePremium` 훅을 사용하여 `premiumLoading`과 `authLoading`을 확인한 후에만 `PremiumRecommendedIdeas` 렌더링
-     * ✅ `PremiumRecommendedIdeas` 컴포넌트에 `useMemo`로 메모이제이션 추가하여 불필요한 리렌더링 방지
-     * ✅ `shouldRender` 변수를 사용하여 로딩 상태와 프리미엄 상태를 한 번에 확인
-   - **상태**: ✅ **해결 완료**
-
-2. **Reddit 이미지 수집 문제** ✅ **해결 완료** (2025-12-07)
-   - **문제**: Reddit에 이미지가 있는 게시글에서 이미지를 수집하지 못함
-   - **위치**: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`, `api/collect-ideas.ts`의 `extractImageUrl` 함수
-   - **해결 방법**:
-     * ✅ `extractImageUrl` 함수의 우선순위를 변경: `preview.redd.it` 또는 `i.redd.it` 도메인을 최우선 처리
-     * ✅ 이미지 확장자 확인을 두 번째 우선순위로 변경
-     * ✅ 디버깅을 위한 로그 추가 (개발 환경에서만)
-   - **상태**: ✅ **해결 완료** (배포 후 테스트 필요)
-
-3. **DevNewsFeedPage Select sticky 기능 작동 안 함** ⚠️ **긴급**
-   - **문제**: 기간 선택 드롭다운(데일리/위클리/먼슬리)이 스크롤을 따라다니지 않음
-   - **위치**: `src/pages/DevNewsFeedPage.tsx` (260-275줄)
-   - **시도한 해결 방법**:
-     * ✅ `sticky top-16` → `top-20`으로 변경
-     * ✅ sticky를 부모 div에 직접 적용하고 `self-start` 추가
-   - **상태**: ❌ **여전히 작동하지 않음**
-   - **추가 문제**:
-     * Select 버튼을 감싸는 박스(`bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm border border-border/50`)가 불필요함
-     * 전체 게시글 박스와 드롭다운이 겹쳐서 보기 불편함
+   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx`
+   - **시도한 해결 방법** (2025-12-07):
+     * ✅ `HomePage`에서 div 제거, `PremiumRecommendedIdeas` 컴포넌트 내부에서만 div 관리
+     * ✅ `useMemo`로 메모이제이션 추가
+     * ✅ `shouldRender` 변수로 로딩 상태 확인
+   - **상태**: ❌ **여전히 작동하지 않음 - 빈 div가 생겼다가 사라짐**
+   - **근본 원인**: 
+     * `usePremium`과 `useAuth` 훅의 비동기 로딩 상태가 완전히 동기화되지 않음
+     * 컴포넌트가 조건을 만족하지 않을 때도 빈 div가 렌더링됨
    - **해결 방안**:
-     * 부모 요소의 `overflow` 속성 확인 (sticky가 작동하려면 부모에 `overflow: hidden` 등이 없어야 함)
-     * Select를 헤더 안으로 이동 (스크롤 시 헤더와 함께 고정)
-     * 또는 Select를 별도의 고정 영역으로 분리
+     * `PremiumRecommendedIdeas` 컴포넌트에서 조건을 만족하지 않으면 아예 `null` 반환 (div도 렌더링하지 않음)
+     * `HomePage`에서 조건 체크를 완전히 제거하고 컴포넌트 내부에서만 처리
+     * 또는 Suspense를 사용하여 로딩 상태를 명확히 관리
+
+2. **Reddit 이미지 수집 문제** ⚠️ **긴급 - 여전히 작동하지 않음**
+   - **문제**: Reddit에 이미지가 있는 게시글에서 이미지를 수집하지 못함
+   - **실제 이미지 URL 예시** (사용자 제공):
+     * `https://preview.redd.it/trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png?width=640&crop=smart&auto=webp&s=...`
+     * 실제 원본: `https://i.redd.it/2f6bfp2hjj5g1.png`
+   - **위치**: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`, `api/collect-ideas.ts`의 `extractImageUrl` 함수
+   - **시도한 해결 방법** (2025-12-07):
+     * ✅ `preview.redd.it` URL에서 이미지 ID 추출하여 `i.redd.it` 원본 URL로 변환 로직 추가
+     * ✅ 정규식으로 `v0-` 뒤의 이미지 ID 추출 (예: `v0-2f6bfp2hjj5g1.png` → `2f6bfp2hjj5g1.png`)
+     * ✅ 모든 가능한 이미지 필드 확인 (preview.images, media, thumbnail 등)
+   - **상태**: ❌ **여전히 작동하지 않음**
+   - **근본 원인**:
+     * Reddit API 응답에서 `post.url`이 실제로 `preview.redd.it` URL인지 확인 필요
+     * 또는 `preview.images[0].source.url`이 실제로 존재하는지 확인 필요
+     * 실제 수집된 데이터를 Supabase Dashboard에서 확인하여 어떤 필드에 이미지 URL이 있는지 확인 필요
+   - **해결 방안**:
+     * **실제 Reddit API 응답 구조를 로그로 확인** (가장 중요)
+     * Vercel 함수 로그에서 실제 `post.url` 값 확인
+     * Supabase Dashboard에서 수집된 데이터의 `image_url` 컬럼 확인
+     * `preview.redd.it` URL 패턴을 더 정확히 매칭 (현재 정규식이 작동하지 않을 수 있음)
+
+3. **DevNewsFeedPage Select 위치 문제** ⚠️ **긴급 - 여전히 작동하지 않음**
+   - **문제**: 기간 선택 Select가 헤더에 있지만 스크롤 시 게시글과 겹쳐서 지저분함
+   - **위치**: `src/pages/DevNewsFeedPage.tsx` (헤더 내부)
+   - **시도한 해결 방법** (2025-12-07):
+     * ✅ Select를 헤더 안으로 이동
+     * ✅ 오른쪽 고정 버튼 영역에 배치 시도
+   - **상태**: ❌ **여전히 문제 있음 - 헤더에 있지만 스크롤 시 게시글과 겹침**
+   - **사용자 요구사항**: 
+     * Select를 헤더 안으로 완전히 통합하여 스크롤 시 헤더와 함께 고정되도록
+     * 또는 게시글 옆으로 이동하여 겹치지 않도록
+   - **해결 방안**:
+     * 헤더 내부에서 Select의 위치를 조정하여 다른 버튼들과 자연스럽게 배치
+     * 헤더의 z-index와 레이아웃 확인
+     * 게시글 컨테이너와 헤더 간 간격 조정
 
 4. **Supabase 406 에러 (Not Acceptable)** ⚠️ **재배포 후 확인 필요**
    - `premium_users` 및 `idea_scores` 테이블 조회 시 406 에러 발생
@@ -250,14 +269,14 @@
      * ✅ `.single()` → `.maybeSingle()` 변경 (에러 처리 개선)
    - 상태: 재배포 후 확인 필요
 
-5. **번역 버튼 기능 동작 안 함** ✅ **해결 완료** (2025-12-07)
+5. **번역 버튼 기능 동작 안 함** ⚠️ **배포 후 테스트 필요**
    - **문제**: 번역 버튼 클릭 시 Google Translate가 작동하지 않음
    - **위치**: `src/pages/HomePage.tsx` (347-386줄)
-   - **해결 방법**:
+   - **시도한 해결 방법** (2025-12-07):
      * ✅ 검색창 우측에 번역 버튼 추가 (데스크톱에서만 표시)
      * ✅ Google Translate 위젯 로드 대기 로직 추가 (최대 10회 재시도)
      * ✅ 한국어 옵션 자동 선택 로직 개선
-   - **상태**: ✅ **해결 완료** (배포 후 테스트 필요)
+   - **상태**: ⚠️ **배포 후 테스트 필요**
 
 ---
 
@@ -275,129 +294,109 @@
 - GitHub: rmswo87/ideaspark
 
 ⚠️ 중요: 현재 여러 기능이 작동하지 않고 있습니다. 아래 문제들을 우선적으로 해결해야 합니다.
+⚠️ 경고: 2025-12-07에 여러 수정을 시도했지만 대부분 적용되지 않았습니다. 추정으로만 작업하지 말고 실제 데이터와 로그를 확인한 후 작업하세요.
 
-최근 완료된 작업 (2025-12-06 ~ 2025-12-07):
-1. ✅ React 보안 패치 (CVE-2025-55182) (2025-12-06)
+최근 시도한 작업 (2025-12-07) - ⚠️ **대부분 적용되지 않음**:
+
+1. ✅ React 보안 패치 (CVE-2025-55182) (2025-12-06) - **완료**
    - package.json에서 react와 react-dom을 ^19.2.1로 업데이트 완료
    - GitHub에 푸시 완료
    - Vercel 자동 배포 완료
 
-2. ✅ Supabase 406 에러 해결 시도 (2025-12-06)
-   - Supabase 클라이언트 설정 개선 (Accept/Content-Type 헤더 추가)
-   - 쿼리 최적화 (select('*') → 명시적 컬럼 지정)
-   - .single() → .maybeSingle() 변경 (에러 처리 개선)
-   - RLS 정책 수정 마이그레이션 실행 (20251206_fix_all_rls_final.sql)
-   - 재배포 후 확인 필요
+2. ⚠️ 프리미엄 추천 아이디어 깜빡임 수정 시도 (2025-12-07) - **작동하지 않음**
+   - `HomePage`에서 div 제거, `PremiumRecommendedIdeas` 컴포넌트 내부에서만 div 관리
+   - `useMemo`로 메모이제이션 추가
+   - `shouldRender` 변수로 로딩 상태 확인
+   - **문제**: 여전히 빈 div가 생겼다가 사라짐
 
-3. ✅ App.tsx 리팩토링 (2025-12-06)
-   - 988줄에서 136줄로 축소
-   - HomePage와 ScrollToTop 컴포넌트 분리
-   - lazy loading 타입 에러 수정 (fallback 추가)
+3. ⚠️ Reddit 이미지 수집 근본적 해결 시도 (2025-12-07) - **작동하지 않음**
+   - `preview.redd.it` URL에서 이미지 ID 추출하여 `i.redd.it` 원본 URL로 변환 로직 추가
+   - 정규식으로 `v0-` 뒤의 이미지 ID 추출 (예: `v0-2f6bfp2hjj5g1.png` → `2f6bfp2hjj5g1.png`)
+   - 모든 가능한 이미지 필드 확인 (preview.images, media, thumbnail 등)
+   - **문제**: 실제 Reddit API 응답 구조를 확인하지 않고 추정으로만 작업함
+   - **필요**: 실제 API 응답 로그 확인 및 Supabase 데이터 확인 필요
 
-4. ✅ 프리미엄 기능 별도 페이지 생성 (2025-12-06)
-   - src/pages/PremiumPage.tsx 생성
-   - 프로필 페이지에서 프리미엄 관련 내용 분리
-   - /premium 라우트 추가
+4. ⚠️ DevNewsFeedPage Select 헤더 이동 (2025-12-07) - **부분 적용**
+   - Select를 헤더 안으로 이동
+   - **문제**: 스크롤 시 게시글과 겹쳐서 지저분함
 
-5. ✅ 관리자 권한으로 프리미엄 기능 테스트 가능 (2025-12-06)
-   - usePremium 훅 수정: 관리자는 자동으로 프리미엄 기능 사용 가능
-
-6. ✅ 번역 버튼 UI 추가 (2025-12-06)
-   - 검색창 우측에 번역 버튼 추가 (데스크톱에서만)
-   - 클릭 시 Google Translate 위젯 트리거 시도
-
-7. ✅ DevNewsFeedPage UI 개선 (2025-12-07)
-   - 컨테이너 폭 확대: max-w-2xl → max-w-4xl
-   - 기간 선택 Select만 sticky로 변경 (바 전체가 아닌 Select 버튼만 따라옴)
-   - 빈 내용 처리 개선: 이미지가 있으면 표시, 둘 다 없으면 안내 메시지 표시
-
-8. ✅ TypeScript 빌드 에러 수정 (2025-12-07)
-   - ideaScoringService.ts의 getRecommendedIdeaOfTheDay 함수에서 null 체크 추가
-   - data가 null일 수 있는 경우 처리
-   - ideas가 배열인 경우 첫 번째 요소 사용하도록 수정
-
-9. ✅ 프리미엄 기능 접근성 개선 (2025-12-07)
-   - MobileMenu에 프리미엄 링크 추가 (Crown 아이콘 사용)
-   - BottomNavigation에 프리미엄 링크 추가 (모든 사용자에게 표시)
-   - 프리미엄 사용자에게는 노란색 스타일 적용
-   - usePremium 훅을 사용하여 프리미엄 상태 확인
-
-10. ✅ 이미지 수집 로직 개선 시도 (2025-12-07) ⚠️ **여전히 작동하지 않음**
-    - Reddit API에서 preview.redd.it, i.redd.it 직접 URL 우선 처리 시도
-    - extractImageUrl 함수 개선 시도 (api/collect-dev-news.ts, api/cron/collect-dev-news.ts, api/collect-ideas.ts)
-    - **상태**: 여전히 이미지를 수집하지 못함
-
-11. ✅ 프로필 페이지 정리 (2025-12-07)
-    - 프로필 페이지에서 프리미엄 관련 UI 제거 (PremiumPage로 이동 완료)
-    - 도네이션 관련 UI는 유지 (사용자 요청에 따라 복원)
-
-12. ✅ DevNewsFeedPage sticky Select 시도 (2025-12-07) ⚠️ **여전히 작동하지 않음**
-    - sticky top-16 → top-20으로 변경 시도
-    - **상태**: 여전히 스크롤을 따라다니지 않음
-
-13. ✅ PremiumRecommendedIdeas 깜빡임 수정 시도 (2025-12-07) ⚠️ **여전히 작동하지 않음**
-    - loading 초기값을 false로 변경
-    - premiumLoading과 authLoading 체크 추가
-    - **상태**: 여전히 1초 정도 보였다가 사라짐
+5. ✅ TypeScript 빌드 에러 수정 (2025-12-07) - **완료**
+   - user null 체크 추가
+   - 사용하지 않는 변수 제거
 
 현재 상태:
 - MVP: 98% 완료
 - 모바일 최적화: 100% 완료
-- UI 개선: 95% 완료
-- 개발 소식 시스템: 90% 완료
+- UI 개선: 95% 완료 (Select 위치 문제 있음)
+- 개발 소식 시스템: 90% 완료 (이미지 수집 문제 있음)
 - 전체: 95% 완료
 
-🚨 긴급 수정 필요 (P0):
+⚠️ **중요**: 최근 수정 시도들이 적용되지 않았습니다. 실제 데이터와 로그를 확인한 후 작업하세요.
 
-1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ⚠️ **작동하지 않음**
-   - **증상**: 메인 아이디어 대시보드에서 프리미엄 추천 아이디어 섹션이 1초 정도 보였다가 사라짐
-   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx` (763-768줄)
-   - **원인 추정**: 
-     * `premiumLoading` 또는 `authLoading`이 완료되기 전에 컴포넌트가 렌더링됨
-     * `usePremium` 훅의 `loading` 상태와 `useAuth` 훅의 `loading` 상태가 비동기적으로 완료되어 깜빡임 발생
-   - **시도한 해결 방법**:
-     * ✅ `loading` 초기값을 `false`로 변경
-     * ✅ `premiumLoading`과 `authLoading` 모두 체크하도록 수정
-     * ✅ 조건부 렌더링에서 `premiumLoading || authLoading || !user || !isPremium` 체크
-   - **상태**: ❌ **여전히 작동하지 않음**
+🚨 긴급 수정 필요 (P0) - **모두 여전히 작동하지 않음**:
+
+1. **프리미엄 추천 아이디어 섹션 깜빡임 문제** ⚠️ **최우선 해결 필요**
+   - **증상**: `<div id="premium-recommended-ideas-section">`가 생겼다가 사라짐 (빈 div가 렌더링됨)
+   - **위치**: `src/components/PremiumRecommendedIdeas.tsx`, `src/pages/HomePage.tsx`
+   - **시도한 방법** (2025-12-07):
+     * ✅ `HomePage`에서 div 제거, 컴포넌트 내부에서만 div 관리
+     * ✅ `useMemo`로 메모이제이션
+     * ✅ `shouldRender` 변수로 조건 확인
+   - **상태**: ❌ **여전히 작동하지 않음 - 빈 div가 생겼다가 사라짐**
+   - **근본 원인**: 
+     * 컴포넌트가 조건을 만족하지 않을 때도 div가 렌더링됨
+     * `shouldRender`가 false여도 컴포넌트가 한 번 렌더링되면서 빈 div 생성
    - **해결 방안**:
-     * `usePremium`과 `useAuth` 훅의 로딩 상태를 더 정확히 추적
-     * 컴포넌트를 `useMemo`로 메모이제이션하여 불필요한 리렌더링 방지
-     * 또는 `HomePage`에서 `premiumLoading`과 `authLoading`을 확인한 후에만 `PremiumRecommendedIdeas` 렌더링
+     * `PremiumRecommendedIdeas` 컴포넌트에서 조건을 만족하지 않으면 **아예 아무것도 반환하지 않음** (div도 렌더링하지 않음)
+     * `HomePage`에서 조건 체크를 완전히 제거하고 컴포넌트 내부에서만 처리
+     * 또는 Suspense를 사용하여 로딩 상태를 명확히 관리
 
-2. **Reddit 이미지 수집 문제** ⚠️ **작동하지 않음**
+2. **Reddit 이미지 수집 문제** ⚠️ **최우선 해결 필요**
    - **증상**: Reddit에 이미지가 있는 게시글에서 이미지를 수집하지 못함
-   - **예시**: 
-     * Reddit URL: `https://preview.redd.it/anyone-what-do-you-think-of-my-aso-free-to-roast-my-app-v0-rrmzbafoi05g1.png?width=640&crop=smart&auto=webp&s=6735795259b654c5f70db8bc4ae26565a5266510`
-     * `content-href="https://i.redd.it/rrmzbafoi05g1.png"`
+   - **실제 이미지 URL 예시** (사용자 제공 HTML):
+     * Preview URL: `https://preview.redd.it/trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png?width=640&crop=smart&auto=webp&s=...`
+     * 실제 원본: `https://i.redd.it/2f6bfp2hjj5g1.png`
+     * 패턴: `preview.redd.it/...-v0-{이미지ID}.png` → `i.redd.it/{이미지ID}.png`
    - **위치**: `api/collect-dev-news.ts`, `api/cron/collect-dev-news.ts`, `api/collect-ideas.ts`의 `extractImageUrl` 함수
-   - **시도한 해결 방법**:
-     * ✅ `preview.redd.it` 또는 `i.redd.it` 도메인인 경우 무조건 이미지로 간주하도록 수정
-     * ✅ `preview.images[0].source.url`을 최우선으로 확인
-     * ✅ `is_reddit_media_domain`이 true인 경우 `post.url` 직접 반환
-     * ✅ `post_hint === 'image'`인 경우 처리
+   - **시도한 방법** (2025-12-07):
+     * ✅ `preview.redd.it` URL에서 이미지 ID 추출하여 `i.redd.it` 원본 URL로 변환 로직 추가
+     * ✅ 정규식으로 `v0-` 뒤의 이미지 ID 추출
+     * ✅ 모든 가능한 이미지 필드 확인
    - **상태**: ❌ **여전히 작동하지 않음**
-   - **해결 방안**:
-     * Reddit API 응답 구조를 정확히 확인 (실제 API 응답 로그 확인 필요)
-     * `post.url`이 직접 이미지 URL인 경우 우선 처리
-     * `preview.images` 구조를 더 자세히 확인 (variants, source 등)
-     * 실제 수집된 데이터를 Supabase Dashboard에서 확인하여 어떤 필드에 이미지 URL이 있는지 확인
+   - **근본 원인**:
+     * **실제 Reddit API 응답 구조를 확인하지 않고 추정으로만 작업함**
+     * Reddit API에서 `post.url`이 실제로 `preview.redd.it` URL인지 확인 필요
+     * 실제 수집된 데이터를 Supabase Dashboard에서 확인하지 않음
+   - **해결 방안** (반드시 순서대로):
+     1. **Vercel 함수 로그에서 실제 Reddit API 응답 확인** (가장 중요)
+        * `post.url` 값이 무엇인지 확인
+        * `post.preview` 구조가 실제로 어떻게 되어 있는지 확인
+     2. **Supabase Dashboard에서 수집된 데이터 확인**
+        * `dev_news` 테이블의 `image_url` 컬럼 확인
+        * `ideas` 테이블의 `image_url` 컬럼 확인
+        * 실제로 어떤 값이 저장되어 있는지 확인
+     3. **정규식 패턴 수정**
+        * 현재 정규식이 실제 URL 패턴과 일치하는지 확인
+        * `v0-` 패턴이 항상 존재하는지 확인
+     4. **테스트 수집 실행**
+        * 관리자 페이지에서 수동으로 수집 실행
+        * 로그 확인하여 이미지 URL이 추출되는지 확인
 
-3. **DevNewsFeedPage Select sticky 기능 작동 안 함** ⚠️ **작동하지 않음**
-   - **증상**: 기간 선택 드롭다운(데일리/위클리/먼슬리)이 스크롤을 따라다니지 않음
-   - **위치**: `src/pages/DevNewsFeedPage.tsx` (260-275줄)
-   - **시도한 해결 방법**:
-     * ✅ `sticky top-16` → `top-20`으로 변경
-     * ✅ sticky를 부모 div에 직접 적용하고 `self-start` 추가
-   - **상태**: ❌ **여전히 작동하지 않음**
-   - **추가 문제**:
-     * Select 버튼을 감싸는 박스(`bg-background/95 backdrop-blur-sm rounded-md p-1 shadow-sm border border-border/50`)가 불필요함
-     * 전체 게시글 박스와 드롭다운이 겹쳐서 보기 불편함
+3. **DevNewsFeedPage Select 위치 문제** ⚠️ **긴급**
+   - **증상**: Select가 헤더에 있지만 스크롤 시 게시글과 겹쳐서 지저분함
+   - **위치**: `src/pages/DevNewsFeedPage.tsx` (헤더 내부)
+   - **시도한 방법** (2025-12-07):
+     * ✅ Select를 헤더 안으로 이동
+     * ✅ 오른쪽 고정 버튼 영역에 배치 시도
+   - **상태**: ❌ **여전히 문제 있음 - 스크롤 시 게시글과 겹침**
+   - **사용자 요구사항**: 
+     * Select를 헤더 안으로 완전히 통합하여 스크롤 시 헤더와 함께 고정되도록
+     * 또는 게시글 옆으로 이동하여 겹치지 않도록
    - **해결 방안**:
-     * 부모 요소의 `overflow` 속성 확인 (sticky가 작동하려면 부모에 `overflow: hidden` 등이 없어야 함)
-     * Select를 헤더 안으로 이동 (스크롤 시 헤더와 함께 고정)
-     * 또는 Select를 별도의 고정 영역으로 분리
-     * Select를 옆으로 이동하여 게시글과 겹치지 않도록 함
+     * 헤더 내부에서 Select의 위치를 조정하여 다른 버튼들과 자연스럽게 배치
+     * 헤더의 z-index와 레이아웃 확인
+     * 게시글 컨테이너와 헤더 간 간격 조정
+     * Select를 헤더의 오른쪽 끝에 배치하여 게시글과 겹치지 않도록
 
 4. **Supabase 406 에러** ⚠️ **재배포 후 확인 필요**
    - `premium_users` 및 `idea_scores` 테이블 조회 시 406 에러 발생
@@ -410,7 +409,11 @@
    - 문제: Google Translate 위젯이 로드되지 않았거나, select 요소를 찾지 못함
    - 확인 필요: Google Translate 위젯 로드 상태, DOM 요소 존재 여부
 
-⚠️ 주의: 위의 P0 문제들을 우선적으로 해결해야 합니다. 특히 프리미엄 섹션 깜빡임, 이미지 수집, sticky 기능은 사용자 경험에 직접적인 영향을 미칩니다.
+⚠️ **중요**: 위의 P0 문제들을 우선적으로 해결해야 합니다. 특히 프리미엄 섹션 깜빡임, 이미지 수집, Select 위치는 사용자 경험에 직접적인 영향을 미칩니다.
+
+**⚠️ 최근 작업 경고**: 2025-12-07에 여러 수정을 시도했지만 **대부분 적용되지 않았습니다**. 
+- 추정으로만 작업하지 말고 **실제 데이터와 로그를 확인**한 후 작업하세요.
+- Reddit 이미지 수집 문제는 **반드시 Vercel 함수 로그와 Supabase 데이터를 확인**한 후 해결하세요.
 
 자세한 내용은 docs/development/SESSION_CONTINUITY.md 참조하세요.
 ```
@@ -629,15 +632,13 @@
 ---
 
 **작성자**: AI Assistant  
-**최종 업데이트**: 2025년 12월 7일 (프리미엄 기능 접근성 개선, DevNewsFeedPage UI 개선, TypeScript 빌드 에러 수정, 이미지 수집 로직 개선, 프로필 페이지 정리, 프리미엄 추천 아이디어 깜빡임 문제 수정)  
+**최종 업데이트**: 2025년 12월 7일 (이미지 수집 및 UI 문제 지속, 실제 데이터 확인 필요)  
 **다음 작업 우선순위**: 
-1. ⚠️ **P0 - Supabase 406 에러 해결 확인** (재배포 후 확인, RLS 정책 검증)
-2. ⚠️ **P0 - React 보안 패치** (CVE-2025-55182) - React 19.2.1로 업데이트 ✅ **완료**
-3. **P0 - DevNewsFeedPage Select sticky 기능 수정** (스크롤 따라다니게)
-4. **P0 - 이미지 수집 문제 해결** (Reddit API 응답 확인 및 디버깅)
-5. **P0 - 번역 버튼 기능 수정** (Google Translate 위젯 로드 문제)
-6. **P1 - 프리미엄 기능 확인 및 수정** (406 에러 해결 후)
-7. **P1 - 스크롤 기능 개선** (스크롤 따라 움직이기)
+1. ⚠️ **P0 - 프리미엄 추천 아이디어 깜빡임 완전 해결** (빈 div 렌더링 방지)
+2. ⚠️ **P0 - Reddit 이미지 수집 근본적 해결** (실제 API 응답 로그 및 Supabase 데이터 확인 필수)
+3. ⚠️ **P0 - DevNewsFeedPage Select 위치 개선** (헤더 내부 완전 통합 또는 게시글 옆 이동)
+4. ⚠️ **P0 - Supabase 406 에러 해결 확인** (재배포 후 확인, RLS 정책 검증)
+5. **P1 - 번역 버튼 기능 확인** (배포 후 테스트)
 
 **다음 세션 시작 방법**:
 새 채팅을 열 때 이 문서의 "🎯 다음 세션 시작 프롬프트" 섹션을 복사해 사용하세요.
