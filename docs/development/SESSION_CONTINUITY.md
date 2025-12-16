@@ -20,6 +20,23 @@
 
 ## 📌 프로젝트 개요
 
+### ⚠️ 중요: GitHub 저장소 정보 (절대 변경 금지)
+
+**공식 GitHub 저장소**: `https://github.com/rmswo87/ideaspark`
+
+**약속사항**:
+- ✅ **오직 `rmswo87/ideaspark` 저장소에만 푸시합니다**
+- ❌ **다른 계정(`bzjay53` 등)이나 다른 저장소(`sparkideas-frontend` 등)에 절대 푸시하지 않습니다**
+- ✅ **모든 배포는 `rmswo87/ideaspark` 저장소를 기준으로 합니다**
+- ✅ **Vercel 배포는 `rmswo87/ideaspark` 저장소와 연결되어 있습니다**
+
+**로컬 Git 설정 확인**:
+```bash
+git remote -v
+# 출력: origin  https://github.com/rmswo87/ideaspark.git (fetch)
+#      origin  https://github.com/rmswo87/ideaspark.git (push)
+```
+
 ### 프로젝트명
 **IdeaSpark** - Reddit 아이디어를 PRD로 변환하는 AI 기반 플랫폼
 
