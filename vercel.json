@@ -2,11 +2,15 @@
   "crons": [
     {
       "path": "/api/cron/collect-ideas",
-      "schedule": "0 0 * * *"
+      "schedule": "0 9,18 * * *"
     },
     {
       "path": "/api/cron/collect-dev-news",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/send-premium-recommendations",
+      "schedule": "0 10 * * *"
     }
   ],
   "rewrites": [

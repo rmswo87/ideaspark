@@ -1,5 +1,7 @@
 // Vercel Edge Function: Reddit API 호출 (서버 사이드)
+// 관리자만 수집 가능
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(
   req: VercelRequest,
@@ -8,7 +10,7 @@ export default async function handler(
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -16,6 +18,73 @@ export default async function handler(
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // 관리자 권한 체크
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized',
+        message: '관리자만 아이디어 수집이 가능합니다.'
+      });
+    }
+
+    // Supabase 클라이언트 초기화 (Service Role Key 사용)
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'Supabase credentials not configured',
+      });
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    // 토큰에서 사용자 정보 추출
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        message: '유효하지 않은 인증 토큰입니다.'
+      });
+    }
+
+    // admins 테이블에서 관리자 확인
+    const { data: adminData, error: adminError } = await supabaseAdmin
+      .from('admins')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (adminError || !adminData) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: '관리자만 아이디어 수집이 가능합니다.'
+      });
+    }
+
+    console.log(`[Manual Collection] Admin user ${user.id} initiated idea collection`);
+  } catch (authError) {
+    console.error('Admin check error:', authError);
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: '관리자 권한 확인 중 오류가 발생했습니다.'
+    });
   }
 
   try {
@@ -90,10 +159,84 @@ export default async function handler(
         .trim();
     }
 
-    // Reddit API에서 이미지 URL 추출 (근본적 해결)
+    // Reddit API에서 이미지 URL 추출 (Reddit API 공식 문서 기반)
+    // 참고: https://www.reddit.com/dev/api/
     function extractImageUrl(post: any): string | null {
       try {
-        // 0. post.url이 직접 이미지 URL인 경우 (최우선 - 가장 확실한 방법)
+        // Reddit API 공식 문서에 따르면 preview.images[0].source.url이 가장 신뢰할 수 있는 이미지 URL입니다
+        // 1. preview.images에서 고해상도 이미지 추출 (최우선 - Reddit API 공식 권장)
+        if (post.preview?.images?.[0]) {
+          const previewImage = post.preview.images[0];
+          
+          // source.url (가장 고해상도, Reddit API 공식 문서 권장)
+          if (previewImage.source?.url) {
+            let imageUrl = previewImage.source.url
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>');
+            
+            // preview.redd.it URL인 경우 -> i.redd.it 원본 URL로 변환
+            if (imageUrl.includes('preview.redd.it')) {
+              const convertedUrl = convertPreviewToOriginal(imageUrl);
+              if (convertedUrl) {
+                console.log('Converted preview.redd.it to i.redd.it from preview.source.url:', convertedUrl);
+                return convertedUrl;
+              }
+            }
+            
+            if (imageUrl && imageUrl.startsWith('http')) {
+              console.log('Found preview source image:', imageUrl);
+              return imageUrl;
+            }
+          }
+          
+          // variants (다양한 해상도)
+          if (previewImage.variants?.gif?.source?.url) {
+            let imageUrl = previewImage.variants.gif.source.url
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>');
+            
+            if (imageUrl.includes('preview.redd.it')) {
+              const convertedUrl = convertPreviewToOriginal(imageUrl);
+              if (convertedUrl) {
+                console.log('Converted preview.redd.it to i.redd.it from preview.variants.gif:', convertedUrl);
+                return convertedUrl;
+              }
+            }
+            
+            if (imageUrl && imageUrl.startsWith('http')) {
+              console.log('Found preview gif variant:', imageUrl);
+              return imageUrl;
+            }
+          }
+          
+          // resolutions에서 가장 큰 이미지
+          if (previewImage.resolutions?.length > 0) {
+            const largestImage = previewImage.resolutions[previewImage.resolutions.length - 1];
+            if (largestImage?.url) {
+              let imageUrl = largestImage.url
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>');
+              
+              if (imageUrl.includes('preview.redd.it')) {
+                const convertedUrl = convertPreviewToOriginal(imageUrl);
+                if (convertedUrl) {
+                  console.log('Converted preview.redd.it to i.redd.it from preview.resolutions:', convertedUrl);
+                  return convertedUrl;
+                }
+              }
+              
+              if (imageUrl && imageUrl.startsWith('http')) {
+                console.log('Found preview resolution image:', imageUrl);
+                return imageUrl;
+              }
+            }
+          }
+        }
+
+        // 2. post.url이 직접 이미지 URL인 경우
         if (post.url) {
           const url = post.url;
           const urlLower = url.toLowerCase();
@@ -101,27 +244,13 @@ export default async function handler(
           
           // preview.redd.it URL인 경우 -> i.redd.it 원본 URL로 변환
           if (url.includes('preview.redd.it')) {
-            // preview.redd.it URL에서 파일명 추출 (예: trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png)
-            // 패턴: preview.redd.it/파일명?width=...
-            const match = url.match(/preview\.redd\.it\/([^?]+)/);
-            if (match && match[1]) {
-              // 파일명에서 실제 이미지 ID 추출 (v0-로 시작하는 부분 제거)
-              // 예: trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png -> 2f6bfp2hjj5g1.png
-              const filename = match[1];
-              const imageIdMatch = filename.match(/v0-([a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp))/);
-              if (imageIdMatch && imageIdMatch[1]) {
-                const imageId = imageIdMatch[1];
-                const originalUrl = `https://i.redd.it/${imageId}`;
-                console.log('Converted preview.redd.it to i.redd.it:', originalUrl);
-                return originalUrl;
-              }
-              // v0- 패턴이 없으면 파일명 그대로 사용
-              const originalUrl = `https://i.redd.it/${filename}`;
-              console.log('Converted preview.redd.it to i.redd.it (no v0):', originalUrl);
-              return originalUrl;
+            const convertedUrl = convertPreviewToOriginal(url);
+            if (convertedUrl) {
+              console.log('Converted preview.redd.it to i.redd.it from post.url:', convertedUrl);
+              return convertedUrl;
             }
-            // 매칭 실패 시 원본 URL 반환
-            console.log('Found preview.redd.it URL (keeping original):', post.url);
+            // 변환 실패 시 원본 URL 반환
+            console.log('Failed to convert preview.redd.it URL, keeping original:', post.url);
             return post.url;
           }
           
@@ -146,62 +275,25 @@ export default async function handler(
           }
         }
 
-        // 1. is_reddit_media_domain이 true인 경우 url이 이미지
+        // 3. is_reddit_media_domain이 true인 경우 url이 이미지
         if (post.is_reddit_media_domain && post.url) {
           console.log('Found Reddit media domain image:', post.url);
           return post.url;
         }
 
-        // 2. post_hint가 'image'인 경우 url이 이미지
+        // 4. post_hint가 'image'인 경우 url이 이미지
         if (post.post_hint === 'image' && post.url) {
           console.log('Found image by post_hint:', post.url);
           return post.url;
         }
         
-        // 3. domain이 redd.it이고 url이 있는 경우 (Reddit 이미지 호스팅)
+        // 5. domain이 redd.it이고 url이 있는 경우 (Reddit 이미지 호스팅)
         if (post.url && post.url.includes('redd.it')) {
           console.log('Found redd.it image URL:', post.url);
           return post.url;
         }
 
-        // 4. preview.images에서 고해상도 이미지 추출 (모든 가능한 필드 확인)
-        if (post.preview?.images?.[0]) {
-          const previewImage = post.preview.images[0];
-          
-          // source.url (가장 고해상도)
-          if (previewImage.source?.url) {
-            let imageUrl = previewImage.source.url
-              .replace(/&amp;/g, '&')
-              .replace(/&amp;/g, '&'); // 이중 인코딩 방지
-            if (imageUrl && imageUrl.startsWith('http')) {
-              console.log('Found preview source image:', imageUrl);
-              return imageUrl;
-            }
-          }
-          
-          // variants (다양한 해상도)
-          if (previewImage.variants?.gif?.source?.url) {
-            let imageUrl = previewImage.variants.gif.source.url.replace(/&amp;/g, '&');
-            if (imageUrl && imageUrl.startsWith('http')) {
-              console.log('Found preview gif variant:', imageUrl);
-              return imageUrl;
-            }
-          }
-          
-          // resolutions에서 가장 큰 이미지
-          if (previewImage.resolutions?.length > 0) {
-            const largestImage = previewImage.resolutions[previewImage.resolutions.length - 1];
-            if (largestImage?.url) {
-              let imageUrl = largestImage.url.replace(/&amp;/g, '&');
-              if (imageUrl && imageUrl.startsWith('http')) {
-                console.log('Found preview resolution image:', imageUrl);
-                return imageUrl;
-              }
-            }
-          }
-        }
-
-        // 5. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
+        // 6. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
         if (post.thumbnail && 
             post.thumbnail !== 'default' && 
             post.thumbnail !== 'self' && 
@@ -212,7 +304,7 @@ export default async function handler(
           return post.thumbnail;
         }
         
-        // 6. media 필드 확인 (Reddit API의 media 객체)
+        // 7. media 필드 확인 (Reddit API의 media 객체)
         if (post.media?.oembed?.thumbnail_url) {
           console.log('Found media oembed thumbnail:', post.media.oembed.thumbnail_url);
           return post.media.oembed.thumbnail_url;
@@ -241,6 +333,56 @@ export default async function handler(
         return null;
       } catch (error) {
         console.error('Error extracting image URL:', error);
+        return null;
+      }
+    }
+
+    // preview.redd.it URL을 i.redd.it 원본 URL로 변환하는 헬퍼 함수
+    // Reddit API 공식 문서 기반: preview.redd.it URL은 쿼리 파라미터를 포함하지만,
+    // 실제 원본 이미지는 i.redd.it에 있으며 파일명에서 이미지 ID를 추출할 수 있습니다
+    function convertPreviewToOriginal(previewUrl: string): string | null {
+      try {
+        // preview.redd.it URL에서 파일명 추출
+        // 예: https://preview.redd.it/trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png?width=640&crop=smart&auto=webp&s=...
+        const match = previewUrl.match(/preview\.redd\.it\/([^?]+)/);
+        if (!match || !match[1]) {
+          return null;
+        }
+        
+        const filename = match[1];
+        console.log('Extracted filename from preview.redd.it:', filename);
+        
+        // 파일명에서 실제 이미지 ID 추출
+        // 패턴 1: v0-{이미지ID}.{확장자} (예: v0-2f6bfp2hjj5g1.png)
+        const v0Pattern = filename.match(/v0-([a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp))/i);
+        if (v0Pattern && v0Pattern[1]) {
+          const imageId = v0Pattern[1];
+          const originalUrl = `https://i.redd.it/${imageId}`;
+          console.log('Converted using v0 pattern:', originalUrl);
+          return originalUrl;
+        }
+        
+        // 패턴 2: 파일명 끝부분이 이미지 ID인 경우 (예: ...-2f6bfp2hjj5g1.png)
+        // 하이픈으로 구분된 마지막 부분이 이미지 ID일 수 있음
+        const parts = filename.split('-');
+        const lastPart = parts[parts.length - 1];
+        if (lastPart && /^[a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp)$/i.test(lastPart)) {
+          const originalUrl = `https://i.redd.it/${lastPart}`;
+          console.log('Converted using last part pattern:', originalUrl);
+          return originalUrl;
+        }
+        
+        // 패턴 3: 파일명 전체가 이미지 ID인 경우 (드물지만 가능)
+        if (/^[a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp)$/i.test(filename)) {
+          const originalUrl = `https://i.redd.it/${filename}`;
+          console.log('Converted using full filename pattern:', originalUrl);
+          return originalUrl;
+        }
+        
+        console.log('Could not extract image ID from filename:', filename);
+        return null;
+      } catch (error) {
+        console.error('Error converting preview.redd.it URL:', error);
         return null;
       }
     }
