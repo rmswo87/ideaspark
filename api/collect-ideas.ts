@@ -290,7 +290,7 @@ export default async function handler(
         // 5. domain이 redd.it이고 url이 있는 경우 (Reddit 이미지 호스팅)
         if (post.url && post.url.includes('redd.it')) {
           console.log('Found redd.it image URL:', post.url);
-          return push.url;
+          return post.url;
         }
 
         // 6. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
@@ -333,7 +333,7 @@ export default async function handler(
         return null;
       } catch (error) {
         console.error('Error extracting image URL:', error);
-        return null);
+        return null;
       }
     }
 
@@ -502,7 +502,7 @@ export default async function handler(
             })
             .map((child: { data: any }) => {
               const content = extractPostContent(child.data);
-              // 내용이 없는 게시물에 대한 로그
+              // 내용이 없는 게시물에 대한 로깅
               if (!content || content.trim() === '') {
                 console.warn(`Post with empty content from r/${subreddit}:`, {
                   id: child.data.id,
@@ -520,6 +520,7 @@ export default async function handler(
                 author: child.data.author,
                 upvotes: child.data.ups || 0,
                 numComments: child.data.num_comments || 0,
+                imageUrl: extractImageUrl(child.data),
                 // permalink는 이미 /r/subreddit/comments/post_id/slug/ 형식으로 제공됨
                 // www.reddit.com과 결합하여 완전한 URL 생성
                 url: `https://www.reddit.com${child.data.permalink}`,
