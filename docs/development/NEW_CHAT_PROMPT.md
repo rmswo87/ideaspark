@@ -30,9 +30,9 @@
    - Remote 설정 확인 (git remote -v)
 
 ## 현재 상황
-- 최근 완료: React 보안 패치, 자동 아이디어 수집 Cron Job 구현
+- 최근 완료: React 보안 패치, 자동 아이디어 수집 Cron Job 구현, 문서 업데이트
 - 진행 중: Vercel 자동 배포 문제 해결 (GitHub push 후 자동 배포 미작동)
-- 최근 커밋: 67a1356 (gitignore merge conflict 해결)
+- 최근 커밋: d0a512c (문서 업데이트 - Git 작업 경로 규칙, 세션 연속성 문서)
 
 ## 참고 문서
 - 세션 연속성: docs/development/SESSION_CONTINUITY.md
@@ -103,6 +103,6 @@ git status                      # 현재 상태 확인
 
 ---
 
-**작성일**: 2025년 12월 15일  
+**작성일**: 2025년 12월 16일  
+**최종 업데이트**: 2025년 12월 16일  
 **목적**: 새 채팅 세션에서 빠르게 프로젝트 맥락 파악 및 작업 이어가기
-

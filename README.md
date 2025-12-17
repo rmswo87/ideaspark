@@ -479,9 +479,12 @@ npm run lint
 
 ## 📝 최근 업데이트
 
-### 2025-12-16: GitHub 저장소 정보 명확화
+### 2025-12-16: 문서 업데이트 및 Git 작업 경로 규칙 명확화
 - ✅ GitHub 저장소 정보 문서에 명시
 - ✅ 다른 계정/저장소에 푸시하지 않겠다는 약속 기록
+- ✅ 세션 연속성 문서 업데이트 (최신 커밋 정보 반영)
+- ✅ 새 채팅 시작 프롬프트 업데이트
+- ✅ Git 작업 경로 규칙 문서화 완료
 
 ### 2025-12-15: React 보안 패치 완료
 - ✅ React 및 React-DOM 19.2.3 업데이트
@@ -502,6 +505,12 @@ npm run lint
 
 ## 🎯 다음 세션 시작 가이드
 
+### 새 채팅 시작 시
+**새 채팅을 시작할 때는 다음 프롬프트를 사용하세요:**
+- [새 채팅 시작 프롬프트](./docs/development/NEW_CHAT_PROMPT.md) 참고
+
+### 작업 시작 전 확인사항
+
 1. **프로젝트 상태 확인**
    ```bash
    git status
@@ -514,8 +523,8 @@ npm run lint
    ```
 
 3. **우선 작업 확인**
+   - [세션 연속성 문서](./docs/development/SESSION_CONTINUITY.md) 참고 (필수)
    - [개발 진행 리포트](./docs/development/DEVELOPMENT_PROGRESS_REPORT.md) 참고
-   - [세션 연속성 문서](./docs/development/SESSION_CONTINUITY.md) 참고
 
 4. **문서 참고**
    - 설정: `docs/setup/`
