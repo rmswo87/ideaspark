@@ -7,8 +7,31 @@
 
 ---
 
-## ⚠️ 중요: GitHub 저장소 정보 (절대 변경 금지)
+## ⚠️ 중요: Git 작업 경로 및 GitHub 저장소 정보 (절대 변경 금지)
 
+### 프로젝트 경로
+**절대 경로**: `E:\study\Business\Develope\cursor\11.25\my_first_project\IdeaSpark`  
+**상대 경로**: `11.25/my_first_project/IdeaSpark`
+
+### Git 작업 규칙 (절대 준수 필수)
+1. **반드시 프로젝트 폴더에서만 Git 작업 수행**
+   ```bash
+   cd "11.25/my_first_project/IdeaSpark"
+   # 또는
+   cd "E:\study\Business\Develope\cursor\11.25\my_first_project\IdeaSpark"
+   ```
+
+2. **최상위 cursor 폴더에서 Git 작업 금지**
+   - ❌ `E:\study\Business\Develope\cursor`에서 git push 하면 안 됨
+   - ✅ `11.25/my_first_project/IdeaSpark`에서만 git push 해야 함
+
+3. **Git 저장소 확인 방법**
+   ```bash
+   git rev-parse --show-toplevel
+   # 출력: E:/study/Business/Develope/cursor/11.25/my_first_project/IdeaSpark
+   ```
+
+### GitHub 저장소 정보
 **공식 GitHub 저장소**: `https://github.com/rmswo87/ideaspark`
 
 **약속사항**:
