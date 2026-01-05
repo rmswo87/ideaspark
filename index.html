@@ -20,9 +20,11 @@
           const select = document.querySelector('.goog-te-combo');
           if (select) {
             // 한국어 선택 (value는 'ko' 또는 'ko|en' 형식)
-            const koOption = Array.from(select.options).find((opt: any) => opt.value.includes('ko'));
+            const koOption = Array.from(select.options).find(function(opt) { 
+              return opt.value.includes('ko'); 
+            });
             if (koOption && select.value !== koOption.value) {
-              (select as HTMLSelectElement).value = (koOption as HTMLOptionElement).value;
+              select.value = koOption.value;
               select.dispatchEvent(new Event('change'));
             }
           }
