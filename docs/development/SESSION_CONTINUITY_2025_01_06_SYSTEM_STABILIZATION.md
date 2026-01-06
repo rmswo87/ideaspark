@@ -150,9 +150,11 @@ idea_implementations    📋 생성 필요 (사용자 구현 추적)
 ```
 
 ### **배포 현황**
-- **GitHub**: 최신 코드 푸시 완료 (commit: b851dc9)
-- **자동 배포**: GitHub Pages/Vercel 자동 배포 진행 중
-- **상태**: 안정적인 서비스 운영 가능
+- **GitHub**: 최신 코드 푸시 완료 (commit: 2a1632a)
+- **자동 배포**: GitHub Actions를 통한 GitHub Pages 자동 배포 트리거됨
+- **인증 설정**: GitHub Personal Access Token(PAT)을 사용하여 원격 저장소 푸시 및 권한 확보
+- **상태**: GitHub Actions 워크플로 실행 중 (build 및 deploy 단계 진행)
+- **Vercel**: 서버리스 기능 및 API 배포 최적화 완료
 
 ---
 

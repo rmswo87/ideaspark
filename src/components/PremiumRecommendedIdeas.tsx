@@ -62,9 +62,9 @@ export function PremiumRecommendedIdeas() {
 
         if (categoryBasedIdeas && categoryBasedIdeas.length > 0) {
           console.log('✅ Premium: Category-based ideas found:', categoryBasedIdeas.length);
-          // 형식 변환 및 고품질 필터링 (20점 이상만 추천)
+          // 형식 변환 및 고품질 필터링 (10점 이상만 추천)
           const formattedIdeas = categoryBasedIdeas
-            .filter(item => item.total_score >= 20)
+            .filter(item => item.total_score >= 10)
             .map(item => ({
               idea: item,
               total_score: item.total_score,

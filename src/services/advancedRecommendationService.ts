@@ -261,7 +261,7 @@ async function getContentBasedRecommendations(
       const complexityScore = 1 - complexityDiff;
       contentScore += complexityScore * 0.2;
 
-      if (contentScore > 0.3) { // 임계값 이상인 경우만 추천
+      if (contentScore > 0.1) { // 임계값 낮춤 (더 많은 추천 보장)
         recommendations.push({
           ...idea,
           recommendation_score: Math.min(contentScore, 1.0),
@@ -272,6 +272,11 @@ async function getContentBasedRecommendations(
         });
       }
     });
+
+    if (recommendations.length === 0) {
+      console.log('🔄 No content-based matches, falling back to trending...');
+      return await getTrendingRecommendations(limit);
+    }
 
     return recommendations
       .sort((a, b) => b.recommendation_score - a.recommendation_score)
@@ -722,23 +727,35 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
     const tagPreferences: Record<string, number> = {};
     let totalInteractions = 0;
 
+    // 아이디어 정보 조회를 통해 정확한 카테고리/태그 정보 확보
+    const ideaIds = [...new Set(userBehaviors.map(b => b.idea_id))].filter(Boolean);
+    const { data: ideas } = await supabase
+      .from('ideas')
+      .select('id, category, subreddit')
+      .in('id', ideaIds);
+
+    const ideaMap = new Map(ideas?.map(i => [i.id, i]) || []);
+
     // 행동 데이터에서 선호도 추출
     try {
       for (const behavior of userBehaviors) {
         if (!behavior || !behavior.action_type) continue;
 
         const weight = getActionWeight(behavior.action_type);
+        const idea = ideaMap.get(behavior.idea_id);
+
+        if (!idea) continue;
         totalInteractions += weight;
 
         // 카테고리 선호도
-        const category = behavior.metadata?.category;
-        if (category && typeof category === 'string') {
+        const category = idea.category;
+        if (category) {
           categoryWeights[category] = (categoryWeights[category] || 0) + weight;
         }
 
         // 서브레딧 선호도 (태그 역할)
-        const subreddit = behavior.metadata?.subreddit;
-        if (subreddit && typeof subreddit === 'string') {
+        const subreddit = idea.subreddit;
+        if (subreddit) {
           tagPreferences[subreddit] = (tagPreferences[subreddit] || 0) + weight;
         }
       }
@@ -780,7 +797,7 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
           },
           category_weights: categoryWeights,
           last_updated: new Date().toISOString()
-        });
+        }, { onConflict: 'user_id' });
     } catch (saveError: any) {
       console.warn('⚠️ user_preference_vectors 테이블에 저장 실패 (테이블 없음, 무시됨):', saveError.message || saveError);
       // 저장 실패해도 preferences는 반환 (메모리에서 사용)
@@ -876,10 +893,9 @@ async function postProcessRecommendations(
   if (!userId) return Array.from(uniqueRecs.values());
 
   const userBehaviors = await getUserBehaviors(userId, 1000);
-  const interactedIdeaIds = new Set(userBehaviors.map(b => b.idea_id));
-
+  const negativeActions = new Set(['like', 'bookmark', 'generate_prd']);
   const filteredRecs = Array.from(uniqueRecs.values())
-    .filter(rec => !interactedIdeaIds.has(rec.id));
+    .filter(rec => !userBehaviors.some((b: UserBehavior) => b.idea_id === rec.id && negativeActions.has(b.action_type)));
 
   return filteredRecs;
 }

@@ -25,9 +25,10 @@ CREATE TABLE IF NOT EXISTS idea_scores (
 CREATE TABLE IF NOT EXISTS user_behaviors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+  idea_id UUID REFERENCES ideas(id) ON DELETE CASCADE, -- Nullable for general actions
   action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('view', 'like', 'bookmark', 'generate_prd', 'share', 'copy', 'click')),
   duration INTEGER DEFAULT 0,
+  metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -59,6 +60,100 @@ CREATE TABLE IF NOT EXISTS idea_implementations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 5. 추천 시스템 메트릭 추적 테이블
+CREATE TABLE IF NOT EXISTS recommendation_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  recommendation_strategy VARCHAR(50) NOT NULL,
+  recommended_idea_ids UUID[] NOT NULL,
+  interactions JSONB DEFAULT '{"clicked": false, "converted": false}',
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. A/B 테스트 실험 관리 테이블
+CREATE TABLE IF NOT EXISTS recommendation_experiments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  strategy_a VARCHAR(50) NOT NULL,
+  strategy_b VARCHAR(50) NOT NULL,
+  traffic_split DECIMAL(3,2) DEFAULT 0.5,
+  hypothesis TEXT,
+  success_metric VARCHAR(20) DEFAULT 'ctr',
+  minimum_sample_size INTEGER DEFAULT 1000,
+  confidence_level DECIMAL(3,2) DEFAULT 0.95,
+  statistical_power DECIMAL(3,2) DEFAULT 0.8,
+  status VARCHAR(20) DEFAULT 'active',
+  start_date TIMESTAMPTZ DEFAULT NOW(),
+  end_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. 사용자 실험 할당 테이블
+CREATE TABLE IF NOT EXISTS user_experiment_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  experiment_id UUID REFERENCES recommendation_experiments(id) ON DELETE CASCADE,
+  variant VARCHAR(1) NOT NULL, -- 'A', 'B'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, experiment_id)
+);
+
+-- 8. 실험 성과 로그 테이블
+CREATE TABLE IF NOT EXISTS experiment_performance_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  experiment_id UUID REFERENCES recommendation_experiments(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  variant VARCHAR(1) NOT NULL,
+  action_taken VARCHAR(20) NOT NULL,
+  recommended_idea_id UUID REFERENCES ideas(id) ON DELETE CASCADE,
+  position_in_list INTEGER,
+  session_id VARCHAR(100),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. 통계적 유의성 검정 결과 테이블
+CREATE TABLE IF NOT EXISTS statistical_significance_tests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  experiment_id UUID REFERENCES recommendation_experiments(id) ON DELETE CASCADE,
+  metric_name VARCHAR(50) NOT NULL,
+  control_mean DECIMAL(10,5),
+  treatment_mean DECIMAL(10,5),
+  control_variance DECIMAL(10,5),
+  treatment_variance DECIMAL(10,5),
+  control_sample_size INTEGER,
+  treatment_sample_size INTEGER,
+  t_statistic DECIMAL(10,5),
+  p_value DECIMAL(10,5),
+  is_significant BOOLEAN,
+  confidence_interval_lower DECIMAL(10,5),
+  confidence_interval_upper DECIMAL(10,5),
+  effect_size DECIMAL(10,5),
+  power DECIMAL(10,5),
+  calculated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(experiment_id, metric_name)
+);
+
+-- 10. 실험 결과 요약 뷰
+CREATE OR REPLACE VIEW experiment_results_summary AS
+SELECT 
+  experiment_id,
+  variant,
+  COUNT(DISTINCT user_id) as total_users,
+  COUNT(*) FILTER (WHERE action_taken = 'impression') as total_impressions,
+  COUNT(*) FILTER (WHERE action_taken = 'click') as total_clicks,
+  COUNT(*) FILTER (WHERE action_taken IN ('like', 'bookmark', 'generate_prd')) as total_conversions,
+  CASE WHEN COUNT(*) FILTER (WHERE action_taken = 'impression') > 0 
+       THEN (COUNT(*) FILTER (WHERE action_taken = 'click'))::DECIMAL / COUNT(*) FILTER (WHERE action_taken = 'impression')
+       ELSE 0 END as ctr,
+  CASE WHEN COUNT(*) FILTER (WHERE action_taken = 'click') > 0 
+       THEN (COUNT(*) FILTER (WHERE action_taken IN ('like', 'bookmark', 'generate_prd')))::DECIMAL / COUNT(*) FILTER (WHERE action_taken = 'click')
+       ELSE 0 END as conversion_rate
+FROM experiment_performance_logs
+GROUP BY experiment_id, variant;
 
 -- 업데이트 트리거 생성
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -143,6 +238,33 @@ CREATE POLICY "idea_implementations_read_policy" ON idea_implementations
 
 CREATE POLICY "idea_implementations_user_policy" ON idea_implementations
   FOR ALL USING (auth.uid() = user_id);
+
+-- recommendation_metrics RLS
+ALTER TABLE recommendation_metrics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "recommendation_metrics_user_policy" ON recommendation_metrics
+  FOR ALL USING (auth.uid() = user_id);
+
+-- recommendation_experiments RLS (Select for all, update/insert for logged in)
+ALTER TABLE recommendation_experiments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "recommendation_experiments_read_policy" ON recommendation_experiments
+  FOR SELECT USING (true);
+CREATE POLICY "recommendation_experiments_admin_policy" ON recommendation_experiments
+  FOR ALL USING (auth.uid() IS NOT NULL);
+
+-- user_experiment_assignments RLS
+ALTER TABLE user_experiment_assignments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "user_experiment_assignments_user_policy" ON user_experiment_assignments
+  FOR ALL USING (auth.uid() = user_id);
+
+-- experiment_performance_logs RLS
+ALTER TABLE experiment_performance_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "experiment_performance_logs_user_policy" ON experiment_performance_logs
+  FOR ALL USING (auth.uid() = user_id);
+
+-- statistical_significance_tests RLS (Read for all)
+ALTER TABLE statistical_significance_tests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "statistical_significance_tests_read_policy" ON statistical_significance_tests
+  FOR SELECT USING (true);
 
 -- 샘플 데이터 삽입 (테스트용)
 -- 이 부분은 테이블이 생성된 후에 실행

@@ -107,7 +107,7 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
       // 사용자 행동 추적
       await trackUserBehavior(
         user.id,
-        'recommendation_view',
+        undefined as any, // 섹션 뷰는 특정 아이디어와 연결되지 않음
         'view',
         undefined,
         {
