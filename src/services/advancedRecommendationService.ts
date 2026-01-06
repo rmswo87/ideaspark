@@ -950,10 +950,15 @@ export async function trackUserBehavior(
 }
 
 async function updateUserPreferenceVector(userId: string): Promise<void> {
-  // 사용자 선호도 벡터 재계산 및 업데이트
-  const updatedPreferences = await calculateUserPreferences(userId);
-  if (updatedPreferences) {
-    console.log(`✅ Updated user preferences for user ${userId}`);
+  try {
+    // 사용자 선호도 벡터 재계산 및 업데이트
+    const updatedPreferences = await calculateUserPreferences(userId);
+    if (updatedPreferences) {
+      console.log(`✅ Updated user preferences for user ${userId}`);
+    }
+  } catch (error) {
+    console.error('❌ Error updating user preference vector:', error);
+    // user_preference_vectors 테이블이 없으면 무시
   }
 }
 

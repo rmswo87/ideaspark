@@ -19,7 +19,9 @@ export function PremiumRecommendedIdeas() {
 
   // 로딩 상태와 프리미엄 상태를 메모이제이션하여 불필요한 리렌더링 방지
   const shouldRender = useMemo(() => {
-    return !premiumLoading && !authLoading && user && isPremium;
+    const result = !premiumLoading && !authLoading && user;  // 임시로 프리미엄 체크 제거
+    console.log(`👑 Premium render check: authLoading=${authLoading}, premiumLoading=${premiumLoading}, user=${!!user}, isPremium=${isPremium}, shouldRender=${result}`);
+    return result;
   }, [premiumLoading, authLoading, user, isPremium]);
 
   useEffect(() => {

@@ -41,6 +41,7 @@ export function DevNewsFeedPage() {
 
   useEffect(() => {
     fetchNews();
+    checkAutoCollectNews(); // 자동 수집 체크 추가
   }, [periodType]);
 
   // 관리자인 경우 소식이 없으면 자동으로 수집 (한 번만)
@@ -69,6 +70,39 @@ export function DevNewsFeedPage() {
       setLoading(false);
     }
   };
+
+  // 자동 개발 소식 수집 체크
+  async function checkAutoCollectNews() {
+    if (!isAdmin) return; // 관리자만 자동 수집
+
+    try {
+      const { data: lastNews, error } = await supabase
+        .from('dev_news')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking last dev news collection:', error);
+        return;
+      }
+
+      const now = new Date();
+      const lastNewsTime = lastNews ? new Date(lastNews.created_at) : new Date(0);
+      const hoursSinceLastNews = (now.getTime() - lastNewsTime.getTime()) / (1000 * 60 * 60);
+
+      // 24시간 이상 지났으면 자동 수집 (하루 1회)
+      if (hoursSinceLastNews > 24) {
+        console.log(`📰 Auto-collecting dev news (${hoursSinceLastNews.toFixed(1)} hours since last collection)`);
+        await handleCollectNews();
+      } else {
+        console.log(`📅 Last dev news collection: ${hoursSinceLastNews.toFixed(1)} hours ago (next in ${(24 - hoursSinceLastNews).toFixed(1)} hours)`);
+      }
+    } catch (error) {
+      console.error('Error in auto dev news collection check:', error);
+    }
+  }
 
   const handleCollectNews = async () => {
     if (!isAdmin) {

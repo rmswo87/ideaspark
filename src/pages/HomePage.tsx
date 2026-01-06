@@ -135,7 +135,39 @@ export function HomePage() {
   useEffect(() => {
     fetchStats();
     fetchSubreddits();
+    checkAutoCollection(); // 자동 수집 체크 추가
   }, [])
+
+  // 자동 아이디어 수집 체크
+  async function checkAutoCollection() {
+    try {
+      const { data: lastCollection, error } = await supabase
+        .from('ideas')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking last collection:', error);
+        return;
+      }
+
+      const now = new Date();
+      const lastCollectionTime = lastCollection ? new Date(lastCollection.created_at) : new Date(0);
+      const hoursSinceLastCollection = (now.getTime() - lastCollectionTime.getTime()) / (1000 * 60 * 60);
+
+      // 12시간 이상 지났으면 자동 수집 (하루 2회)
+      if (hoursSinceLastCollection > 12) {
+        console.log(`🤖 Auto-collecting ideas (${hoursSinceLastCollection.toFixed(1)} hours since last collection)`);
+        await handleCollectIdeas();
+      } else {
+        console.log(`📅 Last collection: ${hoursSinceLastCollection.toFixed(1)} hours ago (next in ${(12 - hoursSinceLastCollection).toFixed(1)} hours)`);
+      }
+    } catch (error) {
+      console.error('Error in auto collection check:', error);
+    }
+  }
 
   // 데스크톱에서는 통계가 항상 열려있도록
   useEffect(() => {
