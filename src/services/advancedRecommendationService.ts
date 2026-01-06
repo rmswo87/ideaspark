@@ -136,8 +136,8 @@ async function getCollaborativeRecommendations(
       .select(`
         idea_id,
         ideas!inner(
-          id, title, description, category, tags, 
-          created_at, user_id, is_public, metadata
+          id, title, content, category, subreddit, 
+          created_at, collected_at, url, author
         )
       `)
       .in('user_id', similarUsers.map(u => u.user_id))
@@ -226,16 +226,13 @@ async function getContentBasedRecommendations(
         matchingFactors.push(`${idea.category} 카테고리`);
       }
 
-      // 태그 매칭
+      // 서브레딧(태그 역할) 매칭
       let tagScore = 0;
-      const ideaTags = Array.isArray(idea.tags) ? idea.tags : [idea.tags].filter(Boolean);
-      ideaTags.forEach((tag: string) => {
-        if (userPreferences.tag_preferences[tag]) {
-          tagScore += userPreferences.tag_preferences[tag];
-          matchingFactors.push(`#${tag}`);
-        }
-      });
-      contentScore += (tagScore / Math.max(ideaTags.length, 1)) * 0.4;
+      if (idea.subreddit && userPreferences.tag_preferences[idea.subreddit]) {
+        tagScore = userPreferences.tag_preferences[idea.subreddit];
+        matchingFactors.push(`r/${idea.subreddit}`);
+      }
+      contentScore += tagScore * 0.4;
 
       // 복잡도 매칭 (메타데이터에서 복잡도 정보가 있다면)
       const ideaComplexity = idea.metadata?.complexity || 0.5;
@@ -336,8 +333,8 @@ async function getTrendingRecommendations(limit: number): Promise<AdvancedRecomm
         action_type,
         created_at,
         ideas!inner(
-          id, title, description, category, tags,
-          created_at, user_id, is_public, metadata
+          id, title, content, category, subreddit,
+          created_at, collected_at, url, author
         )
       `)
       .eq('ideas.is_public', true)
@@ -427,15 +424,11 @@ async function getPersonalizedTrendingRecommendations(
         personalScore *= (1 + userProfile.category_weights[rec.category] * 0.5);
       }
 
-      // 태그 선호도 적용
-      const ideaTags = Array.isArray(rec.tags) ? rec.tags : [rec.tags].filter(Boolean);
-      let tagBonus = 0;
-      ideaTags.forEach((tag) => {
-        if (tag && userProfile.tag_preferences[tag]) {
-          tagBonus += userProfile.tag_preferences[tag] * 0.1;
-        }
-      });
-      personalScore *= (1 + tagBonus);
+      // 서브레딧 선호도 적용 (태그 역할)
+      if (rec.subreddit && userProfile.tag_preferences[rec.subreddit]) {
+        const tagBonus = userProfile.tag_preferences[rec.subreddit] * 0.1;
+        personalScore *= (1 + tagBonus);
+      }
 
       return {
         ...rec,
@@ -533,8 +526,8 @@ async function getSerendipityRecommendations(
     const interactedCategories = new Set(
       userBehaviors.map(b => b.metadata?.category).filter(Boolean)
     );
-    const interactedTags = new Set(
-      userBehaviors.flatMap(b => b.metadata?.tags || [])
+    const interactedSubreddits = new Set(
+      userBehaviors.map(b => b.metadata?.subreddit).filter(Boolean)
     );
 
     // 평소 관심 없던 카테고리에서 높은 품질의 아이디어 찾기
@@ -554,9 +547,8 @@ async function getSerendipityRecommendations(
       // 새로운 카테고리인지 확인
       const isNewCategory = !interactedCategories.has(idea.category);
       
-      // 새로운 태그가 포함되어 있는지 확인
-      const ideaTags = Array.isArray(idea.tags) ? idea.tags : [idea.tags].filter(Boolean);
-      const newTagsCount = ideaTags.filter((tag: string) => !interactedTags.has(tag)).length;
+      // 새로운 서브레딧인지 확인
+      const isNewSubreddit = idea.subreddit && !interactedSubreddits.has(idea.subreddit) ? 1 : 0;
       
       // 세렌디피티 스코어 계산
       let serendipityScore = 0;
@@ -565,9 +557,7 @@ async function getSerendipityRecommendations(
         serendipityScore += 0.6;
       }
       
-      if (newTagsCount > 0) {
-        serendipityScore += (newTagsCount / ideaTags.length) * 0.4;
-      }
+      serendipityScore += isNewSubreddit * 0.4;
 
       // 아이디어 품질 지표 (좋아요, 북마크 수 등)로 필터링
       const qualityScore = calculateIdeaQuality(idea);
@@ -695,11 +685,11 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
         categoryWeights[category] = (categoryWeights[category] || 0) + weight;
       }
 
-      // 태그 선호도
-      const tags = behavior.metadata?.tags || [];
-      tags.forEach((tag: string) => {
-        tagPreferences[tag] = (tagPreferences[tag] || 0) + weight;
-      });
+      // 서브레딧 선호도 (태그 역할)
+      const subreddit = behavior.metadata?.subreddit;
+      if (subreddit) {
+        tagPreferences[subreddit] = (tagPreferences[subreddit] || 0) + weight;
+      }
     });
 
     // 정규화
@@ -754,13 +744,14 @@ function calculateDiversity(idea1: AdvancedRecommendedIdea, idea2: AdvancedRecom
     diversity += 0.4;
   }
 
-  // 태그 다양성
-  const tags1 = Array.isArray(idea1.tags) ? idea1.tags : [idea1.tags].filter(Boolean);
-  const tags2 = Array.isArray(idea2.tags) ? idea2.tags : [idea2.tags].filter(Boolean);
+  // 서브레딧 다양성
+  const subreddit1 = idea1.subreddit;
+  const subreddit2 = idea2.subreddit;
   
-  const commonTags = tags1.filter(tag => tag && tags2.includes(tag));
-  const tagDiversity = 1 - (commonTags.length / Math.max(tags1.length, tags2.length, 1));
-  diversity += tagDiversity * 0.3;
+  if (subreddit1 && subreddit2) {
+    const subredditDiversity = subreddit1 !== subreddit2 ? 1 : 0;
+    diversity += subredditDiversity * 0.3;
+  }
 
   // 생성 시간 다양성
   const time1 = new Date(idea1.created_at || Date.now()).getTime();
