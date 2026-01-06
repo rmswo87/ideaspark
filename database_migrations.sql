@@ -203,66 +203,87 @@ CREATE INDEX IF NOT EXISTS idx_idea_implementations_status ON idea_implementatio
 -- idea_scores RLS
 ALTER TABLE idea_scores ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "idea_scores_read_policy" ON idea_scores;
 CREATE POLICY "idea_scores_read_policy" ON idea_scores
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "idea_scores_insert_policy" ON idea_scores;
 CREATE POLICY "idea_scores_insert_policy" ON idea_scores
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
+DROP POLICY IF EXISTS "idea_scores_update_policy" ON idea_scores;
 CREATE POLICY "idea_scores_update_policy" ON idea_scores
   FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 -- user_behaviors RLS
 ALTER TABLE user_behaviors ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user_behaviors_read_policy" ON user_behaviors;
 CREATE POLICY "user_behaviors_read_policy" ON user_behaviors
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "user_behaviors_insert_policy" ON user_behaviors;
 CREATE POLICY "user_behaviors_insert_policy" ON user_behaviors
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "user_behaviors_user_policy" ON user_behaviors;
 CREATE POLICY "user_behaviors_user_policy" ON user_behaviors
   FOR ALL USING (auth.uid() = user_id);
 
 -- user_preference_vectors RLS
 ALTER TABLE user_preference_vectors ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user_preference_vectors_policy" ON user_preference_vectors;
 CREATE POLICY "user_preference_vectors_policy" ON user_preference_vectors
   FOR ALL USING (auth.uid() = user_id);
 
 -- idea_implementations RLS
 ALTER TABLE idea_implementations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "idea_implementations_read_policy" ON idea_implementations;
 CREATE POLICY "idea_implementations_read_policy" ON idea_implementations
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "idea_implementations_user_policy" ON idea_implementations;
 CREATE POLICY "idea_implementations_user_policy" ON idea_implementations
   FOR ALL USING (auth.uid() = user_id);
 
 -- recommendation_metrics RLS
 ALTER TABLE recommendation_metrics ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "recommendation_metrics_user_policy" ON recommendation_metrics;
 CREATE POLICY "recommendation_metrics_user_policy" ON recommendation_metrics
   FOR ALL USING (auth.uid() = user_id);
 
 -- recommendation_experiments RLS (Select for all, update/insert for logged in)
 ALTER TABLE recommendation_experiments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "recommendation_experiments_read_policy" ON recommendation_experiments;
 CREATE POLICY "recommendation_experiments_read_policy" ON recommendation_experiments
   FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "recommendation_experiments_admin_policy" ON recommendation_experiments;
 CREATE POLICY "recommendation_experiments_admin_policy" ON recommendation_experiments
   FOR ALL USING (auth.uid() IS NOT NULL);
 
 -- user_experiment_assignments RLS
 ALTER TABLE user_experiment_assignments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "user_experiment_assignments_user_policy" ON user_experiment_assignments;
 CREATE POLICY "user_experiment_assignments_user_policy" ON user_experiment_assignments
   FOR ALL USING (auth.uid() = user_id);
 
 -- experiment_performance_logs RLS
 ALTER TABLE experiment_performance_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "experiment_performance_logs_user_policy" ON experiment_performance_logs;
 CREATE POLICY "experiment_performance_logs_user_policy" ON experiment_performance_logs
   FOR ALL USING (auth.uid() = user_id);
 
 -- statistical_significance_tests RLS (Read for all)
 ALTER TABLE statistical_significance_tests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "statistical_significance_tests_read_policy" ON statistical_significance_tests;
 CREATE POLICY "statistical_significance_tests_read_policy" ON statistical_significance_tests
   FOR SELECT USING (true);
 
