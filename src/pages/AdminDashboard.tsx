@@ -11,6 +11,7 @@ import { UserManagement } from '@/components/admin/UserManagement';
 import { IdeaManagement } from '@/components/admin/IdeaManagement';
 import { PostManagement } from '@/components/admin/PostManagement';
 import { ContactManagement } from '@/components/admin/ContactManagement';
+import { RecommendationDashboard } from '@/components/RecommendationDashboard';
 
 function AdminDashboard() {
   const { isAdmin, loading } = useAdmin();
@@ -93,6 +94,12 @@ function AdminDashboard() {
           >
             문의 관리
           </TabsTrigger>
+          <TabsTrigger 
+            value="recommendations" 
+            className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex-1 sm:flex-none whitespace-nowrap"
+          >
+            추천 시스템
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -139,6 +146,17 @@ function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <ContactManagement />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="recommendations">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI 추천 시스템 분석 대시보드</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RecommendationDashboard />
             </CardContent>
           </Card>
         </TabsContent>

@@ -19,9 +19,9 @@
 - Git 보안 문제 해결 (.cursor/ 폴더 .gitignore 추가)
 
 ### ✅ 배포 완료
-- GitHub 푸시 완료 (커밋: `25ec004`)
-- Vercel 자동 배포 진행 중
-- 프로덕션 환경 배포 준비 완료
+- GitHub 푸시 완료 (커밋: `95a2eb4`)
+- ✅ Vercel 자동 배포 성공
+- ❌ GitHub Actions 배포 실패 (요확인)
 
 ### ✅ 프로젝트 정리
 - 불필요한 임시 문서 파일들 삭제 (25+ 개 파일)
@@ -38,7 +38,26 @@
    - 방법: Supabase Dashboard (https://supabase.com/dashboard/project/djxiousdavdwwznufpzs) → SQL Editor
    - 이유: MCP 연결 타임아웃 이슈
 
-2. **추천 시스템 프로덕션 테스트**
+2. **GitHub Actions 배포 실패 해결 (2025-01-06 신규 이슈)**
+   - 현상: Vercel 배포는 성공하지만 GitHub Actions 배포가 실패
+   - 원인: 분석 필요 (Vercel과 GitHub Actions 환경 차이)
+   - 해결: GitHub Actions workflow 설정 검토 및 수정
+   - 우선순위: 높음 (CI/CD 파이프라인 일관성 확보)
+
+3. **PC 웹 Premium 페이지 누락 해결 (2025-01-06 신규 이슈)**
+   - 현상: 모바일에는 Premium 탭 존재, PC 웹에는 없음
+   - 확인 필요: Premium 기능 구현 방식 (페이지 분리 vs 다른 방법)
+   - 해결: PC 웹 Premium 페이지/기능 구현
+   - 우선순위: 높음 (기능 일관성 확보)
+
+4. **자동 Reddit 아이디어 수집 시스템 복구 (2025-01-06 신규 이슈)**
+   - 현상: 마지막 업데이트가 2025-12-06, 현재 2026-01-06 (1개월 중단)
+   - 예상 원인: 자동 스케줄링 시스템 오류 또는 API 변경
+   - 요구사항: 하루 최소 2번 자동 업데이트
+   - 해결: Edge Function 스케줄러 및 Reddit API 연동 점검
+   - 우선순위: 최고 (핵심 콘텐츠 자동화 기능)
+
+5. **추천 시스템 프로덕션 테스트**
    - 마이그레이션 후 실제 데이터로 테스트
    - 7가지 추천 전략 작동 확인
    - 성능 메트릭 모니터링
@@ -102,12 +121,17 @@ package.json                             # Recharts 추가, tsc 체크 임시 �
 ```markdown
 현재 IdeaSpark 프로젝트의 고급 AI 추천 시스템이 완전히 구현되어 GitHub에 배포된 상태입니다.
 
-다음 작업이 필요합니다:
-1. Supabase 마이그레이션 수동 적용 (MCP 연결 이슈로 인해)
-2. 추천 시스템 프로덕션 테스트
-3. TypeScript 오류 완전 수정
+신규 발견된 중요 이슈들 (2025-01-06):
+1. GitHub Actions 배포 실패 (Vercel은 성공)
+2. PC 웹에 Premium 페이지 누락 (모바일에는 존재)
+3. Reddit 자동 아이디어 수집 중단 (2025-12-06 이후 1개월 중단)
 
-우선순위는 Supabase 마이그레이션부터 시작해주세요.
+기존 작업들:
+4. Supabase 마이그레이션 수동 적용 (MCP 연결 이슈로 인해)
+5. 추천 시스템 프로덕션 테스트
+6. TypeScript 오류 완전 수정
+
+우선순위: Reddit 자동 수집 복구 → GitHub Actions 수정 → Premium 페이지 구현 → Supabase 마이그레이션
 ```
 
 ### 2. 즉시 실행할 명령어

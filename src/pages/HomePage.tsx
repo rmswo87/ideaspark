@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import { IdeaCard } from '@/components/IdeaCard'
 import { RecommendedIdeas } from '@/components/RecommendedIdeas'
 import { PremiumRecommendedIdeas } from '@/components/PremiumRecommendedIdeas'
+import { AdvancedRecommendedIdeas } from '@/components/AdvancedRecommendedIdeas'
 import { IdeaCardSkeleton } from '@/components/IdeaCardSkeleton'
 import { getIdeas, getIdeaStats, getSubreddits } from '@/services/ideaService'
 import { collectIdeas } from '@/services/collector'
@@ -807,6 +808,17 @@ export function HomePage() {
         {/* 추천 아이디어 섹션 (토글 가능, 로그인한 사용자에게만 표시) */}
         {user && showRecommended && (
           <div id="recommended-ideas-section" className="mb-4 sm:mb-6 md:mb-8 w-full max-w-full overflow-x-hidden">
+            {/* 고급 AI 추천 시스템 */}
+            <div className="mb-6">
+              <AdvancedRecommendedIdeas 
+                limit={6}
+                showStrategySelector={true}
+                showExplanations={true}
+                className="mb-4"
+              />
+            </div>
+            
+            {/* 기존 추천 시스템 (비교용) */}
             <RecommendedIdeas onGeneratePRD={(ideaId) => navigate(`/idea/${ideaId}`)} />
           </div>
         )}
