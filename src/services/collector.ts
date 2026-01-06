@@ -57,9 +57,11 @@ export async function collectIdeas(): Promise<{
 
   try {
     // 서버 사이드 API 호출
-    // CORS 문제 해결을 위해 Vercel API 강제 사용
-    // const apiUrl = getApiUrl('/api/collect-ideas'); // 기존 provider 자동 선택
-    const apiUrl = `${window.location.origin}/api/collect-ideas`; // Vercel 강제 사용
+    // GitHub Pages 환경에서는 Supabase Edge Function 사용, Vercel에서는 Vercel API 사용
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    const apiUrl = isGitHubPages 
+      ? getApiUrl('/api/collect-ideas') // GitHub Pages: Supabase Edge Function
+      : `${window.location.origin}/api/collect-ideas`; // Vercel: Vercel API
     
     if (import.meta.env.DEV) {
       console.log('[Collector] Calling API:', apiUrl);

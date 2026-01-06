@@ -100,7 +100,28 @@ export function PremiumRecommendedIdeas() {
   }
 
   if (topScoredIdeas.length === 0) {
-    return null;
+    // 데이터가 없어도 프리미엄 섹션을 표시하여 깜빡임 방지
+    return (
+      <div id="premium-recommended-ideas-section" className="mb-4 sm:mb-6 md:mb-8 w-full max-w-full overflow-x-hidden">
+        <Card className="w-full max-w-full overflow-hidden border-primary/20 bg-primary/5 backdrop-blur-sm">
+          <CardHeader className="px-3 sm:px-6 pb-3 sm:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0">
+              <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
+              <span className="min-w-0 break-words">프리미엄 추천 아이디어</span>
+              <PremiumBadge className="ml-auto" variant="outline" />
+            </CardTitle>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2 min-w-0 break-words">
+              관심 카테고리 내에서 AI 평가 점수가 높은 상위 3개를 추천합니다
+            </p>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-center py-6 sm:py-8 text-sm sm:text-base text-muted-foreground">
+              추천 아이디어를 준비하고 있습니다... 잠시만 기다려주세요.
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

@@ -613,6 +613,12 @@ async function getUserProfile(userId: string): Promise<UserPreferenceVector | nu
 
 async function getUserBehaviors(userId: string, limit: number): Promise<UserBehavior[]> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ getUserBehaviors: userId is undefined or null');
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('user_behaviors')
       .select('*')
@@ -633,6 +639,12 @@ async function findSimilarUsers(
   userBehaviors: UserBehavior[]
 ): Promise<{ user_id: string; similarity: number }[]> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ findSimilarUsers: userId is undefined or null');
+      return [];
+    }
+    
     if (userBehaviors.length === 0) return [];
 
     const userIdeaIds = userBehaviors.map(b => b.idea_id);
@@ -968,6 +980,12 @@ export async function trackUserBehavior(
 
 async function updateUserPreferenceVector(userId: string): Promise<void> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ updateUserPreferenceVector: userId is undefined or null');
+      return;
+    }
+    
     // 사용자 선호도 벡터 재계산 및 업데이트
     const updatedPreferences = await calculateUserPreferences(userId);
     if (updatedPreferences) {

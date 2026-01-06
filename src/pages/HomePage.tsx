@@ -160,12 +160,32 @@ export function HomePage() {
       // 12시간 이상 지났으면 자동 수집 (하루 2회)
       if (hoursSinceLastCollection > 12) {
         console.log(`🤖 Auto-collecting ideas (${hoursSinceLastCollection.toFixed(1)} hours since last collection)`);
-        await handleCollectIdeas();
+        await handleAutoCollectIdeas();
       } else {
         console.log(`📅 Last collection: ${hoursSinceLastCollection.toFixed(1)} hours ago (next in ${(12 - hoursSinceLastCollection).toFixed(1)} hours)`);
       }
     } catch (error) {
       console.error('Error in auto collection check:', error);
+    }
+  }
+
+  // 자동 수집 전용 함수 (사용자 알림 없음)
+  async function handleAutoCollectIdeas() {
+    try {
+      const result = await collectIdeas();
+      if (result.success) {
+        console.log(`🤖 Auto-collection successful: ${result.count} ideas collected`);
+        // 자동 수집 성공 시에는 데이터만 새로고침
+        fetchIdeas();
+        fetchStats();
+      } else {
+        const errorMsg = result.error || '알 수 없는 오류';
+        console.warn(`🤖 Auto-collection failed: ${errorMsg}`);
+        // 자동 수집 실패는 사용자에게 알리지 않음
+      }
+    } catch (error) {
+      console.warn('🤖 Auto-collection exception:', error);
+      // 자동 수집 실패는 사용자에게 알리지 않음
     }
   }
 
