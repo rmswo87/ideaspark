@@ -159,15 +159,19 @@ async function getCollaborativeRecommendations(
       const ideaId = item.idea_id;
       const idea = item.ideas;
       
+      // user_behaviors 테이블에서 실제 사용자 ID를 가져오기 위해
+      // 별도 쿼리가 필요하지만, 임시로 supporter를 아이디어 제목으로 대체
+      const supporterInfo = `similar_user`;
+      
       if (ideaScores.has(ideaId)) {
         const existing = ideaScores.get(ideaId)!;
         existing.score += 1;
-        existing.supporters.push(userId);
+        existing.supporters.push(supporterInfo);
       } else {
         ideaScores.set(ideaId, {
           idea,
           score: 1,
-          supporters: [userId]
+          supporters: [supporterInfo]
         });
       }
     });
@@ -211,8 +215,6 @@ async function getContentBasedRecommendations(
     const { data: candidateIdeas, error } = await supabase
       .from('ideas')
       .select('*')
-      .eq('is_public', true)
-      .neq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(500); // 충분한 후보군 확보
 
@@ -342,7 +344,6 @@ async function getTrendingRecommendations(limit: number): Promise<AdvancedRecomm
           created_at, collected_at, url, author
         )
       `)
-      .eq('ideas.is_public', true)
       .gte('created_at', sevenDaysAgo.toISOString())
       .in('action_type', ['like', 'bookmark', 'generate_prd'])
       .order('created_at', { ascending: false });
@@ -539,8 +540,6 @@ async function getSerendipityRecommendations(
     const { data: serendipityIdeas, error } = await supabase
       .from('ideas')
       .select('*')
-      .eq('is_public', true)
-      .neq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -946,6 +945,7 @@ export async function trackUserBehavior(
     
   } catch (error) {
     console.error('❌ Error tracking user behavior:', error);
+    // 사용자 행동 추적 실패는 치명적이지 않으므로 무시
   }
 }
 
