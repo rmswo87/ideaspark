@@ -57,11 +57,9 @@ export async function collectIdeas(): Promise<{
 
   try {
     // 서버 사이드 API 호출
-    // Provider에 따라 자동으로 엔드포인트 선택:
-    // - Vercel: /api/collect-ideas (Vercel Edge Function)
-    // - Supabase: https://[project].supabase.co/functions/v1/collect-ideas
-    // - Cloudflare: https://[worker].workers.dev/api/collect-ideas
-    const apiUrl = getApiUrl('/api/collect-ideas');
+    // CORS 문제 해결을 위해 Vercel API 강제 사용
+    // const apiUrl = getApiUrl('/api/collect-ideas'); // 기존 provider 자동 선택
+    const apiUrl = `${window.location.origin}/api/collect-ideas`; // Vercel 강제 사용
     
     if (import.meta.env.DEV) {
       console.log('[Collector] Calling API:', apiUrl);

@@ -591,6 +591,12 @@ async function getSerendipityRecommendations(
 
 async function getUserProfile(userId: string): Promise<UserPreferenceVector | null> {
   try {
+    // user_preference_vectors 테이블이 없을 수 있으므로 안전하게 처리
+    if (!userId) {
+      console.warn('⚠️ getUserProfile: userId is undefined or null');
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('user_preference_vectors')
       .select('*')
@@ -600,8 +606,8 @@ async function getUserProfile(userId: string): Promise<UserPreferenceVector | nu
     if (error && error.code !== 'PGRST116') throw error;
     return data;
   } catch (error) {
-    console.error('❌ Error fetching user profile:', error);
-    return null;
+    console.warn('⚠️ user_preference_vectors 테이블 접근 실패 (무시됨):', error);
+    return null; // 테이블이 없어도 계속 진행
   }
 }
 
@@ -670,6 +676,12 @@ async function findSimilarUsers(
 
 async function calculateUserPreferences(userId: string): Promise<UserPreferenceVector | null> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ calculateUserPreferences: userId is undefined or null');
+      return null;
+    }
+    
     const userBehaviors = await getUserBehaviors(userId, 100);
     
     if (userBehaviors.length === 0) return null;
@@ -715,15 +727,20 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
       last_updated: new Date().toISOString()
     };
 
-    // 데이터베이스에 저장
-    await supabase
-      .from('user_preference_vectors')
-      .upsert(preferences);
+    // 데이터베이스에 저장 (안전하게 처리)
+    try {
+      await supabase
+        .from('user_preference_vectors')
+        .upsert(preferences);
+    } catch (saveError) {
+      console.warn('⚠️ user_preference_vectors 테이블에 저장 실패 (무시됨):', saveError);
+      // 저장 실패해도 preferences는 반환 (메모리에서 사용)
+    }
 
     return preferences;
 
   } catch (error) {
-    console.error('❌ Error calculating user preferences:', error);
+    console.warn('⚠️ calculateUserPreferences 실패 (무시됨):', error);
     return null;
   }
 }

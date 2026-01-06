@@ -5,13 +5,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Crown } from 'lucide-react';
 import { getTopScoredRecentIdeas } from '@/services/ideaScoringService';
 import { getCategoryBasedScoredRecommendations } from '@/services/categoryBasedScoringRecommendation';
-import { usePremium } from '@/hooks/usePremium';
+// import { usePremium } from '@/hooks/usePremium'; // 프리미엄 훅 제거 - 모든 인증된 사용자에게 표시
 import { PremiumBadge } from './PremiumBadge';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 export function PremiumRecommendedIdeas() {
-  const { isPremium, loading: premiumLoading } = usePremium();
+  // const { isPremium, loading: premiumLoading } = usePremium(); // 프리미엄 훅 제거
   const { user, loading: authLoading } = useAuth();
   const [topScoredIdeas, setTopScoredIdeas] = useState<Array<{ idea: any; total_score: number }>>([]);
   const [loading, setLoading] = useState(false);
@@ -19,10 +19,16 @@ export function PremiumRecommendedIdeas() {
 
   // 로딩 상태와 프리미엄 상태를 메모이제이션하여 불필요한 리렌더링 방지
   const shouldRender = useMemo(() => {
-    const result = !premiumLoading && !authLoading && user;  // 임시로 프리미엄 체크 제거
-    console.log(`👑 Premium render check: authLoading=${authLoading}, premiumLoading=${premiumLoading}, user=${!!user}, isPremium=${isPremium}, shouldRender=${result}`);
+    // 인증 로딩이 끝나고 사용자가 있으면 렌더링 (프리미엄 체크 완전 제거)
+    const result = !authLoading && !!user;
+    
+    // 디버그 로그를 한 번만 실행
+    if (!authLoading && user) {
+      console.log(`👑 Premium component: user authenticated, rendering premium features`);
+    }
+    
     return result;
-  }, [premiumLoading, authLoading, user, isPremium]);
+  }, [authLoading, user]);
 
   useEffect(() => {
     // 로딩 중이거나 조건을 만족하지 않으면 아무것도 하지 않음
