@@ -61,8 +61,14 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
 
   // 추천 아이디어 로드
   const loadRecommendations = useCallback(async () => {
-    if (!user?.id) return;
+    console.log(`🔐 User check: ${user ? 'Logged in' : 'Not logged in'}, ID: ${user?.id}`);
+    
+    if (!user?.id) {
+      console.log('❌ No user ID, skipping recommendations');
+      return;
+    }
 
+    console.log('🚀 Starting recommendations load...');
     setIsLoading(true);
     setError(null);
 
@@ -77,6 +83,7 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
         diversityWeight
       );
 
+      console.log(`🎯 Recommendations received: ${recs.length} items`);
       setRecommendations(recs);
 
       // A/B 테스트 노출 로깅
@@ -112,7 +119,9 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
     } catch (err) {
       console.error('❌ Error loading recommendations:', err);
       setError('추천 아이디어를 불러오는 중 오류가 발생했습니다.');
+      setRecommendations([]); // 에러 시 빈 배열로 설정
     } finally {
+      console.log('✅ Recommendations loading finished');
       setIsLoading(false);
     }
   }, [user?.id, limit, getEffectiveStrategy, diversityWeight, experimentId, experimentVariant, sessionId]);

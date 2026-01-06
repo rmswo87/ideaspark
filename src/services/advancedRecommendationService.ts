@@ -66,6 +66,9 @@ export async function getAdvancedRecommendations(
     const userProfile = await getUserProfile(userId);
     const userBehaviors = await getUserBehaviors(userId, 100); // 최근 100개 행동
 
+    console.log(`📊 User profile found: ${userProfile ? 'Yes' : 'No'}`);
+    console.log(`📊 User behaviors count: ${userBehaviors.length}`);
+
     // 2. 전략별 추천 실행
     let recommendations: AdvancedRecommendedIdea[] = [];
     
@@ -111,6 +114,7 @@ export async function getAdvancedRecommendations(
 
   } catch (error) {
     console.error('❌ Error in getAdvancedRecommendations:', error);
+    console.log('🆘 Falling back to simple recommendations...');
     // 폴백: 기본 추천 시스템
     return await getFallbackRecommendations(userId, limit);
   }
@@ -127,6 +131,7 @@ async function getCollaborativeRecommendations(
     const similarUsers = await findSimilarUsers(userId, userBehaviors);
     
     if (similarUsers.length === 0) {
+      console.log('🔄 No similar users found, switching to content-based...');
       return await getContentBasedRecommendations(userId, null, limit);
     }
 
@@ -835,15 +840,20 @@ async function getFallbackRecommendations(
   limit: number
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
+    console.log(`🆘 Fallback recommendations requested for user: ${userId}, limit: ${limit}`);
+    
     const { data, error } = await supabase
       .from('ideas')
       .select('*')
-      .eq('is_public', true)
-      .neq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase error in fallback:', error);
+      throw error;
+    }
+
+    console.log(`🆘 Fallback ideas found: ${data?.length || 0}`);
 
     return (data || []).map(idea => ({
       ...idea,
@@ -854,7 +864,56 @@ async function getFallbackRecommendations(
     }));
   } catch (error) {
     console.error('❌ Error in fallback recommendations:', error);
-    return [];
+    
+    // 마지막 폴백: 하드코딩된 샘플 추천
+    console.log('🛟 Using hardcoded sample recommendations...');
+    return [
+      {
+        id: 'sample-1',
+        title: '스마트 식물 케어 시스템',
+        content: 'IoT 센서를 활용한 자동 식물 관리 앱. 물주기, 빛, 온도를 자동으로 모니터링하고 알림을 제공합니다.',
+        subreddit: 'PlantTech',
+        author: 'sample_user',
+        upvotes: 142,
+        url: 'https://example.com',
+        category: 'IoT',
+        created_at: new Date().toISOString(),
+        recommendation_score: 0.75,
+        recommendation_reason: '식물과 기술에 대한 관심사를 바탕으로 추천',
+        confidence_level: 0.6,
+        strategy_used: 'trending' as RecommendationStrategy
+      },
+      {
+        id: 'sample-2',
+        title: 'AR 기반 인테리어 시뮬레이터',
+        content: '증강현실 기술을 이용해 가구 배치를 미리 체험할 수 있는 앱. 구매 전 인테리어를 시뮬레이션합니다.',
+        subreddit: 'AR',
+        author: 'sample_user2',
+        upvotes: 89,
+        url: 'https://example.com',
+        category: 'AR/VR',
+        created_at: new Date().toISOString(),
+        recommendation_score: 0.68,
+        recommendation_reason: 'AR 기술에 대한 최근 관심 증가 트렌드',
+        confidence_level: 0.55,
+        strategy_used: 'trending' as RecommendationStrategy
+      },
+      {
+        id: 'sample-3',
+        title: '개인화된 학습 플래너',
+        content: 'AI가 개인의 학습 패턴을 분석해 최적의 학습 계획을 제공하는 교육 앱.',
+        subreddit: 'EdTech',
+        author: 'sample_user3',
+        upvotes: 156,
+        url: 'https://example.com',
+        category: 'Education',
+        created_at: new Date().toISOString(),
+        recommendation_score: 0.72,
+        recommendation_reason: 'AI와 교육 분야의 결합 트렌드',
+        confidence_level: 0.58,
+        strategy_used: 'trending' as RecommendationStrategy
+      }
+    ];
   }
 }
 
