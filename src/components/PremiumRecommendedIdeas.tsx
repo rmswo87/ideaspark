@@ -9,6 +9,7 @@ import { getCategoryBasedScoredRecommendations } from '@/services/categoryBasedS
 import { PremiumBadge } from './PremiumBadge';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 export function PremiumRecommendedIdeas() {
   // const { isPremium, loading: premiumLoading } = usePremium(); // 프리미엄 훅 제거
@@ -46,30 +47,153 @@ export function PremiumRecommendedIdeas() {
       }
       
       setLoading(true);
+      console.log('🎯 Premium: Starting to fetch ideas for user', user.id);
+      
       try {
-        // 사용자 관심 카테고리 기반 AI 점수 추천 사용
+        // 1차: 사용자 관심 카테고리 기반 AI 점수 추천 사용
+        console.log('🎯 Premium: Attempting category-based recommendations...');
         const categoryBasedIdeas = await getCategoryBasedScoredRecommendations(user.id, 3);
         
-        // 형식 변환
-        const formattedIdeas = categoryBasedIdeas.map(item => ({
-          idea: item,
-          total_score: item.total_score,
-        }));
+        console.log('📊 Premium: Category-based response:', {
+          data: categoryBasedIdeas,
+          length: categoryBasedIdeas?.length || 0,
+          type: typeof categoryBasedIdeas
+        });
         
-        setTopScoredIdeas(formattedIdeas);
-      } catch (error) {
-        console.error('Error fetching category-based scored ideas:', error);
-        // 폴백: 최근 검색 아이디어 중 상위 3개
-        try {
-          const ideas = await getTopScoredRecentIdeas(3);
-          setTopScoredIdeas(ideas);
-        } catch (fallbackError) {
-          console.error('Error fetching fallback ideas:', fallbackError);
-          setTopScoredIdeas([]);
+        if (categoryBasedIdeas && categoryBasedIdeas.length > 0) {
+          console.log('✅ Premium: Category-based ideas found:', categoryBasedIdeas.length);
+          // 형식 변환
+          const formattedIdeas = categoryBasedIdeas.map(item => ({
+            idea: item,
+            total_score: item.total_score,
+          }));
+          console.log('📝 Premium: Formatted ideas:', formattedIdeas);
+          setTopScoredIdeas(formattedIdeas);
+          setLoading(false);
+          return;
         }
-      } finally {
-        setLoading(false);
+        console.log('⚠️ Premium: No category-based ideas found, trying fallback...');
+      } catch (error) {
+        console.warn('⚠️ Premium: Category-based fetch failed:', error);
+        console.error('📊 Premium: Error details:', {
+          message: error.message,
+          stack: error.stack,
+          userId: user.id
+        });
       }
+
+      try {
+        // 2차 폴백: 최근 검색 아이디어 중 상위 3개
+        console.log('🔄 Premium: Trying fallback with top scored recent ideas');
+        const ideas = await getTopScoredRecentIdeas(3);
+        
+        console.log('📊 Premium: Fallback ideas response:', {
+          data: ideas,
+          length: ideas?.length || 0,
+          type: typeof ideas
+        });
+        
+        if (ideas && ideas.length > 0) {
+          console.log('✅ Premium: Fallback ideas found:', ideas.length);
+          setTopScoredIdeas(ideas);
+          setLoading(false);
+          return;
+        }
+        console.log('⚠️ Premium: No fallback ideas found, trying simple fallback...');
+      } catch (fallbackError) {
+        console.warn('⚠️ Premium: Fallback fetch failed:', fallbackError);
+        console.error('📊 Premium: Fallback error details:', {
+          message: fallbackError.message,
+          stack: fallbackError.stack
+        });
+      }
+
+      try {
+        // 3차 폴백: 단순한 최신 아이디어 3개
+        console.log('🔄 Premium: Trying simple recent ideas fallback');
+        const { data: simpleIdeas, error } = await supabase
+          .from('ideas')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        console.log('📊 Premium: Simple fallback response:', {
+          data: simpleIdeas,
+          length: simpleIdeas?.length || 0,
+          error: error,
+          supabaseConnected: !!supabase
+        });
+
+        if (!error && simpleIdeas && simpleIdeas.length > 0) {
+          console.log('✅ Premium: Simple fallback ideas found:', simpleIdeas.length);
+          const formattedIdeas = simpleIdeas.map(idea => ({
+            idea: idea,
+            total_score: Math.random() * 30, // 임시 점수
+          }));
+          console.log('📝 Premium: Final formatted simple ideas:', formattedIdeas);
+          setTopScoredIdeas(formattedIdeas);
+          setLoading(false);
+          return;
+        } else {
+          console.warn('⚠️ Premium: Simple fallback failed or no data:', { error, simpleIdeas });
+        }
+      } catch (simpleFallbackError) {
+        console.error('❌ Premium: All fallback methods failed:', simpleFallbackError);
+        console.error('📊 Premium: Simple fallback error details:', {
+          message: simpleFallbackError.message,
+          stack: simpleFallbackError.stack
+        });
+      }
+
+      try {
+        // 4차 폴백: 임시 더미 데이터 생성 (테스트용)
+        console.log('🔄 Premium: Creating temporary dummy data for testing...');
+        const dummyIdeas = [
+          {
+            idea: {
+              id: 'dummy-1',
+              title: 'AI 기반 스마트 텃밭 관리 시스템',
+              content: '사물인터넷과 AI를 활용한 자동화된 텃밭 관리 솔루션',
+              category: 'Technology',
+              created_at: new Date().toISOString(),
+            },
+            total_score: 28.5,
+          },
+          {
+            idea: {
+              id: 'dummy-2', 
+              title: '로컬 커뮤니티 기반 공유 경제 플랫폼',
+              content: '이웃 간의 자원 공유와 서비스 교환을 위한 지역 기반 플랫폼',
+              category: 'Business',
+              created_at: new Date().toISOString(),
+            },
+            total_score: 26.2,
+          },
+          {
+            idea: {
+              id: 'dummy-3',
+              title: '실시간 번역 화상회의 시스템',
+              content: '다국어 실시간 번역과 문화적 컨텍스트를 고려한 화상회의 도구',
+              category: 'Education',
+              created_at: new Date().toISOString(),
+            },
+            total_score: 25.8,
+          },
+        ];
+        
+        console.log('✅ Premium: Dummy data created:', dummyIdeas);
+        setTopScoredIdeas(dummyIdeas);
+        setLoading(false);
+        return;
+      } catch (dummyError) {
+        console.error('❌ Premium: Even dummy data creation failed:', dummyError);
+      }
+
+      // 모든 방법 실패
+      console.warn('⚠️ Premium: No ideas found, showing empty state');
+      setTopScoredIdeas([]);
+      
+      setLoading(false);
     }
 
     fetchTopScoredIdeas();

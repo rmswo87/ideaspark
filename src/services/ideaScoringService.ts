@@ -125,17 +125,27 @@ export async function getIdeaScore(ideaId: string): Promise<IdeaScore | null> {
  * 점수가 높은 아이디어 조회 (상위 N개)
  */
 export async function getTopScoredIdeas(limit: number = 10): Promise<Array<IdeaScore & { idea: Idea }>> {
+  console.log(`📊 IdeaScoring: Fetching top ${limit} scored ideas...`);
+  
   const { data: scores, error: scoresError } = await supabase
     .from('idea_scores')
     .select('id, idea_id, vitamin_score, competition_score, sexiness_score, total_score, difficulty_level, ai_analysis, is_recommended, recommended_at, analyzed_at, created_at, updated_at')
     .order('total_score', { ascending: false })
     .limit(limit);
 
+  console.log('📊 IdeaScoring: Scores query result:', {
+    scores: scores?.length || 0,
+    error: scoresError,
+    sampleData: scores?.slice(0, 1) // 첫 번째 데이터만
+  });
+
   if (scoresError) {
+    console.error('❌ IdeaScoring: Scores query error:', scoresError);
     throw scoresError;
   }
 
   if (!scores || scores.length === 0) {
+    console.warn('⚠️ IdeaScoring: No scores found');
     return [];
   }
 
@@ -167,9 +177,13 @@ export async function getTopScoredIdeas(limit: number = 10): Promise<Array<IdeaS
  * (최근 7일 이내에 조회된 아이디어 중)
  */
 export async function getTopScoredRecentIdeas(limit: number = 3): Promise<Array<IdeaScore & { idea: Idea }>> {
+  console.log(`📊 IdeaScoring: Fetching top ${limit} recent scored ideas...`);
+  
   // 최근 7일 이내 조회된 아이디어 ID 조회 (user_behaviors 테이블 사용)
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  console.log('📊 IdeaScoring: Searching for views since:', sevenDaysAgo.toISOString());
 
   const { data: recentViews, error: viewsError } = await supabase
     .from('user_behaviors')
@@ -178,14 +192,22 @@ export async function getTopScoredRecentIdeas(limit: number = 3): Promise<Array<
     .gte('created_at', sevenDaysAgo.toISOString())
     .order('created_at', { ascending: false });
 
+  console.log('📊 IdeaScoring: Recent views query result:', {
+    views: recentViews?.length || 0,
+    error: viewsError,
+    sampleViews: recentViews?.slice(0, 3) // 첫 3개 views
+  });
+
   if (viewsError) {
     console.error('Error fetching recent views:', viewsError);
     // 최근 조회 데이터가 없으면 전체 상위 아이디어 반환
+    console.log('📊 IdeaScoring: Fallback to general top scored ideas');
     return getTopScoredIdeas(limit);
   }
 
   if (!recentViews || recentViews.length === 0) {
     // 최근 조회가 없으면 전체 상위 아이디어 반환
+    console.log('📊 IdeaScoring: No recent views, fallback to general top scored ideas');
     return getTopScoredIdeas(limit);
   }
 

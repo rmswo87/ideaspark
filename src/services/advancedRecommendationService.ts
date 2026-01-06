@@ -127,6 +127,12 @@ async function getCollaborativeRecommendations(
   limit: number
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ getCollaborativeRecommendations: userId is undefined or null');
+      return await getTrendingRecommendations(limit);
+    }
+    
     // 유사한 사용자 찾기
     const similarUsers = await findSimilarUsers(userId, userBehaviors);
     
@@ -204,6 +210,12 @@ async function getContentBasedRecommendations(
   limit: number
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ getContentBasedRecommendations: userId is undefined or null');
+      return await getTrendingRecommendations(limit);
+    }
+    
     // 사용자의 과거 행동에서 선호하는 카테고리/태그 분석
     const userPreferences = userProfile || await calculateUserPreferences(userId);
     
@@ -277,6 +289,12 @@ async function getHybridRecommendations(
   limit: number
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ getHybridRecommendations: userId is undefined or null');
+      return await getTrendingRecommendations(limit);
+    }
+    
     // 협업 필터링과 컨텐츠 기반 필터링을 병렬로 실행
     const [collaborativeRecs, contentBasedRecs] = await Promise.all([
       getCollaborativeRecommendations(userId, userBehaviors, limit * 2),

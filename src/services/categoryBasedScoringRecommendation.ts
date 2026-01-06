@@ -19,8 +19,28 @@ export async function getCategoryBasedScoredRecommendations(
   limit: number = 10
 ): Promise<CategoryScoredIdea[]> {
   try {
+    console.log('🔍 CategoryBased: Starting recommendations for userId:', userId);
+    
+    // userId 안전성 검사
+    if (!userId) {
+      console.warn('⚠️ CategoryBased: userId is undefined or null');
+      const topScored = await getTopScoredIdeas(limit);
+      return topScored.map(item => ({
+        ...item.idea,
+        category: item.idea.category || 'general',
+        total_score: item.total_score,
+        recommendation_reason: `AI 평가 점수 ${item.total_score}/30점`,
+        category_preference_score: 0,
+      }));
+    }
+    
     // 1. 사용자의 행동 데이터 조회
+    console.log('📊 CategoryBased: Fetching user behaviors...');
     const behaviors = await getUserBehaviors(userId, 100);
+    console.log('📊 CategoryBased: User behaviors:', {
+      count: behaviors.length,
+      behaviors: behaviors.slice(0, 3) // 첫 3개만 로그
+    });
     
     if (behaviors.length === 0) {
       // 행동 데이터가 없으면 전체 상위 점수 아이디어 반환
