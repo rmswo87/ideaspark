@@ -276,9 +276,9 @@ export const RecommendationDashboard: React.FC<RecommendationDashboardProps> = (
                 <XAxis dataKey="strategy" />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value: number, name: string) => [
-                    `${value.toFixed(2)}${name.includes('rate') || name === 'ctr' ? '%' : ''}`,
-                    name === 'ctr' ? 'CTR' : name === 'conversion_rate' ? '전환율' : '노출수'
+                  formatter={(value, name) => [
+                    `${Number(value).toFixed(2)}${String(name).includes('rate') || String(name) === 'ctr' ? '%' : ''}`,
+                    String(name) === 'ctr' ? 'CTR' : String(name) === 'conversion_rate' ? '전환율' : '노출수'
                   ]}
                 />
                 <Legend />
@@ -448,7 +448,7 @@ export const RecommendationDashboard: React.FC<RecommendationDashboardProps> = (
                     cy="50%"
                     outerRadius={80}
                     dataKey="value"
-                    label={({ name, percent }: { name: string; percent: number }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    label={(entry: any) => `${entry.name} (${(entry.percent * 100).toFixed(0)}%)`}
                   >
                     {Object.entries(recommendation_metrics.strategy_performance).map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

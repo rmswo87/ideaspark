@@ -171,7 +171,7 @@ async function getCollaborativeRecommendations(
     const recommendations = Array.from(ideaScores.entries())
       .sort(([, a], [, b]) => b.score - a.score)
       .slice(0, limit * 2) // 추가 후보를 위해 2배 가져오기
-      .map(([ideaId, { idea, score, supporters }]): AdvancedRecommendedIdea => ({
+      .map(([, { idea, score, supporters }]): AdvancedRecommendedIdea => ({
         ...idea,
         recommendation_score: Math.min(score / similarUsers.length, 1.0),
         recommendation_reason: `${supporters.length}명의 유사한 사용자가 이 아이디어를 좋아했습니다`,
@@ -391,7 +391,7 @@ async function getTrendingRecommendations(limit: number): Promise<AdvancedRecomm
     return Array.from(trendingScores.entries())
       .sort(([, a], [, b]) => b.totalScore - a.totalScore)
       .slice(0, limit)
-      .map(([ideaId, trend]): AdvancedRecommendedIdea => ({
+      .map(([, trend]): AdvancedRecommendedIdea => ({
         ...trend.idea,
         recommendation_score: Math.min(trend.totalScore / 10, 1.0),
         recommendation_reason: `최근 7일 인기: 좋아요 ${trend.likes}개, 북마크 ${trend.bookmarks}개, PRD ${trend.prds}개`,
@@ -407,7 +407,7 @@ async function getTrendingRecommendations(limit: number): Promise<AdvancedRecomm
 
 // 5. 개인화된 트렌딩 추천
 async function getPersonalizedTrendingRecommendations(
-  userId: string,
+  _userId: string,
   userProfile: UserPreferenceVector | null,
   limit: number
 ): Promise<AdvancedRecommendedIdea[]> {
@@ -430,8 +430,8 @@ async function getPersonalizedTrendingRecommendations(
       // 태그 선호도 적용
       const ideaTags = Array.isArray(rec.tags) ? rec.tags : [rec.tags].filter(Boolean);
       let tagBonus = 0;
-      ideaTags.forEach((tag: string) => {
-        if (userProfile.tag_preferences[tag]) {
+      ideaTags.forEach((tag) => {
+        if (tag && userProfile.tag_preferences[tag]) {
           tagBonus += userProfile.tag_preferences[tag] * 0.1;
         }
       });
@@ -524,7 +524,7 @@ async function getDiversityMaximizingRecommendations(
 // 7. 세렌디피티 추천 (우연한 발견)
 async function getSerendipityRecommendations(
   userId: string,
-  userProfile: UserPreferenceVector | null,
+  _userProfile: UserPreferenceVector | null,
   limit: number
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
@@ -758,7 +758,7 @@ function calculateDiversity(idea1: AdvancedRecommendedIdea, idea2: AdvancedRecom
   const tags1 = Array.isArray(idea1.tags) ? idea1.tags : [idea1.tags].filter(Boolean);
   const tags2 = Array.isArray(idea2.tags) ? idea2.tags : [idea2.tags].filter(Boolean);
   
-  const commonTags = tags1.filter(tag => tags2.includes(tag));
+  const commonTags = tags1.filter(tag => tag && tags2.includes(tag));
   const tagDiversity = 1 - (commonTags.length / Math.max(tags1.length, tags2.length, 1));
   diversity += tagDiversity * 0.3;
 
@@ -797,9 +797,9 @@ function calculateIdeaQuality(idea: any): number {
 
 async function postProcessRecommendations(
   recommendations: AdvancedRecommendedIdea[],
-  userId: string,
-  strategy: RecommendationStrategy,
-  diversityWeight: number
+  _userId: string,
+  _strategy: RecommendationStrategy,
+  _diversityWeight: number
 ): Promise<AdvancedRecommendedIdea[]> {
   // 중복 제거
   const uniqueRecs = new Map<string, AdvancedRecommendedIdea>();
