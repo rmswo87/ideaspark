@@ -721,22 +721,28 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
     let totalInteractions = 0;
 
     // 행동 데이터에서 선호도 추출
-    userBehaviors.forEach(behavior => {
-      const weight = getActionWeight(behavior.action_type);
-      totalInteractions += weight;
+    try {
+      for (const behavior of userBehaviors) {
+        if (!behavior || !behavior.action_type) continue;
+        
+        const weight = getActionWeight(behavior.action_type);
+        totalInteractions += weight;
 
-      // 카테고리 선호도
-      const category = behavior.metadata?.category;
-      if (category) {
-        categoryWeights[category] = (categoryWeights[category] || 0) + weight;
-      }
+        // 카테고리 선호도
+        const category = behavior.metadata?.category;
+        if (category && typeof category === 'string') {
+          categoryWeights[category] = (categoryWeights[category] || 0) + weight;
+        }
 
-      // 서브레딧 선호도 (태그 역할)
-      const subreddit = behavior.metadata?.subreddit;
-      if (subreddit) {
-        tagPreferences[subreddit] = (tagPreferences[subreddit] || 0) + weight;
+        // 서브레딧 선호도 (태그 역할)
+        const subreddit = behavior.metadata?.subreddit;
+        if (subreddit && typeof subreddit === 'string') {
+          tagPreferences[subreddit] = (tagPreferences[subreddit] || 0) + weight;
+        }
       }
-    });
+    } catch (loopError) {
+      console.warn('⚠️ calculateUserPreferences: 행동 데이터 처리 중 오류:', loopError);
+    }
 
     // 정규화
     Object.keys(categoryWeights).forEach(category => {
@@ -761,9 +767,20 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
     try {
       await supabase
         .from('user_preference_vectors')
-        .upsert(preferences);
+        .upsert({
+          user_id: userId,
+          preferences: {
+            category_weights: categoryWeights,
+            tag_preferences: tagPreferences,
+            complexity_preference: 0.5,
+            novelty_preference: 0.5,
+            interaction_frequency: userBehaviors.length
+          },
+          category_weights: categoryWeights,
+          last_updated: new Date().toISOString()
+        });
     } catch (saveError) {
-      console.warn('⚠️ user_preference_vectors 테이블에 저장 실패 (무시됨):', saveError);
+      console.warn('⚠️ user_preference_vectors 테이블에 저장 실패 (테이블 없음, 무시됨):', saveError.message);
       // 저장 실패해도 preferences는 반환 (메모리에서 사용)
     }
 

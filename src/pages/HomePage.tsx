@@ -180,11 +180,26 @@ export function HomePage() {
         fetchStats();
       } else {
         const errorMsg = result.error || '알 수 없는 오류';
-        console.warn(`🤖 Auto-collection failed: ${errorMsg}`);
+        
+        // GitHub Pages CORS 제한 메시지는 더 친화적으로 표시
+        if (errorMsg.includes('GitHub Pages')) {
+          console.info('ℹ️ Auto-collection skipped: GitHub Pages 환경에서는 수집 기능이 제한됩니다');
+        } else if (errorMsg.includes('CORS')) {
+          console.info('ℹ️ Auto-collection skipped: CORS 정책으로 인해 수집이 제한됩니다');
+        } else {
+          console.warn(`🤖 Auto-collection failed: ${errorMsg}`);
+        }
         // 자동 수집 실패는 사용자에게 알리지 않음
       }
     } catch (error) {
-      console.warn('🤖 Auto-collection exception:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // GitHub Pages 또는 CORS 관련 오류는 조용히 처리
+      if (errorMessage.includes('GitHub Pages') || errorMessage.includes('CORS')) {
+        console.info('ℹ️ Auto-collection unavailable in current environment');
+      } else {
+        console.warn('🤖 Auto-collection exception:', error);
+      }
       // 자동 수집 실패는 사용자에게 알리지 않음
     }
   }

@@ -11,13 +11,23 @@ function getApiUrl(endpoint: string): string {
   const baseUrl = window.location.origin;
   const functionName = endpoint.replace('/api/', '');
   
+  // GitHub Pages 환경 감지 (CORS 문제 회피)
+  const isGitHubPages = window.location.hostname.includes('github.io');
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  console.log(`🌐 API URL 결정: 환경=${isGitHubPages ? 'GitHub Pages' : isLocalhost ? 'Localhost' : 'Other'}, Provider=${provider}`);
+  
+  // GitHub Pages에서는 CORS 문제로 인해 수집 기능을 비활성화
+  if (isGitHubPages && endpoint.includes('collect-ideas')) {
+    console.warn('⚠️ GitHub Pages에서는 수집 기능이 제한됩니다 (CORS 정책)');
+    throw new Error('GitHub Pages에서는 수집 기능을 사용할 수 없습니다');
+  }
+  
   // 환경 변수로 명시적으로 provider가 설정된 경우
-  if (provider === 'supabase') {
+  if (provider === 'supabase' && !isGitHubPages) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!supabaseUrl) {
-      if (import.meta.env.DEV) {
-        console.warn('[Collector] VITE_SUPABASE_URL not set, falling back to Vercel');
-      }
+      console.warn('[Collector] VITE_SUPABASE_URL not set, falling back to Vercel');
       return `${baseUrl}${endpoint}`;
     }
     // Supabase Edge Functions URL 직접 사용
@@ -25,9 +35,7 @@ function getApiUrl(endpoint: string): string {
   } else if (provider === 'cloudflare') {
     const workerUrl = import.meta.env.VITE_CLOUDFLARE_WORKER_URL;
     if (!workerUrl) {
-      if (import.meta.env.DEV) {
-        console.warn('[Collector] VITE_CLOUDFLARE_WORKER_URL not set, falling back to Vercel');
-      }
+      console.warn('[Collector] VITE_CLOUDFLARE_WORKER_URL not set, falling back to Vercel');
       return `${baseUrl}${endpoint}`;
     }
     return `${workerUrl}${endpoint}`;

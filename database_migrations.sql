@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS idea_scores (
   vitamin_score DECIMAL(4,2),
   competition_score DECIMAL(4,2),
   sexiness_score DECIMAL(4,2),
-  total_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+  total_score DECIMAL(5,2) GENERATED ALWAYS AS (
+    COALESCE(vitamin_score, 0) + COALESCE(competition_score, 0) + COALESCE(sexiness_score, 0)
+  ) STORED,
   difficulty_level VARCHAR(10) CHECK (difficulty_level IN ('하', '중', '상')),
   ai_analysis JSONB,
   is_recommended BOOLEAN DEFAULT FALSE,
@@ -145,14 +147,13 @@ CREATE POLICY "idea_implementations_user_policy" ON idea_implementations
 -- 샘플 데이터 삽입 (테스트용)
 -- 이 부분은 테이블이 생성된 후에 실행
 
--- ideas 테이블에 테스트 데이터가 있다면 점수 추가
-INSERT INTO idea_scores (idea_id, vitamin_score, competition_score, sexiness_score, total_score, difficulty_level, ai_analysis)
+-- ideas 테이블에 테스트 데이터가 있다면 점수 추가 (total_score는 자동 계산됨)
+INSERT INTO idea_scores (idea_id, vitamin_score, competition_score, sexiness_score, difficulty_level, ai_analysis)
 SELECT 
   id,
   ROUND((RANDOM() * 10)::NUMERIC, 2),
   ROUND((RANDOM() * 10)::NUMERIC, 2), 
   ROUND((RANDOM() * 10)::NUMERIC, 2),
-  ROUND((RANDOM() * 30)::NUMERIC, 2),
   CASE 
     WHEN RANDOM() < 0.33 THEN '하'
     WHEN RANDOM() < 0.66 THEN '중'
