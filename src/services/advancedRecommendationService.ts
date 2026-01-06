@@ -1,13 +1,13 @@
 import { supabase } from '@/lib/supabase';
 import type { Idea } from '@/services/ideaService';
 
-export type RecommendationStrategy = 
-  | 'collaborative' 
-  | 'content_based' 
-  | 'hybrid' 
-  | 'trending' 
-  | 'personalized_trending' 
-  | 'diversity_maximizing' 
+export type RecommendationStrategy =
+  | 'collaborative'
+  | 'content_based'
+  | 'hybrid'
+  | 'trending'
+  | 'personalized_trending'
+  | 'diversity_maximizing'
   | 'serendipity';
 
 export interface AdvancedRecommendedIdea extends Idea {
@@ -71,7 +71,7 @@ export async function getAdvancedRecommendations(
 
     // 2. 전략별 추천 실행
     let recommendations: AdvancedRecommendedIdea[] = [];
-    
+
     switch (strategy) {
       case 'collaborative':
         recommendations = await getCollaborativeRecommendations(userId, userBehaviors, limit);
@@ -100,8 +100,8 @@ export async function getAdvancedRecommendations(
 
     // 3. 후처리: 중복 제거, 최종 스코어 계산
     const finalRecommendations = await postProcessRecommendations(
-      recommendations, 
-      userId, 
+      recommendations,
+      userId,
       strategy,
       diversityWeight
     );
@@ -132,10 +132,10 @@ async function getCollaborativeRecommendations(
       console.warn('⚠️ getCollaborativeRecommendations: userId is undefined or null');
       return await getTrendingRecommendations(limit);
     }
-    
+
     // 유사한 사용자 찾기
     const similarUsers = await findSimilarUsers(userId, userBehaviors);
-    
+
     if (similarUsers.length === 0) {
       console.log('🔄 No similar users found, switching to content-based...');
       return await getContentBasedRecommendations(userId, null, limit);
@@ -160,15 +160,15 @@ async function getCollaborativeRecommendations(
 
     // 협업 점수 계산
     const ideaScores = new Map<string, { idea: any; score: number; supporters: string[] }>();
-    
+
     similarUserIdeas?.forEach(item => {
       const ideaId = item.idea_id;
       const idea = item.ideas;
-      
+
       // user_behaviors 테이블에서 실제 사용자 ID를 가져오기 위해
       // 별도 쿼리가 필요하지만, 임시로 supporter를 아이디어 제목으로 대체
       const supporterInfo = `similar_user`;
-      
+
       if (ideaScores.has(ideaId)) {
         const existing = ideaScores.get(ideaId)!;
         existing.score += 1;
@@ -215,10 +215,10 @@ async function getContentBasedRecommendations(
       console.warn('⚠️ getContentBasedRecommendations: userId is undefined or null');
       return await getTrendingRecommendations(limit);
     }
-    
+
     // 사용자의 과거 행동에서 선호하는 카테고리/태그 분석
     const userPreferences = userProfile || await calculateUserPreferences(userId);
-    
+
     if (!userPreferences) {
       return await getTrendingRecommendations(limit);
     }
@@ -239,23 +239,25 @@ async function getContentBasedRecommendations(
       let matchingFactors: string[] = [];
 
       // 카테고리 매칭
-      if (userPreferences.category_weights[idea.category]) {
-        const categoryScore = userPreferences.category_weights[idea.category];
+      const categoryWeights = userPreferences.category_weights || {};
+      if (idea.category && categoryWeights[idea.category]) {
+        const categoryScore = categoryWeights[idea.category];
         contentScore += categoryScore * 0.4;
         matchingFactors.push(`${idea.category} 카테고리`);
       }
 
       // 서브레딧(태그 역할) 매칭
-      let tagScore = 0;
-      if (idea.subreddit && userPreferences.tag_preferences[idea.subreddit]) {
-        tagScore = userPreferences.tag_preferences[idea.subreddit];
+      const tagPreferences = userPreferences.tag_preferences || {};
+      if (idea.subreddit && tagPreferences[idea.subreddit]) {
+        const tagScore = tagPreferences[idea.subreddit];
+        contentScore += tagScore * 0.4;
         matchingFactors.push(`r/${idea.subreddit}`);
       }
-      contentScore += tagScore * 0.4;
 
       // 복잡도 매칭 (메타데이터에서 복잡도 정보가 있다면)
       const ideaComplexity = idea.metadata?.complexity || 0.5;
-      const complexityDiff = Math.abs(ideaComplexity - userPreferences.complexity_preference);
+      const userComplexityPref = userPreferences.complexity_preference ?? 0.5;
+      const complexityDiff = Math.abs(ideaComplexity - userComplexityPref);
       const complexityScore = 1 - complexityDiff;
       contentScore += complexityScore * 0.2;
 
@@ -294,7 +296,7 @@ async function getHybridRecommendations(
       console.warn('⚠️ getHybridRecommendations: userId is undefined or null');
       return await getTrendingRecommendations(limit);
     }
-    
+
     // 협업 필터링과 컨텐츠 기반 필터링을 병렬로 실행
     const [collaborativeRecs, contentBasedRecs] = await Promise.all([
       getCollaborativeRecommendations(userId, userBehaviors, limit * 2),
@@ -320,7 +322,7 @@ async function getHybridRecommendations(
         const existing = hybridScores.get(rec.id)!;
         existing.recommendation_score += rec.recommendation_score * 0.4;
         existing.confidence_level = Math.min(
-          (existing.confidence_level + rec.confidence_level) / 2 * 1.2, 
+          (existing.confidence_level + rec.confidence_level) / 2 * 1.2,
           1.0
         );
         existing.recommendation_reason += ` + ${rec.recommendation_reason}`;
@@ -369,18 +371,18 @@ async function getTrendingRecommendations(limit: number): Promise<AdvancedRecomm
     if (error) throw error;
 
     // 트렌딩 스코어 계산
-    const trendingScores = new Map<string, { 
-      idea: any; 
-      likes: number; 
-      bookmarks: number; 
-      prds: number; 
-      totalScore: number; 
+    const trendingScores = new Map<string, {
+      idea: any;
+      likes: number;
+      bookmarks: number;
+      prds: number;
+      totalScore: number;
     }>();
 
     trendingData?.forEach(item => {
       const ideaId = item.idea_id;
       const idea = item.ideas;
-      
+
       if (!trendingScores.has(ideaId)) {
         trendingScores.set(ideaId, {
           idea,
@@ -392,7 +394,7 @@ async function getTrendingRecommendations(limit: number): Promise<AdvancedRecomm
       }
 
       const trend = trendingScores.get(ideaId)!;
-      
+
       switch (item.action_type) {
         case 'like':
           trend.likes += 1;
@@ -434,7 +436,7 @@ async function getPersonalizedTrendingRecommendations(
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
     const trendingRecs = await getTrendingRecommendations(limit * 3);
-    
+
     if (!userProfile) {
       return trendingRecs.slice(0, limit);
     }
@@ -483,9 +485,9 @@ async function getDiversityMaximizingRecommendations(
     // 초기 후보군 생성 (하이브리드 방식으로)
     const userBehaviors = await getUserBehaviors(userId, 50);
     const candidateRecs = await getHybridRecommendations(
-      userId, 
-      userProfile, 
-      userBehaviors, 
+      userId,
+      userProfile,
+      userBehaviors,
       limit * 5 // 더 많은 후보군
     );
 
@@ -568,27 +570,27 @@ async function getSerendipityRecommendations(
     serendipityIdeas?.forEach(idea => {
       // 새로운 카테고리인지 확인
       const isNewCategory = !interactedCategories.has(idea.category);
-      
+
       // 새로운 서브레딧인지 확인
       const isNewSubreddit = idea.subreddit && !interactedSubreddits.has(idea.subreddit) ? 1 : 0;
-      
+
       // 세렌디피티 스코어 계산
       let serendipityScore = 0;
-      
+
       if (isNewCategory) {
         serendipityScore += 0.6;
       }
-      
+
       serendipityScore += isNewSubreddit * 0.4;
 
       // 아이디어 품질 지표 (좋아요, 북마크 수 등)로 필터링
       const qualityScore = calculateIdeaQuality(idea);
-      
+
       if (serendipityScore > 0.3 && qualityScore > 0.5) {
         serendipityRecs.push({
           ...idea,
           recommendation_score: serendipityScore * qualityScore,
-          recommendation_reason: `새로운 발견: ${isNewCategory ? `새로운 카테고리 ${idea.category}` : ''} ${newTagsCount > 0 ? `새로운 태그 ${newTagsCount}개` : ''}`,
+          recommendation_reason: `새로운 발견: ${isNewCategory ? `새로운 카테고리 ${idea.category}` : ''}`,
           confidence_level: qualityScore,
           strategy_used: 'serendipity'
         });
@@ -614,7 +616,7 @@ async function getUserProfile(userId: string): Promise<UserPreferenceVector | nu
       console.warn('⚠️ getUserProfile: userId is undefined or null');
       return null;
     }
-    
+
     const { data, error } = await supabase
       .from('user_preference_vectors')
       .select('*')
@@ -636,7 +638,7 @@ async function getUserBehaviors(userId: string, limit: number): Promise<UserBeha
       console.warn('⚠️ getUserBehaviors: userId is undefined or null');
       return [];
     }
-    
+
     const { data, error } = await supabase
       .from('user_behaviors')
       .select('*')
@@ -653,7 +655,7 @@ async function getUserBehaviors(userId: string, limit: number): Promise<UserBeha
 }
 
 async function findSimilarUsers(
-  userId: string, 
+  userId: string,
   userBehaviors: UserBehavior[]
 ): Promise<{ user_id: string; similarity: number }[]> {
   try {
@@ -662,11 +664,11 @@ async function findSimilarUsers(
       console.warn('⚠️ findSimilarUsers: userId is undefined or null');
       return [];
     }
-    
+
     if (userBehaviors.length === 0) return [];
 
     const userIdeaIds = userBehaviors.map(b => b.idea_id);
-    
+
     // 같은 아이디어에 관심을 보인 다른 사용자들 찾기
     const { data, error } = await supabase
       .from('user_behaviors')
@@ -679,7 +681,7 @@ async function findSimilarUsers(
 
     // 자카드 유사도 계산
     const userSimilarities = new Map<string, number>();
-    
+
     data?.forEach(behavior => {
       const otherUserId = behavior.user_id;
       if (!userSimilarities.has(otherUserId)) {
@@ -711,9 +713,9 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
       console.warn('⚠️ calculateUserPreferences: userId is undefined or null');
       return null;
     }
-    
+
     const userBehaviors = await getUserBehaviors(userId, 100);
-    
+
     if (userBehaviors.length === 0) return null;
 
     const categoryWeights: Record<string, number> = {};
@@ -724,7 +726,7 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
     try {
       for (const behavior of userBehaviors) {
         if (!behavior || !behavior.action_type) continue;
-        
+
         const weight = getActionWeight(behavior.action_type);
         totalInteractions += weight;
 
@@ -779,8 +781,8 @@ async function calculateUserPreferences(userId: string): Promise<UserPreferenceV
           category_weights: categoryWeights,
           last_updated: new Date().toISOString()
         });
-    } catch (saveError) {
-      console.warn('⚠️ user_preference_vectors 테이블에 저장 실패 (테이블 없음, 무시됨):', saveError.message);
+    } catch (saveError: any) {
+      console.warn('⚠️ user_preference_vectors 테이블에 저장 실패 (테이블 없음, 무시됨):', saveError.message || saveError);
       // 저장 실패해도 preferences는 반환 (메모리에서 사용)
     }
 
@@ -800,6 +802,7 @@ function getActionWeight(actionType: string): number {
     case 'generate_prd': return 5;
     case 'share': return 4;
     case 'copy': return 3;
+    case 'click': return 1;
     default: return 1;
   }
 }
@@ -815,7 +818,7 @@ function calculateDiversity(idea1: AdvancedRecommendedIdea, idea2: AdvancedRecom
   // 서브레딧 다양성
   const subreddit1 = idea1.subreddit;
   const subreddit2 = idea2.subreddit;
-  
+
   if (subreddit1 && subreddit2) {
     const subredditDiversity = subreddit1 !== subreddit2 ? 1 : 0;
     diversity += subredditDiversity * 0.3;
@@ -837,11 +840,11 @@ function calculateIdeaQuality(idea: any): number {
 
   // 메타데이터에서 품질 지표 추출
   const metadata = idea.metadata || {};
-  
+
   if (metadata.likes_count) {
     quality += Math.min(metadata.likes_count / 50, 0.3);
   }
-  
+
   if (metadata.bookmarks_count) {
     quality += Math.min(metadata.bookmarks_count / 20, 0.2);
   }
@@ -856,13 +859,13 @@ function calculateIdeaQuality(idea: any): number {
 
 async function postProcessRecommendations(
   recommendations: AdvancedRecommendedIdea[],
-  _userId: string,
+  userId: string,
   _strategy: RecommendationStrategy,
   _diversityWeight: number
 ): Promise<AdvancedRecommendedIdea[]> {
   // 중복 제거
   const uniqueRecs = new Map<string, AdvancedRecommendedIdea>();
-  
+
   recommendations.forEach(rec => {
     if (!uniqueRecs.has(rec.id) || uniqueRecs.get(rec.id)!.recommendation_score < rec.recommendation_score) {
       uniqueRecs.set(rec.id, rec);
@@ -870,6 +873,8 @@ async function postProcessRecommendations(
   });
 
   // 사용자가 이미 상호작용한 아이디어 제외
+  if (!userId) return Array.from(uniqueRecs.values());
+
   const userBehaviors = await getUserBehaviors(userId, 1000);
   const interactedIdeaIds = new Set(userBehaviors.map(b => b.idea_id));
 
@@ -904,7 +909,7 @@ async function getFallbackRecommendations(
 ): Promise<AdvancedRecommendedIdea[]> {
   try {
     console.log(`🆘 Fallback recommendations requested for user: ${userId}, limit: ${limit}`);
-    
+
     const { data, error } = await supabase
       .from('ideas')
       .select('*')
@@ -927,7 +932,7 @@ async function getFallbackRecommendations(
     }));
   } catch (error) {
     console.error('❌ Error in fallback recommendations:', error);
-    
+
     // 마지막 폴백: 하드코딩된 샘플 추천
     console.log('🛟 Using hardcoded sample recommendations...');
     return [
@@ -1006,7 +1011,7 @@ export async function trackUserBehavior(
 
     // 사용자 선호도 벡터 업데이트 (비동기)
     updateUserPreferenceVector(userId).catch(console.error);
-    
+
   } catch (error) {
     console.error('❌ Error tracking user behavior:', error);
     // 사용자 행동 추적 실패는 치명적이지 않으므로 무시
@@ -1020,7 +1025,7 @@ async function updateUserPreferenceVector(userId: string): Promise<void> {
       console.warn('⚠️ updateUserPreferenceVector: userId is undefined or null');
       return;
     }
-    
+
     // 사용자 선호도 벡터 재계산 및 업데이트
     const updatedPreferences = await calculateUserPreferences(userId);
     if (updatedPreferences) {

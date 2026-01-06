@@ -22,12 +22,12 @@ export function PremiumRecommendedIdeas() {
   const shouldRender = useMemo(() => {
     // 인증 로딩이 끝나고 사용자가 있으면 렌더링 (프리미엄 체크 완전 제거)
     const result = !authLoading && !!user;
-    
+
     // 디버그 로그를 한 번만 실행
     if (!authLoading && user) {
       console.log(`👑 Premium component: user authenticated, rendering premium features`);
     }
-    
+
     return result;
   }, [authLoading, user]);
 
@@ -45,35 +45,40 @@ export function PremiumRecommendedIdeas() {
         setTopScoredIdeas([]);
         return;
       }
-      
+
       setLoading(true);
       console.log('🎯 Premium: Starting to fetch ideas for user', user.id);
-      
+
       try {
         // 1차: 사용자 관심 카테고리 기반 AI 점수 추천 사용
         console.log('🎯 Premium: Attempting category-based recommendations...');
         const categoryBasedIdeas = await getCategoryBasedScoredRecommendations(user.id, 3);
-        
+
         console.log('📊 Premium: Category-based response:', {
           data: categoryBasedIdeas,
           length: categoryBasedIdeas?.length || 0,
           type: typeof categoryBasedIdeas
         });
-        
+
         if (categoryBasedIdeas && categoryBasedIdeas.length > 0) {
           console.log('✅ Premium: Category-based ideas found:', categoryBasedIdeas.length);
-          // 형식 변환
-          const formattedIdeas = categoryBasedIdeas.map(item => ({
-            idea: item,
-            total_score: item.total_score,
-          }));
-          console.log('📝 Premium: Formatted ideas:', formattedIdeas);
-          setTopScoredIdeas(formattedIdeas);
-          setLoading(false);
-          return;
+          // 형식 변환 및 고품질 필터링 (20점 이상만 추천)
+          const formattedIdeas = categoryBasedIdeas
+            .filter(item => item.total_score >= 20)
+            .map(item => ({
+              idea: item,
+              total_score: item.total_score,
+            }));
+
+          if (formattedIdeas.length > 0) {
+            console.log('📝 Premium: Formatted high-quality ideas:', formattedIdeas);
+            setTopScoredIdeas(formattedIdeas);
+            setLoading(false);
+            return;
+          }
         }
         console.log('⚠️ Premium: No category-based ideas found, trying fallback...');
-      } catch (error) {
+      } catch (error: any) {
         console.warn('⚠️ Premium: Category-based fetch failed:', error);
         console.error('📊 Premium: Error details:', {
           message: error.message,
@@ -86,13 +91,13 @@ export function PremiumRecommendedIdeas() {
         // 2차 폴백: 최근 검색 아이디어 중 상위 3개
         console.log('🔄 Premium: Trying fallback with top scored recent ideas');
         const ideas = await getTopScoredRecentIdeas(3);
-        
+
         console.log('📊 Premium: Fallback ideas response:', {
           data: ideas,
           length: ideas?.length || 0,
           type: typeof ideas
         });
-        
+
         if (ideas && ideas.length > 0) {
           console.log('✅ Premium: Fallback ideas found:', ideas.length);
           setTopScoredIdeas(ideas);
@@ -100,7 +105,7 @@ export function PremiumRecommendedIdeas() {
           return;
         }
         console.log('⚠️ Premium: No fallback ideas found, trying simple fallback...');
-      } catch (fallbackError) {
+      } catch (fallbackError: any) {
         console.warn('⚠️ Premium: Fallback fetch failed:', fallbackError);
         console.error('📊 Premium: Fallback error details:', {
           message: fallbackError.message,
@@ -137,7 +142,7 @@ export function PremiumRecommendedIdeas() {
         } else {
           console.warn('⚠️ Premium: Simple fallback failed or no data:', { error, simpleIdeas });
         }
-      } catch (simpleFallbackError) {
+      } catch (simpleFallbackError: any) {
         console.error('❌ Premium: All fallback methods failed:', simpleFallbackError);
         console.error('📊 Premium: Simple fallback error details:', {
           message: simpleFallbackError.message,
@@ -161,7 +166,7 @@ export function PremiumRecommendedIdeas() {
           },
           {
             idea: {
-              id: 'dummy-2', 
+              id: 'dummy-2',
               title: '로컬 커뮤니티 기반 공유 경제 플랫폼',
               content: '이웃 간의 자원 공유와 서비스 교환을 위한 지역 기반 플랫폼',
               category: 'Business',
@@ -180,7 +185,7 @@ export function PremiumRecommendedIdeas() {
             total_score: 25.8,
           },
         ];
-        
+
         console.log('✅ Premium: Dummy data created:', dummyIdeas);
         setTopScoredIdeas(dummyIdeas);
         setLoading(false);
@@ -192,7 +197,7 @@ export function PremiumRecommendedIdeas() {
       // 모든 방법 실패
       console.warn('⚠️ Premium: No ideas found, showing empty state');
       setTopScoredIdeas([]);
-      
+
       setLoading(false);
     }
 
@@ -251,46 +256,46 @@ export function PremiumRecommendedIdeas() {
   return (
     <div id="premium-recommended-ideas-section" className="mb-4 sm:mb-6 md:mb-8 w-full max-w-full overflow-x-hidden">
       <Card className="w-full max-w-full overflow-hidden border-primary/20 bg-primary/5 backdrop-blur-sm">
-      <CardHeader className="px-3 sm:px-6 pb-3 sm:pb-4">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0">
-          <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
-          <span className="min-w-0 break-words">프리미엄 추천 아이디어</span>
-          <PremiumBadge className="ml-auto" variant="outline" />
-        </CardTitle>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2 min-w-0 break-words">
-          관심 카테고리 내에서 AI 평가 점수가 높은 상위 3개를 추천합니다
-        </p>
-      </CardHeader>
-      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 w-full max-w-full overflow-x-hidden">
-          {topScoredIdeas.map((item) => {
-            const ideaId = item.idea?.id;
-            const score = item.total_score;
-            return (
-              <div key={ideaId || 'unknown'} className="w-full min-w-0 max-w-full" style={{ boxSizing: 'border-box' }}>
-                <IdeaCard
-                  idea={item.idea}
-                  recommendationReason={`AI 평가 점수: ${score}/30점`}
-                  onCardClick={() => {
-                    if (ideaId) {
-                      navigate(`/idea/${ideaId}`);
-                    }
-                  }}
-                  formatDate={(dateString) => {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('ko-KR', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    });
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+        <CardHeader className="px-3 sm:px-6 pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0">
+            <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
+            <span className="min-w-0 break-words">프리미엄 추천 아이디어</span>
+            <PremiumBadge className="ml-auto" variant="outline" />
+          </CardTitle>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 sm:mt-2 min-w-0 break-words">
+            관심 카테고리 내에서 AI 평가 점수가 높은 상위 3개를 추천합니다
+          </p>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 w-full max-w-full overflow-x-hidden">
+            {topScoredIdeas.map((item) => {
+              const ideaId = item.idea?.id;
+              const score = item.total_score;
+              return (
+                <div key={ideaId || 'unknown'} className="w-full min-w-0 max-w-full" style={{ boxSizing: 'border-box' }}>
+                  <IdeaCard
+                    idea={item.idea}
+                    recommendationReason={`AI 평가 점수: ${score}/30점`}
+                    onCardClick={() => {
+                      if (ideaId) {
+                        navigate(`/idea/${ideaId}`);
+                      }
+                    }}
+                    formatDate={(dateString) => {
+                      const date = new Date(dateString);
+                      return date.toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      });
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

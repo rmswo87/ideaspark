@@ -10,19 +10,19 @@ function getApiUrl(endpoint: string): string {
   const provider = import.meta.env.VITE_API_PROVIDER;
   const baseUrl = window.location.origin;
   const functionName = endpoint.replace('/api/', '');
-  
+
   // GitHub Pages 환경 감지 (CORS 문제 회피)
   const isGitHubPages = window.location.hostname.includes('github.io');
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  
+
   console.log(`🌐 API URL 결정: 환경=${isGitHubPages ? 'GitHub Pages' : isLocalhost ? 'Localhost' : 'Other'}, Provider=${provider}`);
-  
+
   // GitHub Pages에서는 CORS 문제로 인해 수집 기능을 비활성화
   if (isGitHubPages && endpoint.includes('collect-ideas')) {
     console.warn('⚠️ GitHub Pages에서는 수집 기능이 제한됩니다 (CORS 정책)');
     throw new Error('GitHub Pages에서는 수집 기능을 사용할 수 없습니다');
   }
-  
+
   // 환경 변수로 명시적으로 provider가 설정된 경우
   if (provider === 'supabase' && !isGitHubPages) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -43,7 +43,7 @@ function getApiUrl(endpoint: string): string {
     // Vercel 명시적으로 설정된 경우
     return `${baseUrl}${endpoint}`;
   }
-  
+
   // provider가 설정되지 않은 경우: Vercel 기본값
   // 로컬 개발 환경에서는 Vercel Edge Function이 작동하지 않을 수 있지만,
   // 프로덕션 환경(Vercel 배포)에서는 정상 작동합니다
@@ -67,38 +67,38 @@ export async function collectIdeas(): Promise<{
     // 서버 사이드 API 호출
     // GitHub Pages 환경에서는 Supabase Edge Function 사용, Vercel에서는 Vercel API 사용
     const isGitHubPages = window.location.hostname.includes('github.io');
-    const apiUrl = isGitHubPages 
+    const apiUrl = isGitHubPages
       ? getApiUrl('/api/collect-ideas') // GitHub Pages: Supabase Edge Function
       : `${window.location.origin}/api/collect-ideas`; // Vercel: Vercel API
-    
+
     if (import.meta.env.DEV) {
       console.log('[Collector] Calling API:', apiUrl);
     }
-    
+
     // Supabase Edge Function인 경우 API key 헤더 추가
     const isSupabaseFunction = apiUrl.includes('/functions/v1/');
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
-    
-    if (isSupabaseFunction) {
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (supabaseAnonKey) {
-        headers['apikey'] = supabaseAnonKey;
-        headers['Authorization'] = `Bearer ${supabaseAnonKey}`;
-      } else {
-        // supabase 클라이언트에서 키 가져오기
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`;
-        }
-        // anon key는 supabase 클라이언트에서 가져올 수 없으므로 환경 변수 필수
+
+    // Vercel API 또는 Supabase Function 모두 인증이 필요할 수 있으므로 토큰 추가
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (isSupabaseFunction && supabaseAnonKey) {
+      headers['apikey'] = supabaseAnonKey;
+      headers['Authorization'] = `Bearer ${supabaseAnonKey}`;
+    } else {
+      // supabase 클라이언트에서 세션 토큰 가져오기 (Vercel API에서도 관리자 확인용으로 필요)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      } else if (isSupabaseFunction) {
+        // supabase function인데 토큰이 없으면 경고
         if (import.meta.env.DEV) {
-          console.warn('[Collector] VITE_SUPABASE_ANON_KEY not set, API call may fail');
+          console.warn('[Collector] VITE_SUPABASE_ANON_KEY not set and no session found, API call may fail');
         }
       }
     }
-    
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers,
@@ -122,7 +122,7 @@ export async function collectIdeas(): Promise<{
         console.error('[Collector] API URL:', apiUrl);
         console.error('[Collector] Response status:', response.status);
       }
-      
+
       throw new Error(errorData.error || errorData.message || `API error: ${response.status}`);
     }
 
@@ -132,7 +132,8 @@ export async function collectIdeas(): Promise<{
         success: result.success,
         count: result.count,
         ideasLength: result.ideas?.length || 0,
-      });    }
+      });
+    }
 
     if (!result.success) {
       return {
@@ -146,7 +147,7 @@ export async function collectIdeas(): Promise<{
     if (result.ideas && result.ideas.length > 0) {
       if (import.meta.env.DEV) {
         console.log('[Collector] Saving', result.ideas.length, 'ideas to database...');
-      }      
+      }
       // RedditPost 형식으로 변환
       const ideas: RedditPost[] = result.ideas.map((idea: any) => ({
         redditId: idea.redditId,
@@ -155,7 +156,7 @@ export async function collectIdeas(): Promise<{
         subreddit: idea.subreddit,
         author: idea.author,
         upvotes: idea.upvotes,
-        numComments: idea.numComments || 0,        url: idea.url,
+        numComments: idea.numComments || 0, url: idea.url,
         createdAt: new Date(idea.createdAt),
       }));
 
@@ -169,7 +170,8 @@ export async function collectIdeas(): Promise<{
           console.error('[Collector] Error saving ideas to database:', saveError);
         }
         throw saveError;
-      }    }
+      }
+    }
 
     return {
       success: true,
@@ -179,10 +181,10 @@ export async function collectIdeas(): Promise<{
     if (import.meta.env.DEV) {
       console.error('[Collector] Collection error:', error);
     }
-    
+
     // 에러 메시지 개선
     let errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     // Supabase Edge Function 404 에러인 경우 더 명확한 메시지
     if (errorMessage.includes('Supabase Edge Function이 배포되지 않았습니다')) {
       // 이미 명확한 메시지가 있음
@@ -194,11 +196,12 @@ export async function collectIdeas(): Promise<{
         `4. 함수 배포: supabase functions deploy collect-ideas --no-verify-jwt\n` +
         `5. 환경 변수 설정: supabase secrets set REDDIT_CLIENT_ID=... REDDIT_CLIENT_SECRET=...`;
     }
-    
+
     return {
       success: false,
       count: 0,
-      error: errorMessage,    };
+      error: errorMessage,
+    };
   }
 }
 

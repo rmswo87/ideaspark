@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  getAdvancedRecommendations, 
+import {
+  getAdvancedRecommendations,
   trackUserBehavior,
   RecommendationStrategy,
   AdvancedRecommendedIdea
 } from '@/services/advancedRecommendationService';
-import { 
+import {
   assignUserToExperiment,
   logExperimentPerformance
 } from '@/services/recommendationAnalyticsService';
 // Temporarily commented out to fix TypeScript errors
-// import { IdeaCard } from './IdeaCard';
+import { useNavigate } from 'react-router-dom';
+import { IdeaCard } from './IdeaCard';
 import { Loader2, Brain, TrendingUp, Shuffle, Eye, RefreshCw } from 'lucide-react';
 
 interface AdvancedRecommendedIdeasProps {
@@ -30,6 +31,7 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
   className = ''
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<AdvancedRecommendedIdea[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [strategy, setStrategy] = useState<RecommendationStrategy>('hybrid');
@@ -62,7 +64,7 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
   // 추천 아이디어 로드
   const loadRecommendations = useCallback(async () => {
     console.log(`🔐 User check: ${user ? 'Logged in' : 'Not logged in'}, ID: ${user?.id}`);
-    
+
     if (!user?.id) {
       console.log('❌ No user ID, skipping recommendations');
       return;
@@ -108,7 +110,7 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
         'recommendation_view',
         'view',
         undefined,
-        { 
+        {
           strategy: effectiveStrategy,
           count: recs.length,
           session_id: sessionId,
@@ -146,9 +148,9 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
           idea.id,
           index,
           sessionId,
-          { 
+          {
             recommendation_score: idea.recommendation_score,
-            strategy_used: idea.strategy_used 
+            strategy_used: idea.strategy_used
           }
         );
       }
@@ -167,44 +169,13 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
         }
       );
 
+      // 상세 페이지로 이동
+      navigate(`/idea/${idea.id}`);
+
     } catch (error) {
       console.error('❌ Error tracking click:', error);
-    }
-  };
-
-  // 아이디어 좋아요 처리
-  const handleIdeaLike = async (idea: AdvancedRecommendedIdea, index: number) => {
-    if (!user?.id) return;
-
-    try {
-      // A/B 테스트 전환 로깅
-      if (experimentId) {
-        await logExperimentPerformance(
-          experimentId,
-          user.id,
-          experimentVariant,
-          'like',
-          idea.id,
-          index,
-          sessionId,
-          { conversion_type: 'like' }
-        );
-      }
-
-      // 사용자 행동 추적
-      await trackUserBehavior(
-        user.id,
-        idea.id,
-        'like',
-        undefined,
-        { 
-          recommendation_context: true,
-          session_id: sessionId
-        }
-      );
-
-    } catch (error) {
-      console.error('❌ Error tracking like:', error);
+      // 트래킹 실패해도 이동은 진행
+      navigate(`/idea/${idea.id}`);
     }
   };
 
@@ -351,71 +322,30 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
             {recommendations.map((idea, index) => (
               <div key={idea.id} className="relative group">
                 {/* 추천 스코어 배지 */}
-                <div className="absolute -top-2 -right-2 z-10 flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 text-xs shadow-sm">
-                  <div className={`w-2 h-2 rounded-full ${
-                    idea.recommendation_score > 0.8 ? 'bg-green-500' :
+                <div className="absolute -top-2 right-3 z-[20] flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 text-xs shadow-sm">
+                  <div className={`w-2 h-2 rounded-full ${idea.recommendation_score > 0.8 ? 'bg-green-500' :
                     idea.recommendation_score > 0.6 ? 'bg-yellow-500' :
-                    'bg-gray-400'
-                  }`} />
-                  <span className="text-gray-700 font-medium">
+                      'bg-gray-400'
+                    }`} />
+                  <span className="text-gray-700 font-medium font-sans">
                     {Math.round(idea.recommendation_score * 100)}%
                   </span>
                 </div>
 
                 {/* 아이디어 카드 */}
-                <div 
-                  onClick={() => handleIdeaClick(idea, index)}
-                  className="cursor-pointer transition-transform group-hover:scale-105 bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md"
-                >
-                  <h3 className="font-semibold text-lg mb-2 text-gray-900">{idea.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-3">{idea.content}</p>
-                  <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>by {idea.author}</span>
-                    <span>r/{idea.subreddit}</span>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleIdeaLike(idea, index);
-                    }}
-                    className="mt-2 px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-xs hover:bg-indigo-200 transition-colors"
-                  >
-                    ♡ 좋아요
-                  </button>
-                </div>
-
-                {/* 추천 이유 설명 */}
-                {showExplanations && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="flex items-center gap-2 mb-1">
-                      {getStrategyIcon(idea.strategy_used)}
-                      <span className="text-xs font-medium text-gray-700">
-                        추천 이유
-                      </span>
-                      <div className="flex items-center gap-1 ml-auto">
-                        <span className="text-xs text-gray-500">신뢰도:</span>
-                        <div className="w-12 bg-gray-200 rounded-full h-1.5">
-                          <div 
-                            className="bg-indigo-600 h-1.5 rounded-full"
-                            style={{ width: `${idea.confidence_level * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      {idea.recommendation_reason}
-                    </p>
-                    
-                    {/* 유사 아이디어 링크 */}
-                    {idea.similar_ideas && idea.similar_ideas.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <span className="text-xs text-gray-500">
-                          관련 아이디어: {idea.similar_ideas.slice(0, 2).join(', ')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <IdeaCard
+                  idea={idea}
+                  recommendationReason={idea.recommendation_reason}
+                  onCardClick={() => handleIdeaClick(idea, index)}
+                  formatDate={(dateString) => {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  }}
+                />
               </div>
             ))}
           </div>

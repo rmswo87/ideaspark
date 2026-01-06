@@ -23,9 +23,9 @@ export default async function handler(
   // 관리자 권한 체크
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
         error: 'Unauthorized',
         message: '관리자만 아이디어 수집이 가능합니다.'
@@ -62,32 +62,85 @@ export default async function handler(
       });
     }
 
-    // admins 테이블에서 관리자 확인
-    const { data: adminData, error: adminError } = await supabaseAdmin
-      .from('admins')
-      .select('user_id')
-      .eq('user_id', user.id)
+    // 67. 최근 수집 시간 확인 (최근 게시물의 created_at 기준)
+    const { data: lastIdea, error: lastIdeaError } = await supabaseAdmin
+      .from('ideas')
+      .select('created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (adminError || !adminData) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: '관리자만 아이디어 수집이 가능합니다.'
-      });
+    if (!lastIdeaError && lastIdea) {
+      const lastCollectionTime = new Date(lastIdea.created_at);
+      const hoursSinceLastCollection = (Date.now() - lastCollectionTime.getTime()) / (1000 * 60 * 60);
+
+      // 관리자가 아니면 6시간 이내 재수집 불가
+      if (hoursSinceLastCollection < 6) {
+        // admins 테이블에서 관리자 확인
+        const { data: adminData } = await supabaseAdmin
+          .from('admins')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!adminData) {
+          return res.status(200).json({
+            success: true,
+            message: '최근에 이미 수집되었습니다.',
+            count: 0,
+            next_collection_in: Math.ceil(6 - hoursSinceLastCollection) + '시간 후'
+          });
+        }
+      }
     }
 
-    console.log(`[Manual Collection] Admin user ${user.id} initiated idea collection`);
+    console.log(`[Collection] User ${user.id} initiated idea collection (Rate limit passed)`);
   } catch (authError) {
-    console.error('Admin check error:', authError);
+    console.error('Auth/Rate limit check error:', authError);
     return res.status(401).json({
       success: false,
       error: 'Unauthorized',
-      message: '관리자 권한 확인 중 오류가 발생했습니다.'
+      message: '인증 확인 중 오류가 발생했습니다.'
     });
   }
 
+  // Supabase 클라이언트 초기화
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(500).json({
+      success: false,
+      error: 'Supabase credentials not configured',
+    });
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl ?? '', supabaseServiceKey ?? '');
+
   try {
+    // 최근 수집 시간 확인
+    const { data: lastNews } = await supabaseAdmin
+      .from('dev_news')
+      .select('created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastNews) {
+      const lastCollectionTime = new Date(lastNews.created_at);
+      const hoursSinceLastCollection = (Date.now() - lastCollectionTime.getTime()) / (1000 * 60 * 60);
+
+      // 6시간 이내 재수집 방지 (인증 정보가 있고 관리자면 통과 가능하지만 여기선 단순화)
+      if (hoursSinceLastCollection < 6) {
+        return res.status(200).json({
+          success: true,
+          message: '최근에 이미 수집되었습니다.',
+          count: 0,
+          next_collection_in: Math.ceil(6 - hoursSinceLastCollection) + '시간 후'
+        });
+      }
+    }
+
     const clientId = process.env.REDDIT_CLIENT_ID;
     const clientSecret = process.env.REDDIT_CLIENT_SECRET;
 
@@ -106,14 +159,15 @@ export default async function handler(
         VITE_REDDIT_CLIENT_ID: !!process.env.VITE_REDDIT_CLIENT_ID,
         VITE_REDDIT_CLIENT_SECRET: !!process.env.VITE_REDDIT_CLIENT_SECRET,
       });
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Reddit API credentials not configured',
-        message: 'REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set in Vercel environment variables (without VITE_ prefix for server-side)'      });
+        message: 'REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set in Vercel environment variables (without VITE_ prefix for server-side)'
+      });
     }
 
     // OAuth2 토큰 가져오기
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    
+
     const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
       method: 'POST',
       headers: {
@@ -131,7 +185,7 @@ export default async function handler(
 
     const tokenData = await tokenResponse.json() as { access_token?: string };
     const accessToken = tokenData.access_token;
-    
+
     if (!accessToken) {
       console.error('Failed to get access token from Reddit API:', tokenData);
       return res.status(500).json({
@@ -167,14 +221,14 @@ export default async function handler(
         // 1. preview.images에서 고해상도 이미지 추출 (최우선 - Reddit API 공식 권장)
         if (post.preview?.images?.[0]) {
           const previewImage = post.preview.images[0];
-          
+
           // source.url (가장 고해상도, Reddit API 공식 문서 권장)
           if (previewImage.source?.url) {
             let imageUrl = previewImage.source.url
               .replace(/&amp;/g, '&')
               .replace(/&lt;/g, '<')
               .replace(/&gt;/g, '>');
-            
+
             // preview.redd.it URL인 경우 -> i.redd.it 원본 URL로 변환
             if (imageUrl.includes('preview.redd.it')) {
               const convertedUrl = convertPreviewToOriginal(imageUrl);
@@ -183,20 +237,20 @@ export default async function handler(
                 return convertedUrl;
               }
             }
-            
+
             if (imageUrl && imageUrl.startsWith('http')) {
               console.log('Found preview source image:', imageUrl);
               return imageUrl;
             }
           }
-          
+
           // variants (다양한 해상도)
           if (previewImage.variants?.gif?.source?.url) {
             let imageUrl = previewImage.variants.gif.source.url
               .replace(/&amp;/g, '&')
               .replace(/&lt;/g, '<')
               .replace(/&gt;/g, '>');
-            
+
             if (imageUrl.includes('preview.redd.it')) {
               const convertedUrl = convertPreviewToOriginal(imageUrl);
               if (convertedUrl) {
@@ -204,13 +258,13 @@ export default async function handler(
                 return convertedUrl;
               }
             }
-            
+
             if (imageUrl && imageUrl.startsWith('http')) {
               console.log('Found preview gif variant:', imageUrl);
               return imageUrl;
             }
           }
-          
+
           // resolutions에서 가장 큰 이미지
           if (previewImage.resolutions?.length > 0) {
             const largestImage = previewImage.resolutions[previewImage.resolutions.length - 1];
@@ -219,7 +273,7 @@ export default async function handler(
                 .replace(/&amp;/g, '&')
                 .replace(/&lt;/g, '<')
                 .replace(/&gt;/g, '>');
-              
+
               if (imageUrl.includes('preview.redd.it')) {
                 const convertedUrl = convertPreviewToOriginal(imageUrl);
                 if (convertedUrl) {
@@ -227,7 +281,7 @@ export default async function handler(
                   return convertedUrl;
                 }
               }
-              
+
               if (imageUrl && imageUrl.startsWith('http')) {
                 console.log('Found preview resolution image:', imageUrl);
                 return imageUrl;
@@ -241,7 +295,7 @@ export default async function handler(
           const url = post.url;
           const urlLower = url.toLowerCase();
           const urlWithoutQuery = urlLower.split('?')[0];
-          
+
           // preview.redd.it URL인 경우 -> i.redd.it 원본 URL로 변환
           if (url.includes('preview.redd.it')) {
             const convertedUrl = convertPreviewToOriginal(url);
@@ -253,23 +307,23 @@ export default async function handler(
             console.log('Failed to convert preview.redd.it URL, keeping original:', post.url);
             return post.url;
           }
-          
+
           // i.redd.it 도메인인 경우 그대로 반환
           if (url.includes('i.redd.it')) {
             console.log('Found i.redd.it image URL:', post.url);
             return post.url;
           }
-          
+
           // 이미지 확장자로 끝나는 경우
           const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
           if (imageExtensions.some(ext => urlWithoutQuery.endsWith(ext))) {
             console.log('Found image URL by extension:', post.url);
             return post.url;
           }
-          
+
           // 외부 이미지 호스팅 서비스
-          if (url.includes('imgur.com') || url.includes('gfycat.com') || url.includes('redgifs.com') || 
-              url.includes('i.imgur.com') || url.includes('media.giphy.com')) {
+          if (url.includes('imgur.com') || url.includes('gfycat.com') || url.includes('redgifs.com') ||
+            url.includes('i.imgur.com') || url.includes('media.giphy.com')) {
             console.log('Found external image URL:', post.url);
             return post.url;
           }
@@ -286,7 +340,7 @@ export default async function handler(
           console.log('Found image by post_hint:', post.url);
           return post.url;
         }
-        
+
         // 5. domain이 redd.it이고 url이 있는 경우 (Reddit 이미지 호스팅)
         if (post.url && post.url.includes('redd.it')) {
           console.log('Found redd.it image URL:', post.url);
@@ -294,22 +348,22 @@ export default async function handler(
         }
 
         // 6. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
-        if (post.thumbnail && 
-            post.thumbnail !== 'default' && 
-            post.thumbnail !== 'self' && 
-            post.thumbnail !== 'nsfw' &&
-            post.thumbnail !== 'spoiler' &&
-            post.thumbnail.startsWith('http')) {
+        if (post.thumbnail &&
+          post.thumbnail !== 'default' &&
+          post.thumbnail !== 'self' &&
+          post.thumbnail !== 'nsfw' &&
+          post.thumbnail !== 'spoiler' &&
+          post.thumbnail.startsWith('http')) {
           console.log('Found thumbnail image:', post.thumbnail);
           return post.thumbnail;
         }
-        
+
         // 7. media 필드 확인 (Reddit API의 media 객체)
         if (post.media?.oembed?.thumbnail_url) {
           console.log('Found media oembed thumbnail:', post.media.oembed.thumbnail_url);
           return post.media.oembed.thumbnail_url;
         }
-        
+
         if (post.media?.reddit_video?.fallback_url) {
           // 비디오인 경우 썸네일 찾기
           const thumbnailUrl = post.media.reddit_video.fallback_url.replace(/\.mp4$/, '.jpg');
@@ -348,10 +402,10 @@ export default async function handler(
         if (!match || !match[1]) {
           return null;
         }
-        
+
         const filename = match[1];
         console.log('Extracted filename from preview.redd.it:', filename);
-        
+
         // 파일명에서 실제 이미지 ID 추출
         // 패턴 1: v0-{이미지ID}.{확장자} (예: v0-2f6bfp2hjj5g1.png)
         const v0Pattern = filename.match(/v0-([a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp))/i);
@@ -361,7 +415,7 @@ export default async function handler(
           console.log('Converted using v0 pattern:', originalUrl);
           return originalUrl;
         }
-        
+
         // 패턴 2: 파일명 끝부분이 이미지 ID인 경우 (예: ...-2f6bfp2hjj5g1.png)
         // 하이픈으로 구분된 마지막 부분이 이미지 ID일 수 있음
         const parts = filename.split('-');
@@ -371,14 +425,14 @@ export default async function handler(
           console.log('Converted using last part pattern:', originalUrl);
           return originalUrl;
         }
-        
+
         // 패턴 3: 파일명 전체가 이미지 ID인 경우 (드물지만 가능)
         if (/^[a-zA-Z0-9]+\.(png|jpg|jpeg|gif|webp)$/i.test(filename)) {
           const originalUrl = `https://i.redd.it/${filename}`;
           console.log('Converted using full filename pattern:', originalUrl);
           return originalUrl;
         }
-        
+
         console.log('Could not extract image ID from filename:', filename);
         return null;
       } catch (error) {
@@ -390,13 +444,13 @@ export default async function handler(
     // 게시물 내용 추출 함수 (selftext, selftext_html 모두 확인)
     function extractPostContent(postData: any): string {
       // 1. selftext가 있고 유효한 경우 (비어있지 않고 [removed], [deleted]가 아닌 경우)
-      if (postData.selftext && 
-          postData.selftext.trim() !== '' && 
-          postData.selftext !== '[removed]' && 
-          postData.selftext !== '[deleted]') {
+      if (postData.selftext &&
+        postData.selftext.trim() !== '' &&
+        postData.selftext !== '[removed]' &&
+        postData.selftext !== '[deleted]') {
         return postData.selftext;
       }
-      
+
       // 2. selftext_html이 있는 경우 HTML에서 텍스트 추출
       if (postData.selftext_html) {
         const extracted = extractTextFromHtml(postData.selftext_html);
@@ -404,7 +458,7 @@ export default async function handler(
           return extracted;
         }
       }
-      
+
       // 3. 둘 다 없는 경우 빈 문자열 반환
       return '';
     }
@@ -418,7 +472,7 @@ export default async function handler(
       try {
         const url = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=25`;
         console.log(`Fetching posts from r/${subreddit}...`);
-        
+
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -429,7 +483,7 @@ export default async function handler(
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`Failed to fetch ${subreddit}: ${response.status} - ${errorText}`);
-          
+
           // 403 에러인 경우, 인증 없이 시도 (공개 서브레딧)
           if (response.status === 403) {
             console.log(`Trying ${subreddit} without OAuth (public access)...`);
@@ -439,37 +493,38 @@ export default async function handler(
                 'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
               },
             });
-            
+
             if (publicResponse.ok) {
               const publicData = await publicResponse.json() as { data?: { children?: Array<{ data?: any }> } };
               if (publicData?.data?.children && publicData.data.children.length > 0) {
                 const posts = publicData.data.children
-                  .filter((child: { data?: any }) => child.data)
-            .map((child: { data: any }) => {
-              const content = extractPostContent(child.data);
-              // 내용이 없는 게시물에 대한 로깅
-              if (!content || content.trim() === '') {
-                console.warn(`Post with empty content from r/${subreddit}:`, {
-                  id: child.data.id,
-                  title: child.data.title?.substring(0, 50),
-                  hasSelftext: !!child.data.selftext,
-                  hasSelftextHtml: !!child.data.selftext_html,
-                  selftextLength: child.data.selftext?.length || 0,
-                });
-              }
-              return {
-                redditId: child.data.id,
-                title: child.data.title,
-                content: content,
-                subreddit: child.data.subreddit,
-                author: child.data.author,
-                upvotes: child.data.ups || 0,
-                numComments: child.data.num_comments || 0,
-                imageUrl: extractImageUrl(child.data),
-                url: `https://www.reddit.com${child.data.permalink}`,
-                createdAt: new Date(child.data.created_utc * 1000).toISOString(),
-              };
-            });
+                  .filter((child: { data?: any }) => child && child.data)
+                  .map((child: { data?: any }) => {
+                    const post = child.data;
+                    const content = extractPostContent(post);
+                    // 내용이 없는 게시물에 대한 로깅
+                    if (!content || content.trim() === '') {
+                      console.warn(`Post with empty content from r/${subreddit}:`, {
+                        id: post.id,
+                        title: post.title?.substring(0, 50),
+                        hasSelftext: !!post.selftext,
+                        hasSelftextHtml: !!post.selftext_html,
+                        selftextLength: post.selftext?.length || 0,
+                      });
+                    }
+                    return {
+                      redditId: post.id,
+                      title: post.title,
+                      content: content,
+                      subreddit: post.subreddit,
+                      author: post.author,
+                      upvotes: post.ups || 0,
+                      numComments: post.num_comments || 0,
+                      imageUrl: extractImageUrl(post),
+                      url: `https://www.reddit.com${post.permalink}`,
+                      createdAt: new Date(post.created_utc * 1000).toISOString(),
+                    };
+                  });
                 console.log(`Collected ${posts.length} posts from r/${subreddit} (public access)`);
                 allPosts.push(...posts);
               }
@@ -479,7 +534,7 @@ export default async function handler(
         }
 
         const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
-        
+
         console.log(`r/${subreddit} response structure:`, {
           hasData: !!data?.data,
           hasChildren: !!data?.data?.children,
@@ -490,24 +545,22 @@ export default async function handler(
             title: data.data.children[0].data?.title?.substring(0, 50),
           } : null,
         });
-        
+
         if (data?.data?.children && data.data.children.length > 0) {
           const posts = data.data.children
             .filter((child: { data?: any }) => {
-              if (!child.data) {
+              if (!child || !child.data) {
                 console.warn(`Skipping child without data in r/${subreddit}`);
                 return false;
               }
               return true;
             })
-            .map((child: { data: any }) => {
-              const content = extractPostContent(child.data);
+            .map((child: { data?: any }) => {
+              const post = child.data;
+              const content = extractPostContent(post);
               // 내용이 없는 게시물에 대한 로깅
               if (!content || content.trim() === '') {
                 console.warn(`Post with empty content from r/${subreddit}:`, {
-                  id: child.data.id,
-                  title: child.data.title?.substring(0, 50),
-                  hasSelftext: !!child.data.selftext,
                   hasSelftextHtml: !!child.data.selftext_html,
                   selftextLength: child.data.selftext?.length || 0,
                 });
@@ -527,7 +580,7 @@ export default async function handler(
                 createdAt: new Date(child.data.created_utc * 1000).toISOString(),
               };
             });
-          
+
           console.log(`Collected ${posts.length} posts from r/${subreddit}`);
           if (posts.length > 0) {
             console.log(`Sample post from r/${subreddit}:`, {

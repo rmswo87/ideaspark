@@ -12,14 +12,14 @@ const DEV_SUBREDDITS = [
   'LocalLLaMA',           // LLaMA
   'singularity',          // AI 미래/특이점
   'agi',                  // AGI (Artificial General Intelligence)
-  
+
   // 개발 팁 및 최신 트렌드
   'webdev',               // 웹 개발
   'programming',          // 프로그래밍 일반
   'learnprogramming',     // 프로그래밍 학습
   'ExperiencedDevs',      // 경험 있는 개발자
   'cscareerquestions',    // 개발자 커리어
-  
+
   // 주요 기술 스택
   'javascript',           // JavaScript
   'reactjs',              // React
@@ -29,7 +29,7 @@ const DEV_SUBREDDITS = [
   'rust',                 // Rust
   'cpp',                  // C++
   'typescript',           // TypeScript
-  
+
   // 인프라 및 DevOps
   'devops',               // DevOps
   'aws',                  // AWS
@@ -56,19 +56,56 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Supabase 클라이언트 초기화
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(500).json({
+      success: false,
+      error: 'Supabase credentials not configured',
+    });
+  }
+
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
+    // 최근 수집 시간 확인
+    const { data: lastNews } = await supabaseAdmin
+      .from('dev_news')
+      .select('created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastNews) {
+      const lastCollectionTime = new Date(lastNews.created_at);
+      const hoursSinceLastCollection = (Date.now() - lastCollectionTime.getTime()) / (1000 * 60 * 60);
+
+      // 6시간 이내 재수집 방지
+      if (hoursSinceLastCollection < 6) {
+        return res.status(200).json({
+          success: true,
+          message: '최근에 이미 수집되었습니다.',
+          count: 0,
+          next_collection_in: Math.ceil(6 - hoursSinceLastCollection) + '시간 후'
+        });
+      }
+    }
+
     const clientId = process.env.REDDIT_CLIENT_ID;
     const clientSecret = process.env.REDDIT_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Reddit API credentials not configured',
       });
     }
 
     // OAuth2 토큰 가져오기
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    
+
     const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
       method: 'POST',
       headers: {
@@ -86,7 +123,7 @@ export default async function handler(
 
     const tokenData = await tokenResponse.json() as { access_token?: string };
     const accessToken = tokenData.access_token;
-    
+
     if (!accessToken) {
       return res.status(500).json({
         success: false,
@@ -104,17 +141,17 @@ export default async function handler(
 
     // 각 서브레딧에서 게시물 수집 (daily, weekly, monthly 모두)
     const subredditsToCollect = DEV_SUBREDDITS.slice(0, 10);
-    
+
     for (const subreddit of subredditsToCollect) {
       try {
         // Daily: hot (오늘 인기)
         const dailyUrl = `https://oauth.reddit.com/r/${subreddit}/hot.json?limit=20`;
         await collectFromUrl(dailyUrl, accessToken, subreddit, 'daily', dailyDate, allPosts);
-        
+
         // Weekly: top/week (주간 인기)
         const weeklyUrl = `https://oauth.reddit.com/r/${subreddit}/top.json?t=week&limit=20`;
         await collectFromUrl(weeklyUrl, accessToken, subreddit, 'weekly', weeklyDate, allPosts);
-        
+
         // Monthly: top/month (월간 인기)
         const monthlyUrl = `https://oauth.reddit.com/r/${subreddit}/top.json?t=month&limit=20`;
         await collectFromUrl(monthlyUrl, accessToken, subreddit, 'monthly', monthlyDate, allPosts);
@@ -171,7 +208,7 @@ function calculateDevRelevanceScore(post: any): number {
   const title = (post.title || '').toLowerCase();
   const content = (post.selftext || '').toLowerCase();
   const text = `${title} ${content}`;
-  
+
   let score = 0;
 
   // 기술 스택 키워드 (각 1점)
@@ -184,7 +221,7 @@ function calculateDevRelevanceScore(post: any): number {
     'html', 'css', 'scss', 'sass', 'tailwind', 'bootstrap',
     'git', 'github', 'gitlab', 'ci/cd', 'jenkins',
   ];
-  
+
   // 개발 개념 키워드 (각 1점)
   const devConceptKeywords = [
     'api', 'rest', 'graphql', 'microservice', 'monolith',
@@ -195,7 +232,7 @@ function calculateDevRelevanceScore(post: any): number {
     'performance', 'optimization', 'scalability', 'security',
     'code', 'programming', 'development', 'software', 'application',
   ];
-  
+
   // 개발 활동 키워드 (각 1점)
   const devActivityKeywords = [
     'coding', 'programming', 'developing', 'building',
@@ -203,7 +240,7 @@ function calculateDevRelevanceScore(post: any): number {
     'tip', 'trick', 'hack', 'best practice', 'pattern',
     'debug', 'fix', 'bug', 'error', 'issue',
   ];
-  
+
   // AI/ML 키워드 (각 2점 - 높은 가중치)
   const aiKeywords = [
     'ai', 'artificial intelligence', 'machine learning', 'ml', 'deep learning',
@@ -211,7 +248,7 @@ function calculateDevRelevanceScore(post: any): number {
     'neural network', 'transformer', 'nlp', 'computer vision',
     'prompt engineering', 'fine-tuning', 'rag', 'copilot',
   ];
-  
+
   // 개발과 무관한 키워드 (점수 감점)
   const nonDevKeywords = [
     'girlfriend', 'boyfriend', 'dating', 'relationship', '여자친구', '남자친구',
@@ -221,24 +258,24 @@ function calculateDevRelevanceScore(post: any): number {
     'movie', 'film', '영화',
     'music', 'song', '음악',
   ];
-  
+
   // 점수 계산
   techStackKeywords.forEach(keyword => {
     if (text.includes(keyword)) score += 1;
   });
-  
+
   devConceptKeywords.forEach(keyword => {
     if (text.includes(keyword)) score += 1;
   });
-  
+
   devActivityKeywords.forEach(keyword => {
     if (text.includes(keyword)) score += 1;
   });
-  
+
   aiKeywords.forEach(keyword => {
     if (text.includes(keyword)) score += 2;
   });
-  
+
   // 개발과 무관한 키워드가 많으면 감점
   let nonDevCount = 0;
   nonDevKeywords.forEach(keyword => {
@@ -247,7 +284,7 @@ function calculateDevRelevanceScore(post: any): number {
   if (nonDevCount >= 2) {
     score = Math.max(0, score - 3); // 최소 0점
   }
-  
+
   return score;
 }
 
@@ -258,43 +295,43 @@ function categorizePost(post: any): string {
   const text = `${title} ${content}`;
 
   // AI 관련 카테고리 우선 검색
-  if (text.includes('openai') || text.includes('chatgpt') || text.includes('claude') || 
-      text.includes('gemini') || text.includes('llm') || text.includes('prompt engineering') ||
-      text.includes('vibecoding') || text.includes('vibe coding') || text.includes('copilot')) {
+  if (text.includes('openai') || text.includes('chatgpt') || text.includes('claude') ||
+    text.includes('gemini') || text.includes('llm') || text.includes('prompt engineering') ||
+    text.includes('vibecoding') || text.includes('vibe coding') || text.includes('copilot')) {
     return 'ai';
   }
 
   // 개발 팁 및 튜토리얼
   if (text.includes('tutorial') || text.includes('how to') || text.includes('guide') ||
-      text.includes('learn') || text.includes('getting started')) {
+    text.includes('learn') || text.includes('getting started')) {
     return 'tutorial';
   }
-  
+
   // 개발 팁 및 노하우
   if (text.includes('tip') || text.includes('trick') || text.includes('hack') ||
-      text.includes('best practice') || text.includes('pattern') || text.includes('노하우') ||
-      text.includes('꿀팁')) {
+    text.includes('best practice') || text.includes('pattern') || text.includes('노하우') ||
+    text.includes('꿀팁')) {
     return 'tip';
   }
-  
+
   // 최신 소식 및 릴리즈
   if (text.includes('news') || text.includes('announcement') || text.includes('release') ||
-      text.includes('update') || text.includes('launch') || text.includes('new feature')) {
+    text.includes('update') || text.includes('launch') || text.includes('new feature')) {
     return 'news';
   }
-  
+
   // 토론 및 의견
   if (text.includes('discussion') || text.includes('opinion') || text.includes('thought') ||
-      text.includes('question') || text.includes('ask') || text.includes('질문')) {
+    text.includes('question') || text.includes('ask') || text.includes('질문')) {
     return 'discussion';
   }
-  
+
   // 리소스 및 도구
   if (text.includes('resource') || text.includes('tool') || text.includes('library') ||
-      text.includes('framework') || text.includes('package') || text.includes('plugin')) {
+    text.includes('framework') || text.includes('package') || text.includes('plugin')) {
     return 'resource';
   }
-  
+
   return 'general';
 }
 
@@ -363,7 +400,7 @@ function extractContent(post: any): string {
   if (post.selftext && post.selftext.trim().length > 0) {
     return post.selftext.trim();
   }
-  
+
   // selftext_html이 있으면 HTML 태그 제거 후 사용
   if (post.selftext_html && post.selftext_html.trim().length > 0) {
     // HTML 태그 제거 (간단한 정규식)
@@ -376,12 +413,12 @@ function extractContent(post: any): string {
       .replace(/&quot;/g, '"') // &quot;를 "로
       .replace(/&#39;/g, "'") // &#39;를 '로
       .trim();
-    
+
     if (text.length > 0) {
       return text;
     }
   }
-  
+
   return '';
 }
 
@@ -393,7 +430,7 @@ function extractImageUrl(post: any): string | null {
       const url = post.url;
       const urlLower = url.toLowerCase();
       const urlWithoutQuery = urlLower.split('?')[0];
-      
+
       // preview.redd.it URL인 경우 -> i.redd.it 원본 URL로 변환
       if (url.includes('preview.redd.it')) {
         // preview.redd.it URL에서 파일명 추출 (예: trying-this-again-after-3-years-to-see-if-gpt-5-can-v0-2f6bfp2hjj5g1.png)
@@ -419,23 +456,23 @@ function extractImageUrl(post: any): string | null {
         console.log('Found preview.redd.it URL (keeping original):', post.url);
         return post.url;
       }
-      
+
       // i.redd.it 도메인인 경우 그대로 반환
       if (url.includes('i.redd.it')) {
         console.log('Found i.redd.it image URL:', post.url);
         return post.url;
       }
-      
+
       // 이미지 확장자로 끝나는 경우
       const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
       if (imageExtensions.some(ext => urlWithoutQuery.endsWith(ext))) {
         console.log('Found image URL by extension:', post.url);
         return post.url;
       }
-      
+
       // 외부 이미지 호스팅 서비스
-      if (url.includes('imgur.com') || url.includes('gfycat.com') || url.includes('redgifs.com') || 
-          url.includes('i.imgur.com') || url.includes('media.giphy.com')) {
+      if (url.includes('imgur.com') || url.includes('gfycat.com') || url.includes('redgifs.com') ||
+        url.includes('i.imgur.com') || url.includes('media.giphy.com')) {
         console.log('Found external image URL:', post.url);
         return post.url;
       }
@@ -452,7 +489,7 @@ function extractImageUrl(post: any): string | null {
       console.log('Found image by post_hint:', post.url);
       return post.url;
     }
-    
+
     // 3. domain이 redd.it이고 url이 있는 경우 (Reddit 이미지 호스팅)
     if (post.url && post.url.includes('redd.it')) {
       console.log('Found redd.it image URL:', post.url);
@@ -462,7 +499,7 @@ function extractImageUrl(post: any): string | null {
     // 4. preview.images에서 고해상도 이미지 추출 (모든 가능한 필드 확인)
     if (post.preview?.images?.[0]) {
       const previewImage = post.preview.images[0];
-      
+
       // source.url (가장 고해상도)
       if (previewImage.source?.url) {
         let imageUrl = previewImage.source.url
@@ -473,7 +510,7 @@ function extractImageUrl(post: any): string | null {
           return imageUrl;
         }
       }
-      
+
       // variants (다양한 해상도)
       if (previewImage.variants?.gif?.source?.url) {
         let imageUrl = previewImage.variants.gif.source.url.replace(/&amp;/g, '&');
@@ -482,7 +519,7 @@ function extractImageUrl(post: any): string | null {
           return imageUrl;
         }
       }
-      
+
       // resolutions에서 가장 큰 이미지
       if (previewImage.resolutions?.length > 0) {
         const largestImage = previewImage.resolutions[previewImage.resolutions.length - 1];
@@ -497,22 +534,22 @@ function extractImageUrl(post: any): string | null {
     }
 
     // 5. thumbnail이 유효한 이미지 URL인 경우 (기본 썸네일 제외)
-    if (post.thumbnail && 
-        post.thumbnail !== 'default' && 
-        post.thumbnail !== 'self' && 
-        post.thumbnail !== 'nsfw' &&
-        post.thumbnail !== 'spoiler' &&
-        post.thumbnail.startsWith('http')) {
+    if (post.thumbnail &&
+      post.thumbnail !== 'default' &&
+      post.thumbnail !== 'self' &&
+      post.thumbnail !== 'nsfw' &&
+      post.thumbnail !== 'spoiler' &&
+      post.thumbnail.startsWith('http')) {
       console.log('Found thumbnail image:', post.thumbnail);
       return post.thumbnail;
     }
-    
+
     // 6. media 필드 확인 (Reddit API의 media 객체)
     if (post.media?.oembed?.thumbnail_url) {
       console.log('Found media oembed thumbnail:', post.media.oembed.thumbnail_url);
       return post.media.oembed.thumbnail_url;
     }
-    
+
     if (post.media?.reddit_video?.fallback_url) {
       // 비디오인 경우 썸네일 찾기
       const thumbnailUrl = post.media.reddit_video.fallback_url.replace(/\.mp4$/, '.jpg');
@@ -553,7 +590,7 @@ async function collectFromUrl(
     // 타임아웃 설정 (30초)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
+
     try {
       const response = await fetch(url, {
         headers: {
@@ -573,13 +610,13 @@ async function collectFromUrl(
               'User-Agent': 'IdeaSpark/1.0 (by /u/ideaspark)',
             },
           });
-          
+
           if (publicResponse.ok) {
             const publicData = await publicResponse.json() as { data?: { children?: Array<{ data?: any }> } };
             if (publicData?.data?.children) {
               const posts = publicData.data.children
-                .filter((child: { data?: any }) => child.data)
-                .map((child: { data: any }) => {
+                .filter((child: { data?: any }) => child && child.data)
+                .map((child: { data?: any }) => {
                   const post = child.data;
                   return {
                     reddit_id: post.name || post.id,
@@ -606,11 +643,11 @@ async function collectFromUrl(
       }
 
       const data = await response.json() as { data?: { children?: Array<{ data?: any }> } };
-      
+
       if (data?.data?.children) {
         const posts = data.data.children
-          .filter((child: { data?: any }) => child.data)
-          .map((child: { data: any }) => {
+          .filter((child: { data?: any }) => child && child.data)
+          .map((child: { data?: any }) => {
             const post = child.data;
             return {
               reddit_id: post.name || post.id,

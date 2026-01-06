@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS user_behaviors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
-  action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('view', 'like', 'bookmark', 'generate_prd')),
+  action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('view', 'like', 'bookmark', 'generate_prd', 'share', 'copy', 'click')),
   duration INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

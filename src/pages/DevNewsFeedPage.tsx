@@ -4,10 +4,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  ExternalLink, 
-  Calendar, 
-  TrendingUp, 
+import {
+  ExternalLink,
+  Calendar,
+  TrendingUp,
   Tag,
   Loader2,
   Newspaper,
@@ -73,15 +73,13 @@ export function DevNewsFeedPage() {
 
   // 자동 개발 소식 수집 체크
   async function checkAutoCollectNews() {
-    if (!isAdmin) return; // 관리자만 자동 수집
-
     try {
       const { data: lastNews, error } = await supabase
         .from('dev_news')
         .select('created_at')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error checking last dev news collection:', error);
@@ -92,15 +90,25 @@ export function DevNewsFeedPage() {
       const lastNewsTime = lastNews ? new Date(lastNews.created_at) : new Date(0);
       const hoursSinceLastNews = (now.getTime() - lastNewsTime.getTime()) / (1000 * 60 * 60);
 
-      // 24시간 이상 지났으면 자동 수집 (하루 1회)
-      if (hoursSinceLastNews > 24) {
+      // 6시간 이상 지났으면 자동 수집
+      if (hoursSinceLastNews > 6) {
         console.log(`📰 Auto-collecting dev news (${hoursSinceLastNews.toFixed(1)} hours since last collection)`);
-        await handleCollectNews();
+        await handleAutoCollectNewsSilent();
       } else {
-        console.log(`📅 Last dev news collection: ${hoursSinceLastNews.toFixed(1)} hours ago (next in ${(24 - hoursSinceLastNews).toFixed(1)} hours)`);
+        console.log(`📅 Last dev news collection: ${hoursSinceLastNews.toFixed(1)} hours ago (next in ${(6 - hoursSinceLastNews).toFixed(1)} hours)`);
       }
     } catch (error) {
       console.error('Error in auto dev news collection check:', error);
+    }
+  }
+
+  // 자동 수집 전용 함수 (사용자 알림 없음)
+  async function handleAutoCollectNewsSilent() {
+    try {
+      await collectDevNews();
+      await fetchNews();
+    } catch (err) {
+      console.warn('Auto news collection failed:', err);
     }
   }
 
@@ -172,8 +180,8 @@ export function DevNewsFeedPage() {
               <div className="md:hidden">
                 <MobileMenu />
               </div>
-              <h1 
-                className="text-sm sm:text-2xl font-bold cursor-pointer select-none touch-manipulation leading-none bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent hover:from-primary hover:to-primary/70 transition-all duration-300" 
+              <h1
+                className="text-sm sm:text-2xl font-bold cursor-pointer select-none touch-manipulation leading-none bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent hover:from-primary hover:to-primary/70 transition-all duration-300"
                 onClick={() => {
                   if (location.pathname === '/') {
                     window.location.reload();
@@ -189,11 +197,10 @@ export function DevNewsFeedPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/')}
-                  className={`text-xs sm:text-sm transition-all duration-300 ${
-                    location.pathname === '/' 
-                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                  className={`text-xs sm:text-sm transition-all duration-300 ${location.pathname === '/'
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15'
                       : 'hover:bg-primary/5 hover:text-primary'
-                  }`}
+                    }`}
                 >
                   아이디어
                 </Button>
@@ -201,11 +208,10 @@ export function DevNewsFeedPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/news')}
-                  className={`text-xs sm:text-sm transition-all duration-300 ${
-                    location.pathname.includes('/news') 
-                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                  className={`text-xs sm:text-sm transition-all duration-300 ${location.pathname.includes('/news')
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15'
                       : 'hover:bg-primary/5 hover:text-primary'
-                  }`}
+                    }`}
                 >
                   <Newspaper className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1.5" />
                   <span className="hidden sm:inline">개발 소식</span>
@@ -215,11 +221,10 @@ export function DevNewsFeedPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/community')}
-                  className={`text-xs sm:text-sm transition-all duration-300 ${
-                    location.pathname.includes('/community') 
-                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                  className={`text-xs sm:text-sm transition-all duration-300 ${location.pathname.includes('/community')
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15'
                       : 'hover:bg-primary/5 hover:text-primary'
-                  }`}
+                    }`}
                 >
                   커뮤니티
                 </Button>
@@ -227,11 +232,10 @@ export function DevNewsFeedPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/contact')}
-                  className={`text-xs sm:text-sm transition-all duration-300 ${
-                    location.pathname.includes('/contact') 
-                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15' 
+                  className={`text-xs sm:text-sm transition-all duration-300 ${location.pathname.includes('/contact')
+                      ? 'font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15'
                       : 'hover:bg-primary/5 hover:text-primary'
-                  }`}
+                    }`}
                 >
                   문의 / 피드백
                 </Button>
@@ -330,8 +334,8 @@ export function DevNewsFeedPage() {
         ) : (
           <div className="space-y-4">
             {news.map((item) => (
-              <Card 
-                key={item.id} 
+              <Card
+                key={item.id}
                 className="transition-all duration-300 hover:shadow-md cursor-pointer"
                 onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
               >
@@ -365,8 +369,8 @@ export function DevNewsFeedPage() {
                   {/* 이미지 표시 */}
                   {item.image_url && (
                     <div className="mb-4 rounded-lg overflow-hidden">
-                      <img 
-                        src={item.image_url} 
+                      <img
+                        src={item.image_url}
                         alt={item.title}
                         className="w-full h-auto max-h-96 object-contain bg-muted"
                         loading="lazy"
@@ -377,7 +381,7 @@ export function DevNewsFeedPage() {
                       />
                     </div>
                   )}
-                  
+
                   {/* 내용 표시 - 이미지가 있으면 내용도 함께 표시 가능 */}
                   {item.content && item.content.trim() && (
                     <div className="flex-1 mb-4">
@@ -386,7 +390,7 @@ export function DevNewsFeedPage() {
                       </p>
                     </div>
                   )}
-                  
+
                   {/* 이미지도 없고 내용도 없는 경우 */}
                   {!item.image_url && (!item.content || !item.content.trim()) && (
                     <div className="flex-1 mb-4 text-center py-8">
@@ -395,7 +399,7 @@ export function DevNewsFeedPage() {
                       </p>
                     </div>
                   )}
-                  
+
                   {/* 태그 */}
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-4">
