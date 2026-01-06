@@ -523,7 +523,7 @@ export async function generateExperimentReport(
       experiment_info: experiment,
       summary,
       key_findings: keyFindings,
-      statistical_significance,
+      statistical_significance: statisticalSignificance,
       recommendation: analysis.recommendation,
       next_steps: nextSteps
     };
@@ -735,12 +735,4 @@ function generateNextSteps(
   return steps;
 }
 
-export {
-  createRecommendationExperiment,
-  assignUserToExperiment,
-  logExperimentPerformance,
-  analyzeExperimentResults,
-  getAnalyticsDashboardData,
-  updateExperimentStatus,
-  generateExperimentReport
-};
+// All functions are already exported above

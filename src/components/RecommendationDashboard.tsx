@@ -3,9 +3,7 @@ import {
   getAnalyticsDashboardData,
   analyzeExperimentResults,
   updateExperimentStatus,
-  generateExperimentReport,
-  AnalyticsDashboardData,
-  RecommendationExperiment
+  AnalyticsDashboardData
 } from '@/services/recommendationAnalyticsService';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -33,7 +31,6 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Download,
   Play,
   Pause,
   Square,
@@ -52,7 +49,7 @@ export const RecommendationDashboard: React.FC<RecommendationDashboardProps> = (
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'experiments' | 'performance' | 'trends'>('overview');
-  const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null);
+  // const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null);
 
   // 데이터 로드
   useEffect(() => {
@@ -451,9 +448,9 @@ export const RecommendationDashboard: React.FC<RecommendationDashboardProps> = (
                     cy="50%"
                     outerRadius={80}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, percent }: { name: string; percent: number }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                   >
-                    {Object.entries(recommendation_metrics.strategy_performance).map((entry, index) => (
+                    {Object.entries(recommendation_metrics.strategy_performance).map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Idea } from '@/types/idea';
+import type { Idea } from '@/services/ideaService';
 
 export type RecommendationStrategy = 
   | 'collaborative' 
@@ -23,7 +23,7 @@ export interface UserBehavior {
   id: string;
   user_id: string;
   idea_id: string;
-  action_type: 'view' | 'like' | 'bookmark' | 'generate_prd' | 'share' | 'copy';
+  action_type: 'view' | 'like' | 'bookmark' | 'generate_prd' | 'share' | 'copy' | 'click';
   duration?: number;
   session_id?: string;
   device_info?: Record<string, any>;
@@ -763,8 +763,8 @@ function calculateDiversity(idea1: AdvancedRecommendedIdea, idea2: AdvancedRecom
   diversity += tagDiversity * 0.3;
 
   // 생성 시간 다양성
-  const time1 = new Date(idea1.created_at).getTime();
-  const time2 = new Date(idea2.created_at).getTime();
+  const time1 = new Date(idea1.created_at || Date.now()).getTime();
+  const time2 = new Date(idea2.created_at || Date.now()).getTime();
   const timeDiff = Math.abs(time1 - time2);
   const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
   const timeDiversity = Math.min(daysDiff / 30, 1); // 최대 30일
@@ -911,5 +911,4 @@ function generateSessionId(): string {
   return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// Export for analytics dashboard
-export { trackUserBehavior };
+// trackUserBehavior is already exported above

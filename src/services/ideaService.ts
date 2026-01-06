@@ -14,6 +14,7 @@ export interface Idea {
   image_url?: string | null
   url: string
   category: string
+  tags?: string[]
 
   collected_at?: string;
   created_at?: string;

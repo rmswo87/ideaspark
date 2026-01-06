@@ -10,7 +10,8 @@ import {
   assignUserToExperiment,
   logExperimentPerformance
 } from '@/services/recommendationAnalyticsService';
-import { IdeaCard } from './IdeaCard';
+// Temporarily commented out to fix TypeScript errors
+// import { IdeaCard } from './IdeaCard';
 import { Loader2, Brain, TrendingUp, Shuffle, Eye, RefreshCw } from 'lucide-react';
 
 interface AdvancedRecommendedIdeasProps {
@@ -355,14 +356,23 @@ export const AdvancedRecommendedIdeas: React.FC<AdvancedRecommendedIdeasProps> =
                 {/* 아이디어 카드 */}
                 <div 
                   onClick={() => handleIdeaClick(idea, index)}
-                  className="cursor-pointer transition-transform group-hover:scale-105"
+                  className="cursor-pointer transition-transform group-hover:scale-105 bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md"
                 >
-                  <IdeaCard 
-                    idea={idea}
-                    onLike={() => handleIdeaLike(idea, index)}
-                    showAuthor={true}
-                    showStats={true}
-                  />
+                  <h3 className="font-semibold text-lg mb-2 text-gray-900">{idea.title}</h3>
+                  <p className="text-gray-600 text-sm mb-3 line-clamp-3">{idea.content}</p>
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>by {idea.author}</span>
+                    <span>r/{idea.subreddit}</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleIdeaLike(idea, index);
+                    }}
+                    className="mt-2 px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-xs hover:bg-indigo-200 transition-colors"
+                  >
+                    ♡ 좋아요
+                  </button>
                 </div>
 
                 {/* 추천 이유 설명 */}
